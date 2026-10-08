@@ -204,6 +204,7 @@ devices:
 | `line_style` | `rounded` | Shape of every flow line: `rounded` (right angles with rounded corners), `square` (sharp right angles), `curved` (soft curves) or `straight` (direct lines). |
 | `inactive_flows` | `hide` | `hide`: zero flows are invisible. `dim`: dimmed grey path. |
 | `animation` | see below | Intensity effects: `speed`, `thickness`, `density` (on), `glow` (off: soft light around particles, stronger as power increases). |
+| `transparent` | `false` | Removes the card background, border and shadow, so the diagram sits directly on the dashboard (or inside a stack / grid card). Nodes keep their own fill and stay readable. |
 | `eco_mode` | `false` | Lighter animation for wall tablets and low-power devices: 30 frames per second instead of the display rate, and no glow (its blur is the most expensive effect). Roughly halves the rendering work. |
 | `devices_layout` | `auto` | `auto`, `column` or `grid`. |
 | `devices_columns` | auto | Number of columns in grid mode. |

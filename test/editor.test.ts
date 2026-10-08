@@ -32,6 +32,11 @@ describe('editor form', () => {
     expect('animation' in next).toBe(false);
   });
 
+  it('writes boolean options only when turned on', () => {
+    expect('transparent' in roundTrip(base)).toBe(false);
+    expect(roundTrip(base, (d) => (d.transparent = true)).transparent).toBe(true);
+  });
+
   it('writes the glow when turned on, although its default is false', () => {
     const next = roundTrip(base, (d) => {
       (d.animation as Record<string, boolean>).glow = true;

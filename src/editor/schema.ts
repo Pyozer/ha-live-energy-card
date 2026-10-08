@@ -140,7 +140,16 @@ export class EditorSchema {
             select(t, 'devices_layout', ['auto', 'column', 'grid']),
             { name: 'devices_columns', selector: { number: { min: 1, max: 6, mode: 'box' } } },
           ]),
-          grid(booleans(['hide_when_zero', 'sort_devices', 'show_untracked', 'show_ratios', 'eco_mode'])),
+          grid(
+            booleans([
+              'hide_when_zero',
+              'sort_devices',
+              'show_untracked',
+              'show_ratios',
+              'eco_mode',
+              'transparent',
+            ]),
+          ),
         ],
       },
       {

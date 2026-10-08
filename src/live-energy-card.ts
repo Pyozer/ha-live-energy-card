@@ -173,7 +173,7 @@ export class LiveEnergyCard extends LitElement {
     const model = this._model;
     const layout = this._layout;
     return html`
-      <ha-card>
+      <ha-card class=${this._config.transparent ? 'transparent' : ''}>
         ${this._config.title ? html`<div class="header">${this._config.title}</div>` : nothing}
         <div class="content">
           <div

@@ -409,6 +409,11 @@ toggle(
   (v) => withConfig((c) => (c.show_ratios = v)),
 );
 toggle(
+  'Transparent',
+  () => !!config.transparent,
+  (v) => withConfig((c) => (v ? (c.transparent = true) : delete c.transparent)),
+);
+toggle(
   'Eco mode',
   () => !!config.eco_mode,
   (v) => withConfig((c) => (v ? (c.eco_mode = true) : delete c.eco_mode)),

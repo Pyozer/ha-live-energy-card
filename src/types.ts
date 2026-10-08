@@ -97,6 +97,8 @@ export interface LiveEnergyCardConfig {
   line_style?: LineStyle;
   /** Lighter animation for low-power devices: 30 frames per second, no glow. */
   eco_mode?: boolean;
+  /** No card background, border or shadow: the diagram sits directly on the dashboard. */
+  transparent?: boolean;
   sort_devices?: boolean;
   /** Device arrangement: a column, a grid, or automatic depending on available space. */
   devices_layout?: 'auto' | 'column' | 'grid';

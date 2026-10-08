@@ -41,6 +41,15 @@ export const cardStyles = css`
     height: 100%;
   }
 
+  /* Transparent mode: no card frame. Nodes keep their own fill, so they stay readable on any
+     background. */
+  ha-card.transparent {
+    background: none;
+    border: none;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
   .header {
     padding: 16px 18px 0;
     font-size: 17px;

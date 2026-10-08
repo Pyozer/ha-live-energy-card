@@ -17,6 +17,7 @@ export const DEFAULTS = {
   show_untracked: false,
   show_ratios: false,
   eco_mode: false,
+  transparent: false,
   kilo_threshold: 1000,
   decimals: 0,
   kilo_decimals: 1,

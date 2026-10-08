@@ -76,6 +76,7 @@ export const en = {
       currency: 'Currency (e.g. EUR, empty = automatic)',
       intensity_entity: 'Grid carbon intensity (gCO2eq/kWh)',
       eco_mode: 'Eco mode (30 fps, no glow) for low-power devices',
+      transparent: 'Transparent background (no card frame)',
       hide_when_zero: 'Hide when zero',
       secondary_entity: 'Secondary entity (e.g. energy today)',
       import_entity: 'Import entity (alternative)',
