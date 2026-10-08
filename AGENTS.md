@@ -60,7 +60,10 @@ hass + config ─► model/   ─► layout.ts ─► tree.ts ─► live-energy
 | `src/live-energy-card.ts` | Lit element: Lovelace lifecycle, rendering, width measurement, registration. |
 | `src/styles.ts` | Styles and palette (`--lec-*` variables, light / dark). |
 | `src/actions.ts` | `tap_action`, `hold_action`, `double_tap_action` (`hass-action` event). |
-| `src/editor/editor.ts` | Visual editor. Only writes values that differ from the defaults. |
+| `src/editor/editor.ts` | Visual editor element: renders the forms and the device list, emits `config-changed`. |
+| `src/editor/schema.ts` | `ha-form` schemas (card, nodes, devices) and field labels. |
+| `src/editor/form.ts` | Config ↔ form data. Only writes values that differ from the defaults. |
+| `src/editor/styles.ts` | Editor styles. |
 | `src/editor/device-list.ts` | Immutable operations on the two-level device list (devices and group members). |
 | `src/localize/` | `en.ts` is the reference; `fr.ts` is typed against it (a missing key fails to compile). `resolveLanguage` picks the card `language` option, then the HA user language. |
 | `demo/` | Demo page: simulated `hass`, scenarios, sliders, YAML editor. Stubs for `ha-card` and `ha-icon`. |
@@ -89,7 +92,7 @@ Design rules:
 Every change or new feature must be **testable and tested**:
 
 - Add or extend tests in `test/` (`*.test.ts`), one file per area: `compute`, `units-intensity`,
-  `layout-model`, `model`, `localize`, `entities`, `energy`, `device-list`, `cost`. Create a new file when a new module appears.
+  `layout-model`, `model`, `localize`, `entities`, `energy`, `device-list`, `editor`, `cost`. Create a new file when a new module appears.
 - Design for testing: extract logic into an exported pure function instead of leaving it in the
   component or the animator.
 - A bug fix starts with a test that reproduces the bug.
@@ -97,7 +100,9 @@ Every change or new feature must be **testable and tested**:
   widths and device counts.
 - For visual changes, check the demo (`npm run dev`). If a case cannot be reproduced there, add a
   scenario or an option to `demo/main.ts`.
-- The visual editor can only be tested inside Home Assistant: say so when you change it.
+- The editor's logic (schemas, config ↔ form conversion) is tested in `editor.test.ts`; every
+  field must have a label in each language. Its rendering can only be checked inside Home
+  Assistant: say so when you change it.
 
 ## Documentation
 
