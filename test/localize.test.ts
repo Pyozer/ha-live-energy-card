@@ -53,7 +53,7 @@ describe('localize', () => {
 
 describe('card language', () => {
   it('default labels follow the configured language', () => {
-    const config = { type: 'custom:powerflow-card', grid: { entity: 'sensor.grid' } };
+    const config = { type: 'custom:live-energy-card', grid: { entity: 'sensor.grid' } };
     const grid = (language?: string, ha = 'fr') =>
       buildModel({ ...config, language }, hass(ha)).nodes.find((n) => n.id === 'grid')!.name;
     expect(grid()).toBe('Réseau');
@@ -63,7 +63,7 @@ describe('card language', () => {
 
   it('a custom name always wins', () => {
     const model = buildModel(
-      { type: 'custom:powerflow-card', language: 'en', grid: { entity: 'sensor.grid', name: 'Linky' } },
+      { type: 'custom:live-energy-card', language: 'en', grid: { entity: 'sensor.grid', name: 'Linky' } },
       hass('fr'),
     );
     expect(model.nodes.find((n) => n.id === 'grid')!.name).toBe('Linky');

@@ -3,7 +3,7 @@ import { computeLayout, type Layout, type Rect } from '../src/layout';
 import { applyDeviceTree, buildModel, cleanName, sortWithHysteresis, UNTRACKED_ID } from '../src/model';
 import { buildDeviceTree } from '../src/tree';
 import { validateConfig } from '../src/config';
-import type { HassEntity, HomeAssistant, PowerFlowCardConfig } from '../src/types';
+import type { HassEntity, HomeAssistant, LiveEnergyCardConfig } from '../src/types';
 
 const overlaps = (a: Rect, b: Rect, margin = 0) =>
   Math.abs(a.x - b.x) < (a.w + b.w) / 2 + margin && Math.abs(a.y - b.y) < (a.h + b.h) / 2 + margin;
@@ -128,8 +128,8 @@ const hassWith = (states: HassEntity[]): HomeAssistant => ({
 });
 
 describe('buildModel', () => {
-  const config: PowerFlowCardConfig = {
-    type: 'custom:powerflow-card',
+  const config: LiveEnergyCardConfig = {
+    type: 'custom:live-energy-card',
     solar: { entity: 'sensor.solar' },
     grid: { entity: 'sensor.grid' },
     devices: [
@@ -190,8 +190,8 @@ describe('buildModel', () => {
   });
 
   it('applyDeviceTree: shared segments carry the downstream sum', () => {
-    const many: PowerFlowCardConfig = {
-      type: 'custom:powerflow-card',
+    const many: LiveEnergyCardConfig = {
+      type: 'custom:live-energy-card',
       grid: { entity: 'sensor.grid' },
       devices: Array.from({ length: 10 }, (_, i) => ({ entity: `sensor.d${i}`, hide_when_zero: false })),
     };

@@ -1,6 +1,6 @@
 export const en = {
   card: {
-    name: 'PowerFlow Card',
+    name: 'Live Energy Card',
     description: 'Modern animated live view of your home energy flows.',
   },
   node: {

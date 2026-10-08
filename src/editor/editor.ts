@@ -9,7 +9,7 @@ import type {
   BaseNodeConfig,
   DeviceConfig,
   HomeAssistant,
-  PowerFlowCardConfig,
+  LiveEnergyCardConfig,
 } from '../types';
 
 type Schema = Record<string, unknown>;
@@ -42,7 +42,7 @@ function clean<T extends object>(obj: T): T {
   return out as T;
 }
 
-export class PowerFlowCardEditor extends LitElement {
+export class LiveEnergyCardEditor extends LitElement {
   static override properties = {
     hass: { attribute: false },
     _config: { state: true },
@@ -50,7 +50,7 @@ export class PowerFlowCardEditor extends LitElement {
   };
 
   declare hass?: HomeAssistant;
-  declare _config?: PowerFlowCardConfig;
+  declare _config?: LiveEnergyCardConfig;
   declare _expanded: number;
 
   constructor() {
@@ -58,7 +58,7 @@ export class PowerFlowCardEditor extends LitElement {
     this._expanded = -1;
   }
 
-  setConfig(config: PowerFlowCardConfig): void {
+  setConfig(config: LiveEnergyCardConfig): void {
     this._config = config;
   }
 
@@ -345,10 +345,10 @@ export class PowerFlowCardEditor extends LitElement {
     else delete next.animation;
 
     next.devices = this._config?.devices ?? [];
-    this._emit(clean(next) as unknown as PowerFlowCardConfig);
+    this._emit(clean(next) as unknown as LiveEnergyCardConfig);
   }
 
-  private _emit(config: PowerFlowCardConfig): void {
+  private _emit(config: LiveEnergyCardConfig): void {
     // `type` first for readable YAML.
     const { type, ...rest } = config;
     this._config = { type, ...rest };
@@ -576,6 +576,6 @@ export class PowerFlowCardEditor extends LitElement {
   `;
 }
 
-if (!customElements.get('powerflow-card-editor')) {
-  customElements.define('powerflow-card-editor', PowerFlowCardEditor);
+if (!customElements.get('live-energy-card-editor')) {
+  customElements.define('live-energy-card-editor', LiveEnergyCardEditor);
 }

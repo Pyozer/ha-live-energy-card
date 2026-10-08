@@ -5,13 +5,13 @@ User documentation lives in [README.md](README.md), commit rules in [CONTRIBUTIN
 
 ## Project
 
-**PowerFlow Card** is a Lovelace custom card for Home Assistant. It shows live energy flows between
+**Live Energy Card** is a Lovelace custom card for Home Assistant. It shows live energy flows between
 solar, grid, battery, home and individual devices, with animated flows whose intensity follows the
 power.
 
 - Strict TypeScript + [Lit 3](https://lit.dev), bundled by Vite into **a single ES module**:
-  `dist/powerflow-card.js`. This is the file Home Assistant loads.
-- Element `custom:powerflow-card` and visual editor `powerflow-card-editor` (built on `ha-form`).
+  `dist/live-energy-card.js`. This is the file Home Assistant loads.
+- Element `custom:live-energy-card` and visual editor `live-energy-card-editor` (built on `ha-form`).
 - Runtime dependencies are limited to `lit` and `@mdi/js`. Do not add more without a real need:
   everything ends up in the bundle loaded by every HA client.
 - **Everything is written in English**: documentation, code comments, test names and commits.
@@ -25,7 +25,7 @@ npm run dev           # demo outside Home Assistant: http://localhost:5173/demo/
 npm test              # unit tests (Vitest)
 npm run lint          # ESLint
 npm run format        # Prettier (src, demo, test)
-npm run build         # type check + dist/powerflow-card.js
+npm run build         # type check + dist/live-energy-card.js
 npm run check         # lint + format:check + tests + build: run before every commit
 ```
 
@@ -34,13 +34,13 @@ npm run check         # lint + format:check + tests + build: run before every co
 Rendering is a chain of pure functions followed by an imperative animation engine:
 
 ```
-hass + config ─► model.ts ─► layout.ts ─► tree.ts ─► powerflow-card.ts ─► animator.ts
+hass + config ─► model.ts ─► layout.ts ─► tree.ts ─► live-energy-card.ts ─► animator.ts
                  (compute)    (positions)  (bus)      (Lit render)         (rAF, direct DOM)
 ```
 
 | File | Role |
 | --- | --- |
-| `src/types.ts` | Configuration types (`PowerFlowCardConfig`, nodes, animation) and minimal HA types. |
+| `src/types.ts` | Configuration types (`LiveEnergyCardConfig`, nodes, animation) and minimal HA types. |
 | `src/config.ts` | `validateConfig` (coercion, readable errors) and watched entities. |
 | `src/units.ts` | Entity reading (W, kW, mW, MW…), unavailable states, localized formatting. |
 | `src/compute.ts` | Energy balance and flow allocation (solar → home → battery → grid…), ratios. |
@@ -49,8 +49,8 @@ hass + config ─► model.ts ─► layout.ts ─► tree.ts ─► powerflow-c
 | `src/tree.ts` | Paths of the distribution bus feeding devices in grid / stack modes. |
 | `src/intensity.ts` | Power → visual parameters (speed, thickness, density, glow). |
 | `src/animator.ts` | `requestAnimationFrame` loop: SVG particles, transitions, animated counters. |
-| `src/powerflow-card.ts` | Lit element: Lovelace lifecycle, rendering, width measurement, registration. |
-| `src/styles.ts` | Styles and palette (`--pf-*` variables, light / dark). |
+| `src/live-energy-card.ts` | Lit element: Lovelace lifecycle, rendering, width measurement, registration. |
+| `src/styles.ts` | Styles and palette (`--lec-*` variables, light / dark). |
 | `src/actions.ts` | `tap_action`, `hold_action`, `double_tap_action` (`hass-action` event). |
 | `src/editor/editor.ts` | Visual editor. Only writes values that differ from the defaults. |
 | `src/localize/` | `en.ts` is the reference; `fr.ts` is typed against it (a missing key fails to compile). `resolveLanguage` picks the card `language` option, then the HA user language. |
@@ -60,7 +60,7 @@ hass + config ─► model.ts ─► layout.ts ─► tree.ts ─► powerflow-c
 Design rules:
 
 - **Logic lives in pure modules.** Computation, layout and geometry never touch the DOM, which is
-  what makes them testable. Keep `powerflow-card.ts` and `animator.ts` thin.
+  what makes them testable. Keep `live-energy-card.ts` and `animator.ts` thin.
 - **Animation bypasses Lit.** `animator.ts` writes SVG attributes and counters directly every frame.
   Lit only re-renders when the model changes (`shouldUpdate` reacts to watched entities only).
 - **Lit without decorators**: `static properties` + `declare` fields, with
@@ -68,7 +68,7 @@ Design rules:
 - **A hidden node has no layout position.** Any element attached to a node (caption, ring, badge)
   must disappear with the `.is-hidden` class, otherwise it is drawn at (0, 0).
 - **Clean, iOS-like design**: neutral surfaces, system colors reserved for icons and flows, no neon
-  effects. Colors go through the `--pf-*` CSS variables so themes can override them.
+  effects. Colors go through the `--lec-*` CSS variables so themes can override them.
 - **Backward-compatible configuration**: a renamed or removed option must still be accepted, or
   produce an explicit error in `validateConfig`.
 
@@ -101,8 +101,8 @@ Every code change comes with the matching documentation update, in the same comm
 ## Versioning and release
 
 - The version comes from `package.json` (injected through `__VERSION__` and logged in the console
-  as `POWERFLOW-CARD x.y.z`). Bump it on every delivery (SemVer).
-- Manual install: copy `dist/powerflow-card.js` to `/config/www/` and change the `?v=` parameter of
+  as `LIVE-ENERGY-CARD x.y.z`). Bump it on every delivery (SemVer).
+- Manual install: copy `dist/live-energy-card.js` to `/config/www/` and change the `?v=` parameter of
   the Lovelace resource to bust the cache.
 - `dist/` is not versioned.
 

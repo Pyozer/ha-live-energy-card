@@ -18,9 +18,9 @@ export default defineConfig(({ mode }) => ({
     sourcemap: mode === 'development',
     minify: mode !== 'development',
     lib: {
-      entry: 'src/powerflow-card.ts',
+      entry: 'src/live-energy-card.ts',
       formats: ['es'],
-      fileName: () => 'powerflow-card.js',
+      fileName: () => 'live-energy-card.js',
     },
   },
   test: {

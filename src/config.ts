@@ -1,5 +1,5 @@
 import { localize } from './localize/localize';
-import type { PowerFlowCardConfig } from './types';
+import type { LiveEnergyCardConfig } from './types';
 
 const NUMERIC_FIELDS = [
   'min_power',
@@ -21,9 +21,9 @@ function lang(configured: unknown): string {
 }
 
 /** Validates the configuration; throws a readable error (shown by Home Assistant in the card). */
-export function validateConfig(input: unknown): PowerFlowCardConfig {
+export function validateConfig(input: unknown): LiveEnergyCardConfig {
   if (!input || typeof input !== 'object') throw new Error('Invalid configuration');
-  const config = { ...(input as PowerFlowCardConfig) };
+  const config = { ...(input as LiveEnergyCardConfig) };
   const l = lang(config.language);
 
   for (const field of NUMERIC_FIELDS) {
@@ -63,7 +63,7 @@ export function validateConfig(input: unknown): PowerFlowCardConfig {
 }
 
 /** All entities whose state affects rendering. */
-export function watchedEntities(config: PowerFlowCardConfig): string[] {
+export function watchedEntities(config: LiveEnergyCardConfig): string[] {
   const ids = new Set<string>();
   const add = (id: string | undefined) => id && ids.add(id);
   for (const node of [config.solar, config.grid, config.battery, config.home, ...(config.devices ?? [])]) {

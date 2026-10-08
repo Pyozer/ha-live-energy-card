@@ -15,20 +15,20 @@ import {
   type NodeModel,
 } from './model';
 import { cardStyles } from './styles';
-import type { HomeAssistant, PowerFlowCardConfig } from './types';
+import type { HomeAssistant, LiveEnergyCardConfig } from './types';
 import { formatPower } from './units';
 import './editor/editor';
 
 declare const __VERSION__: string;
 const VERSION = typeof __VERSION__ !== 'undefined' ? __VERSION__ : 'dev';
 
-export const CARD_TAG = 'powerflow-card';
+export const CARD_TAG = 'live-energy-card';
 
 let instances = 0;
 
 type Handlers = ReturnType<typeof actionHandlers>;
 
-export class PowerFlowCard extends LitElement {
+export class LiveEnergyCard extends LitElement {
   static override styles = cardStyles;
 
   static override properties = {
@@ -38,10 +38,10 @@ export class PowerFlowCard extends LitElement {
   };
 
   declare hass?: HomeAssistant;
-  declare _config?: PowerFlowCardConfig;
+  declare _config?: LiveEnergyCardConfig;
   declare _width: number;
 
-  private _uid = `pf${++instances}`;
+  private _uid = `lec${++instances}`;
   private _model?: CardModel;
   private _layout?: Layout;
   private _order: string[] = [];
@@ -57,11 +57,11 @@ export class PowerFlowCard extends LitElement {
   }
 
   static getConfigElement(): HTMLElement {
-    return document.createElement('powerflow-card-editor');
+    return document.createElement('live-energy-card-editor');
   }
 
   /** Configuration suggested when adding the card, based on existing power sensors. */
-  static getStubConfig(hass?: HomeAssistant): Partial<PowerFlowCardConfig> {
+  static getStubConfig(hass?: HomeAssistant): Partial<LiveEnergyCardConfig> {
     const power = Object.values(hass?.states ?? {}).filter(
       (s) =>
         s.entity_id.startsWith('sensor.') &&
@@ -90,7 +90,7 @@ export class PowerFlowCard extends LitElement {
     };
   }
 
-  setConfig(config: PowerFlowCardConfig): void {
+  setConfig(config: LiveEnergyCardConfig): void {
     this._config = validateConfig(config);
     this._watched = watchedEntities(this._config);
     this._handlers.clear();
@@ -216,7 +216,7 @@ export class PowerFlowCard extends LitElement {
                   const idle = !f.active;
                   return svg`
                     <g class="flow" data-flow=${f.id} style="opacity: 0">
-                      <path class="track" stroke=${idle ? 'var(--pf-idle-line)' : stroke}></path>
+                      <path class="track" stroke=${idle ? 'var(--lec-idle-line)' : stroke}></path>
                       <path class="halo" stroke=${stroke} filter="url(#${this._uid}-glow)"></path>
                       <path class="dots" stroke=${stroke}></path>
                     </g>`;
@@ -412,7 +412,7 @@ export class PowerFlowCard extends LitElement {
 }
 
 if (!customElements.get(CARD_TAG)) {
-  customElements.define(CARD_TAG, PowerFlowCard);
+  customElements.define(CARD_TAG, LiveEnergyCard);
 }
 
 declare global {
@@ -432,7 +432,7 @@ if (!window.customCards.some((c) => c.type === CARD_TAG)) {
 }
 
 console.info(
-  `%c POWERFLOW-CARD %c ${VERSION} `,
+  `%c LIVE-ENERGY-CARD %c ${VERSION} `,
   'color:#fff;background:#14b8a6;font-weight:600;border-radius:4px 0 0 4px;padding:2px 4px',
   'color:#14b8a6;background:transparent;font-weight:600;padding:2px 4px',
 );

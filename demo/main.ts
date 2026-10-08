@@ -1,12 +1,12 @@
 import './stubs';
-import '../src/powerflow-card';
+import '../src/live-energy-card';
 import { DEFAULT_TOGGLES } from '../src/intensity';
 import { parse, stringify } from 'yaml';
-import type { HassEntity, HomeAssistant, PowerFlowCardConfig } from '../src/types';
+import type { HassEntity, HomeAssistant, LiveEnergyCardConfig } from '../src/types';
 
 interface CardElement extends HTMLElement {
   hass?: HomeAssistant;
-  setConfig(config: PowerFlowCardConfig): void;
+  setConfig(config: LiveEnergyCardConfig): void;
 }
 
 const ENT = {
@@ -49,8 +49,8 @@ const DEVICES = [
   { entity: 'sensor.box_internet_puissance', name: 'Internet box', icon: 'mdi:router-wireless', typical: 16 },
 ];
 
-const DEFAULT_CONFIG: PowerFlowCardConfig = {
-  type: 'custom:powerflow-card',
+const DEFAULT_CONFIG: LiveEnergyCardConfig = {
+  type: 'custom:live-energy-card',
   max_power: 4000,
   solar: { entity: ENT.solar, secondary_entity: ENT.solarDay },
   grid: { entity: ENT.grid },
@@ -73,8 +73,8 @@ const state = {
   live: false,
 };
 
-let config: PowerFlowCardConfig = structuredClone(DEFAULT_CONFIG);
-const card = document.createElement('powerflow-card') as CardElement;
+let config: LiveEnergyCardConfig = structuredClone(DEFAULT_CONFIG);
+const card = document.createElement('live-energy-card') as CardElement;
 const frame = document.getElementById('frame')!;
 frame.appendChild(card);
 
@@ -137,7 +137,7 @@ function push(): void {
   if (gridInput && state.autoGrid) gridInput.value = String(grid);
 }
 
-function applyConfig(next: PowerFlowCardConfig): void {
+function applyConfig(next: LiveEnergyCardConfig): void {
   try {
     card.setConfig(next);
     config = next;
@@ -293,7 +293,7 @@ function toggle(label: string, checked: () => boolean, onChange: (v: boolean) =>
   input.addEventListener('change', () => onChange(input.checked));
   display.appendChild(chip);
 }
-const withConfig = (mutate: (c: PowerFlowCardConfig) => void) => {
+const withConfig = (mutate: (c: LiveEnergyCardConfig) => void) => {
   const next = structuredClone(config);
   mutate(next);
   applyConfig(next);
@@ -504,7 +504,7 @@ setInterval(() => {
 
 $('apply').addEventListener('click', () => {
   try {
-    applyConfig(parse($<HTMLTextAreaElement>('yaml').value) as PowerFlowCardConfig);
+    applyConfig(parse($<HTMLTextAreaElement>('yaml').value) as LiveEnergyCardConfig);
   } catch (err) {
     $('error').textContent = (err as Error).message;
   }

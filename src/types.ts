@@ -54,7 +54,7 @@ export interface DeviceConfig extends BaseNodeConfig {
 export type PowerCurve = 'linear' | 'sqrt' | 'log';
 export type InactiveFlows = 'hide' | 'dim';
 
-export interface PowerFlowCardConfig {
+export interface LiveEnergyCardConfig {
   type: string;
   title?: string;
   min_power?: number;

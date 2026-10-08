@@ -1,4 +1,4 @@
-# PowerFlow Card
+# Live Energy Card
 
 A Home Assistant Lovelace card that shows your home's energy flows **live**: solar, grid, battery,
 home and individual devices. The design follows iOS app conventions: neutral surfaces, with system
@@ -33,13 +33,13 @@ colors reserved for icons and flows. Each flow's animation follows its power.
 
 ### Manual
 
-1. Copy `dist/powerflow-card.js` to `/config/www/powerflow-card.js` (via the Samba add-on,
+1. Copy `dist/live-energy-card.js` to `/config/www/live-energy-card.js` (via the Samba add-on,
    File editor or SSH).
 2. **Settings → Dashboards → ⋮ → Resources → Add resource**:
-   - URL: `/local/powerflow-card.js?v=0.1.0`
+   - URL: `/local/live-energy-card.js?v=0.1.0`
    - Type: *JavaScript module*
 3. Reload the page without cache (Ctrl/Cmd + Shift + R).
-4. Add the card: **Edit dashboard → Add card → PowerFlow Card**.
+4. Add the card: **Edit dashboard → Add card → Live Energy Card**.
 
 For each new version, copy the file again and increment `?v=` to bypass the browser and mobile app
 caches.
@@ -54,7 +54,7 @@ The `hacs.json` file is provided.
 ### Full example
 
 ```yaml
-type: custom:powerflow-card
+type: custom:live-energy-card
 max_power: 4000
 solar:
   entity: sensor.shelly_solaire_puissance
@@ -79,7 +79,7 @@ devices:
 ### Without a battery
 
 ```yaml
-type: custom:powerflow-card
+type: custom:live-energy-card
 solar:
   entity: sensor.shelly_solaire_puissance
 grid:
@@ -91,7 +91,7 @@ devices:
 ### Without solar, with separate grid entities
 
 ```yaml
-type: custom:powerflow-card
+type: custom:live-energy-card
 grid:
   import_entity: sensor.linky_import_power
   export_entity: sensor.linky_export_power
@@ -102,7 +102,7 @@ home:
 ### Six devices in a grid, dimmed idle flows
 
 ```yaml
-type: custom:powerflow-card
+type: custom:live-energy-card
 inactive_flows: dim
 devices_layout: grid
 devices_columns: 2
@@ -176,7 +176,7 @@ number format.
 ### Colors
 
 Default colors are the iOS system colors, with their dark variants. Themes can override them with
-the `--pf-solar`, `--pf-grid`, `--pf-export`, `--pf-battery`, `--pf-home` and `--pf-device`
+the `--lec-solar`, `--lec-grid`, `--lec-export`, `--lec-battery`, `--lec-home` and `--lec-device`
 variables.
 
 ## Flow computation
@@ -205,7 +205,7 @@ npm install
 npm run dev        # demo page at http://localhost:5173/demo/
 npm test           # unit tests (Vitest)
 npm run lint
-npm run build      # produces dist/powerflow-card.js
+npm run build      # produces dist/live-energy-card.js
 npm run check      # lint, formatting, tests and build (before every commit)
 ```
 

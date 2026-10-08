@@ -44,11 +44,11 @@ export function resolveColor(color: string | undefined, fallback: string): strin
  * (with their dark variants) and overridable by the theme.
  */
 export const DEFAULT_COLORS = {
-  solar: 'var(--pf-solar)',
-  gridImport: 'var(--pf-grid)',
-  gridExport: 'var(--pf-export)',
-  battery: 'var(--pf-battery)',
-  batteryCharge: 'var(--pf-battery)',
-  home: 'var(--pf-home)',
-  device: 'var(--pf-device)',
+  solar: 'var(--lec-solar)',
+  gridImport: 'var(--lec-grid)',
+  gridExport: 'var(--lec-export)',
+  battery: 'var(--lec-battery)',
+  batteryCharge: 'var(--lec-battery)',
+  home: 'var(--lec-home)',
+  device: 'var(--lec-device)',
 };

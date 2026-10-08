@@ -16,7 +16,7 @@ import type {
   AnimationToggles,
   BaseNodeConfig,
   HomeAssistant,
-  PowerFlowCardConfig,
+  LiveEnergyCardConfig,
 } from './types';
 import { numberFormat, readPercent, readPower, type Reading } from './units';
 
@@ -183,7 +183,7 @@ export function sortWithHysteresis(
 }
 
 export function buildModel(
-  config: PowerFlowCardConfig,
+  config: LiveEnergyCardConfig,
   hass: HomeAssistant,
   previousOrder: string[] = [],
 ): CardModel {
@@ -518,7 +518,7 @@ export function buildModel(
  * In grid mode, replaces home → device flows with the distribution bus: each segment carries
  * the sum of the devices downstream.
  */
-export function applyDeviceTree(model: CardModel, layout: Layout, config: PowerFlowCardConfig): FlowModel[] {
+export function applyDeviceTree(model: CardModel, layout: Layout, config: LiveEnergyCardConfig): FlowModel[] {
   if (layout.devices.mode === 'column') return model.flows;
   const min = config.min_power ?? DEFAULTS.min_power;
   const max = config.max_power ?? DEFAULTS.max_power;

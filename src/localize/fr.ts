@@ -4,7 +4,7 @@ type DeepStrings<T> = { [K in keyof T]: T[K] extends string ? string : DeepStrin
 
 export const fr: DeepStrings<typeof en> = {
   card: {
-    name: 'PowerFlow Card',
+    name: 'Live Energy Card',
     description: "Vue animée et moderne des flux d'énergie de la maison en temps réel.",
   },
   node: {
