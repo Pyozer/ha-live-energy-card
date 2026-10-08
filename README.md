@@ -28,6 +28,7 @@ colors reserved for icons and flows. Each flow's animation follows its power.
 - `unavailable` / `unknown` entities are reported cleanly: never `NaN`.
 - `tap_action`, `hold_action`, `double_tap_action` on every node (more-info by default).
 - Automatic light and dark themes, `prefers-reduced-motion` support, animation paused off-screen.
+- **Import from the Energy dashboard**: solar, grid, battery and devices in one click.
 - Full visual editor whose entity pickers only offer matching entities (power sensors for flows,
   percentages for the charge level), English and French translations (following the Home Assistant user's
   language, or set per card).
@@ -53,6 +54,22 @@ Once the project is on GitHub: **HACS → ⋮ → Custom repositories**, type *D
 The `hacs.json` file is provided.
 
 ## Configuration
+
+### Import from the Energy dashboard
+
+If the Home Assistant **Energy dashboard** is set up with power sensors (the "power" fields of
+solar, grid, battery and individual devices), the card configures itself:
+
+- when the card is added (**Add card → Live Energy Card**), the suggested configuration is
+  imported from the Energy dashboard;
+- in the visual editor, **Import from the Energy dashboard** adds the missing sources and devices
+  to an existing card. Imported sources replace the configured entities but keep their name, icon
+  and color; devices already in the card are kept.
+
+Sources and devices without a power sensor are skipped (the dashboard's energy statistics in kWh
+cannot show live flows). A device "included in" another listed device is imported with
+`exclude_from_untracked: true`. Without an Energy dashboard, the card guesses power sensors from
+their names.
 
 ### Full example
 
@@ -225,7 +242,7 @@ The demo page works **without Home Assistant**. It simulates `hass` and provides
 - a slider per source and per device, the grid being computed automatically from the balance;
 - unavailable entity simulation and a random "live" simulation;
 - light/dark modes, FR/EN and card width;
-- a YAML configuration editor.
+- a YAML configuration editor and a simulated Energy dashboard import.
 
 Code changes are hot-reloaded.
 

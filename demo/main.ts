@@ -1,6 +1,7 @@
 import './stubs';
-import '../src/live-energy-card';
+import type { EnergyPrefs } from '../src/energy';
 import { DEFAULT_TOGGLES } from '../src/intensity';
+import { LiveEnergyCard } from '../src/live-energy-card';
 import { parse, stringify } from 'yaml';
 import type { HassEntity, HomeAssistant, LiveEnergyCardConfig } from '../src/types';
 
@@ -48,6 +49,20 @@ const DEVICES = [
   { entity: 'sensor.mini_pc_media_power', name: 'Media server', icon: 'mdi:server', typical: 7 },
   { entity: 'sensor.box_internet_puissance', name: 'Internet box', icon: 'mdi:router-wireless', typical: 16 },
 ];
+
+// Simulated Energy dashboard (`energy/get_prefs`): power sensors for solar, grid and some devices.
+const ENERGY_PREFS: EnergyPrefs = {
+  energy_sources: [
+    { type: 'solar', stat_energy_from: ENT.solarDay, stat_rate: ENT.solar },
+    { type: 'grid', stat_energy_from: 'sensor.grid_energy', power_config: { stat_rate: ENT.grid } },
+    { type: 'battery', stat_energy_from: 'sensor.battery_out', stat_rate: ENT.battery, stat_soc: ENT.soc },
+  ],
+  device_consumption: DEVICES.slice(0, 8).map((d) => ({
+    stat_consumption: `${d.entity}_energy`,
+    stat_rate: d.entity,
+    name: d.name,
+  })),
+};
 
 const DEFAULT_CONFIG: LiveEnergyCardConfig = {
   type: 'custom:live-energy-card',
@@ -125,6 +140,10 @@ function buildHass(): HomeAssistant {
     language: state.lang,
     locale: { language: state.lang, number_format: 'language' },
     themes: { darkMode: state.dark },
+    callWS: <T>(msg: Record<string, unknown>) =>
+      msg.type === 'energy/get_prefs'
+        ? Promise.resolve(ENERGY_PREFS as T)
+        : Promise.reject(new Error(`Unknown command ${String(msg.type)}`)),
   };
 }
 
@@ -526,6 +545,11 @@ $('apply').addEventListener('click', () => {
   }
 });
 $('reset').addEventListener('click', () => applyConfig(structuredClone(DEFAULT_CONFIG)));
+// Same path as "Add card" in Home Assistant: the stub config is imported from the Energy dashboard.
+$('import').addEventListener('click', async () => {
+  const stub = await LiveEnergyCard.getStubConfig(buildHass());
+  applyConfig({ type: 'custom:live-energy-card', ...stub } as LiveEnergyCardConfig);
+});
 
 card.addEventListener('hass-action', (ev) => {
   const { config: c, action } = (ev as CustomEvent).detail;

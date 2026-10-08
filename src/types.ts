@@ -109,4 +109,5 @@ export interface HomeAssistant {
   locale?: { language: string; number_format?: string };
   themes?: { darkMode?: boolean };
   callService?: (...args: unknown[]) => unknown;
+  callWS?: <T>(msg: Record<string, unknown>) => Promise<T>;
 }

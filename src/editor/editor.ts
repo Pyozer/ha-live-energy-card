@@ -1,6 +1,15 @@
-import { mdiArrowDown, mdiArrowUp, mdiChevronDown, mdiChevronUp, mdiDeleteOutline, mdiPlus } from '@mdi/js';
+import {
+  mdiArrowDown,
+  mdiArrowUp,
+  mdiChevronDown,
+  mdiChevronUp,
+  mdiDeleteOutline,
+  mdiLightningBoltCircle,
+  mdiPlus,
+} from '@mdi/js';
 import { LitElement, css, html, nothing, type TemplateResult } from 'lit';
 import { fireEvent } from '../actions';
+import { configFromEnergyPrefs, fetchEnergyPrefs, importedCount, mergeEnergyImport } from '../energy';
 import { entitySelector, type EntityKind } from '../entities';
 import { DEFAULT_TOGGLES } from '../intensity';
 import { LANGUAGE_NAMES, localize, SUPPORTED_LANGUAGES, type LocalizeKey } from '../localize/localize';
@@ -47,11 +56,14 @@ export class LiveEnergyCardEditor extends LitElement {
     hass: { attribute: false },
     _config: { state: true },
     _expanded: { state: true },
+    _importStatus: { state: true },
   };
 
   declare hass?: HomeAssistant;
   declare _config?: LiveEnergyCardConfig;
   declare _expanded: number;
+  /** Result of the last Energy dashboard import, shown under the button. */
+  declare _importStatus?: { ok: boolean; text: string };
 
   constructor() {
     super();
@@ -398,12 +410,37 @@ export class LiveEnergyCardEditor extends LitElement {
     this._emit({ ...this._config!, devices });
   }
 
+  private async _importEnergy(): Promise<void> {
+    const prefs = await fetchEnergyPrefs(this.hass);
+    const imported = prefs ? configFromEnergyPrefs(prefs) : undefined;
+    const count = imported ? importedCount(imported) : 0;
+    if (!imported || count === 0) {
+      this._importStatus = { ok: false, text: this._t('editor.import_none') };
+      return;
+    }
+    this._expanded = -1;
+    this._emit(mergeEnergyImport(this._config!, imported));
+    this._importStatus = { ok: true, text: this._t('editor.import_done', { count: String(count) }) };
+  }
+
   // --- Render -----------------------------------------------------------------------------------
 
   protected override render(): TemplateResult | typeof nothing {
     if (!this.hass || !this._config) return nothing;
     const devices = this._config.devices ?? [];
     return html`
+      <div class="import">
+        <button class="add" @click=${this._importEnergy}>
+          <ha-svg-icon .path=${mdiLightningBoltCircle}></ha-svg-icon>${this._t('editor.import_energy')}
+        </button>
+        ${
+          this._importStatus
+            ? html`<span class="import-status ${this._importStatus.ok ? 'ok' : 'error'}"
+                >${this._importStatus.text}</span
+              >`
+            : nothing
+        }
+      </div>
       <ha-form
         .hass=${this.hass}
         .data=${this._formData()}
@@ -573,6 +610,20 @@ export class LiveEnergyCardEditor extends LitElement {
       font: inherit;
       font-weight: 500;
       cursor: pointer;
+    }
+    .import {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 12px;
+      margin-bottom: 16px;
+    }
+    .import-status {
+      font-size: 13px;
+      color: var(--secondary-text-color);
+    }
+    .import-status.error {
+      color: var(--error-color, #db4437);
     }
     .add:hover {
       background: color-mix(in srgb, var(--primary-color) 8%, transparent);

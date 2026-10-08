@@ -3,7 +3,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { actionHandlers, isInteractive } from './actions';
 import { FlowAnimator } from './animator';
 import { DEFAULT_COLORS } from './colors';
-import { entitiesOfKind } from './entities';
+import { configFromEnergyPrefs, fetchEnergyPrefs, guessConfig, importedCount } from './energy';
 import { validateConfig, watchedEntities } from './config';
 import { computeLayout, type Layout } from './layout';
 import { localize, resolveLanguage } from './localize/localize';
@@ -61,31 +61,15 @@ export class LiveEnergyCard extends LitElement {
     return document.createElement('live-energy-card-editor');
   }
 
-  /** Configuration suggested when adding the card, based on existing power sensors. */
-  static getStubConfig(hass?: HomeAssistant): Partial<LiveEnergyCardConfig> {
-    const power = entitiesOfKind(hass, 'power')
-      .filter((id) => id.startsWith('sensor.'))
-      .map((id) => hass!.states[id]);
-    const find = (re: RegExp) =>
-      power.find((s) => re.test(`${s.entity_id} ${s.attributes.friendly_name ?? ''}`));
-    const solar = find(/solar|solaire|pv|photovolta/i);
-    const grid = find(/grid|r[ée]seau|linky|compteur|meter/i);
-    const battery = find(/batter/i);
-    const used = new Set([solar, grid, battery].filter(Boolean).map((s) => s!.entity_id));
-    const devices = power
-      .filter(
-        (s) => !used.has(s.entity_id) && /prise|plug|socket|chauffe|boiler|frigo|fridge/i.test(s.entity_id),
-      )
-      .slice(0, 4)
-      .map((s) => ({ entity: s.entity_id }));
-    const fallback = !solar && !grid && !battery && devices.length === 0 ? power[0] : undefined;
-    return {
-      ...(solar ? { solar: { entity: solar.entity_id } } : {}),
-      ...(grid ? { grid: { entity: grid.entity_id } } : {}),
-      ...(battery ? { battery: { entity: battery.entity_id } } : {}),
-      ...(fallback ? { home: { entity: fallback.entity_id } } : {}),
-      devices,
-    };
+  /**
+   * Configuration suggested when adding the card: imported from the Energy dashboard when it has
+   * power sensors, otherwise guessed from entity names.
+   */
+  static async getStubConfig(hass?: HomeAssistant): Promise<Partial<LiveEnergyCardConfig>> {
+    const prefs = await fetchEnergyPrefs(hass);
+    const imported = prefs ? configFromEnergyPrefs(prefs) : undefined;
+    if (imported && importedCount(imported) > 0) return imported;
+    return guessConfig(hass);
   }
 
   setConfig(config: LiveEnergyCardConfig): void {
