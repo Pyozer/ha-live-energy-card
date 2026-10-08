@@ -34,7 +34,7 @@ npm run check         # lint + format:check + tests + build: run before every co
 Rendering is a chain of pure functions followed by an imperative animation engine:
 
 ```
-hass + config ─► model.ts ─► layout.ts ─► tree.ts ─► live-energy-card.ts ─► animator.ts
+hass + config ─► model/   ─► layout.ts ─► tree.ts ─► live-energy-card.ts ─► animator.ts
                  (compute)    (positions)  (bus)      (Lit render)         (rAF, direct DOM)
 ```
 
@@ -46,7 +46,12 @@ hass + config ─► model.ts ─► layout.ts ─► tree.ts ─► live-energy
 | `src/entities.ts` | Entity kinds (power, %, energy, price, CO2) used to filter the editor's entity pickers. |
 | `src/units.ts` | Entity reading (W, kW, mW, MW…), unavailable states, localized formatting. |
 | `src/compute.ts` | Energy balance and flow allocation (solar → home → battery → grid…), ratios. |
-| `src/model.ts` | Builds displayable nodes and flows (`buildModel`), defaults (`DEFAULTS`), device sorting, "untracked" node. |
+| `src/model/index.ts` | `buildModel`: readings → energy balance → nodes → flows. Re-exports the model API. |
+| `src/model/context.ts` | Defaults (`DEFAULTS`), per-update context, flow intensity scale. |
+| `src/model/sources.ts` | Source readings (signed entity or positive pair) and the solar, grid, battery and home nodes. |
+| `src/model/devices.ts` | Device nodes, groups, the "untracked" node and device sorting (hysteresis). |
+| `src/model/flows.ts` | Source and device flows, effects (`flowToggles`), distribution bus (`applyDeviceTree`). |
+| `src/model/format.ts` | Node helpers: entity name cleanup, secondary value, default actions, battery icon. |
 | `src/layout.ts` | Node positions for a given width and source flow paths (right angles with rounded corners, like the bus). Device modes: `column`, `grid`, `stack` (narrow screens). |
 | `src/tree.ts` | Paths of the distribution bus feeding devices in grid / stack modes (and column mode with the `rounded` / `square` line styles). |
 | `src/cost.ts` | Live cost, solar savings and grid CO₂ from the flows, price reading and formatting. |
@@ -84,7 +89,7 @@ Design rules:
 Every change or new feature must be **testable and tested**:
 
 - Add or extend tests in `test/` (`*.test.ts`), one file per area: `compute`, `units-intensity`,
-  `layout-model`, `localize`, `entities`, `energy`, `device-list`, `cost`. Create a new file when a new module appears.
+  `layout-model`, `model`, `localize`, `entities`, `energy`, `device-list`, `cost`. Create a new file when a new module appears.
 - Design for testing: extract logic into an exported pure function instead of leaving it in the
   component or the animator.
 - A bug fix starts with a test that reproduces the bug.
