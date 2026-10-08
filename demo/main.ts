@@ -1,5 +1,6 @@
 import './stubs';
 import '../src/powerflow-card';
+import { DEFAULT_TOGGLES } from '../src/intensity';
 import { parse, stringify } from 'yaml';
 import type { HassEntity, HomeAssistant, PowerFlowCardConfig } from '../src/types';
 
@@ -18,29 +19,34 @@ const ENT = {
 
 // Devices from the "Foyer" dashboard, with typical consumption when running.
 const DEVICES = [
-  { entity: 'sensor.prise_chaudiere_power', name: 'Chaudière', icon: 'mdi:radiator', typical: 90 },
+  { entity: 'sensor.prise_chaudiere_power', name: 'Boiler', icon: 'mdi:radiator', typical: 90 },
   {
     entity: 'sensor.shelly_pro_3em_energy_meter_3_puissance',
-    name: 'Chauffe-eau',
+    name: 'Water heater',
     icon: 'mdi:water-boiler',
     typical: 2000,
   },
-  { entity: 'sensor.prise_frigo_power', name: 'Frigo', icon: 'mdi:fridge-outline', typical: 85 },
-  { entity: 'sensor.prise_salon_power', name: 'TV Salon', icon: 'mdi:television', typical: 140 },
-  { entity: 'sensor.prise_bureau_power', name: 'Bureau', icon: 'mdi:desk', typical: 120 },
+  { entity: 'sensor.prise_frigo_power', name: 'Fridge', icon: 'mdi:fridge-outline', typical: 85 },
+  { entity: 'sensor.prise_salon_power', name: 'Living room TV', icon: 'mdi:television', typical: 140 },
+  { entity: 'sensor.prise_bureau_power', name: 'Office', icon: 'mdi:desk', typical: 120 },
   {
     entity: 'sensor.prise_mini_pc_consommation_actuelle',
     name: 'Mini PC',
     icon: 'mdi:desktop-tower',
     typical: 18,
   },
-  { entity: 'sensor.prise_lave_linge_power', name: 'Lave-linge', icon: 'mdi:washing-machine', typical: 1800 },
-  { entity: 'sensor.prise_chambre_rue_power', name: 'Chambre rue', icon: 'mdi:bed-outline', typical: 40 },
-  { entity: 'sensor.prise_autre_power', name: 'Lampe salon', icon: 'mdi:floor-lamp-outline', typical: 12 },
+  {
+    entity: 'sensor.prise_lave_linge_power',
+    name: 'Washing machine',
+    icon: 'mdi:washing-machine',
+    typical: 1800,
+  },
+  { entity: 'sensor.prise_chambre_rue_power', name: 'Bedroom', icon: 'mdi:bed-outline', typical: 40 },
+  { entity: 'sensor.prise_autre_power', name: 'Floor lamp', icon: 'mdi:floor-lamp-outline', typical: 12 },
   { entity: 'sensor.0xa4c1380132bd1522_power', name: 'Nomad', icon: 'mdi:power-socket-eu', typical: 22 },
-  { entity: 'sensor.vmc_power', name: 'VMC', icon: 'mdi:fan', typical: 45 },
-  { entity: 'sensor.mini_pc_media_power', name: 'Mini PC Media', icon: 'mdi:server', typical: 7 },
-  { entity: 'sensor.box_internet_puissance', name: 'Box internet', icon: 'mdi:router-wireless', typical: 16 },
+  { entity: 'sensor.vmc_power', name: 'Ventilation', icon: 'mdi:fan', typical: 45 },
+  { entity: 'sensor.mini_pc_media_power', name: 'Media server', icon: 'mdi:server', typical: 7 },
+  { entity: 'sensor.box_internet_puissance', name: 'Internet box', icon: 'mdi:router-wireless', typical: 16 },
 ];
 
 const DEFAULT_CONFIG: PowerFlowCardConfig = {
@@ -62,7 +68,7 @@ const state = {
   grid: 0,
   unavailable: new Set<string>(),
   dark: matchMedia('(prefers-color-scheme: dark)').matches,
-  lang: 'fr',
+  lang: 'en',
   width: 860,
   live: false,
 };
@@ -98,14 +104,14 @@ let previous: Record<string, HassEntity> = {};
 function buildHass(): HomeAssistant {
   const grid = state.autoGrid ? computedGrid() : state.grid;
   const fresh: Record<string, HassEntity> = {
-    [ENT.solar]: entity(ENT.solar, state.solar, 'W', 'Shelly Solaire puissance'),
-    [ENT.solarDay]: entity(ENT.solarDay, (8.4).toFixed(2), 'kWh', 'Énergie solaire du jour'),
-    [ENT.grid]: entity(ENT.grid, grid, 'W', 'Shelly Pro 3EM Puissance'),
-    [ENT.battery]: entity(ENT.battery, state.battery, 'W', 'Batterie puissance'),
-    [ENT.soc]: entity(ENT.soc, state.soc, '%', 'Batterie niveau'),
+    [ENT.solar]: entity(ENT.solar, state.solar, 'W', 'Solar power'),
+    [ENT.solarDay]: entity(ENT.solarDay, (8.4).toFixed(2), 'kWh', 'Solar energy today'),
+    [ENT.grid]: entity(ENT.grid, grid, 'W', 'Grid power'),
+    [ENT.battery]: entity(ENT.battery, state.battery, 'W', 'Battery power'),
+    [ENT.soc]: entity(ENT.soc, state.soc, '%', 'Battery level'),
   };
   for (const d of DEVICES)
-    fresh[d.entity] = entity(d.entity, state.devices[d.entity], 'W', `${d.name} Puissance`);
+    fresh[d.entity] = entity(d.entity, state.devices[d.entity], 'W', `${d.name} Power`);
 
   // Like Home Assistant: a new object only for entities that changed.
   const states: Record<string, HassEntity> = {};
@@ -189,7 +195,7 @@ const sources = $('sources');
 slider(
   sources,
   'solar',
-  'Solaire',
+  'Solar',
   0,
   6000,
   10,
@@ -199,7 +205,7 @@ slider(
 slider(
   sources,
   'battery',
-  'Batterie (+ décharge)',
+  'Battery (+ discharge)',
   -4000,
   4000,
   10,
@@ -209,7 +215,7 @@ slider(
 slider(
   sources,
   'soc',
-  'Niveau batterie',
+  'Battery level',
   0,
   100,
   1,
@@ -220,7 +226,7 @@ slider(
 slider(
   sources,
   'base',
-  'Talon non suivi',
+  'Untracked base load',
   0,
   1500,
   10,
@@ -230,7 +236,7 @@ slider(
 slider(
   sources,
   'grid',
-  'Réseau (+ soutirage)',
+  'Grid (+ import)',
   -6000,
   6000,
   10,
@@ -260,10 +266,10 @@ DEVICES.forEach((d, i) =>
 
 const unavailable = $('unavailable');
 for (const [label, id] of [
-  ['Solaire', ENT.solar],
-  ['Réseau', ENT.grid],
-  ['Batterie', ENT.battery],
-  ['Frigo', DEVICES[2].entity],
+  ['Solar', ENT.solar],
+  ['Grid', ENT.grid],
+  ['Battery', ENT.battery],
+  ['Fridge', DEVICES[2].entity],
 ]) {
   const chip = document.createElement('label');
   chip.className = 'chip';
@@ -293,7 +299,7 @@ const withConfig = (mutate: (c: PowerFlowCardConfig) => void) => {
   applyConfig(next);
 };
 toggle(
-  'Mode sombre',
+  'Dark mode',
   () => state.dark,
   (v) => {
     state.dark = v;
@@ -302,15 +308,15 @@ toggle(
   },
 );
 toggle(
-  'English',
-  () => state.lang === 'en',
+  'Français',
+  () => state.lang === 'fr',
   (v) => {
-    state.lang = v ? 'en' : 'fr';
+    state.lang = v ? 'fr' : 'en';
     push();
   },
 );
 toggle(
-  'Réseau calculé',
+  'Computed grid',
   () => state.autoGrid,
   (v) => {
     state.autoGrid = v;
@@ -319,19 +325,19 @@ toggle(
   'auto-grid',
 );
 toggle(
-  'Simulation live',
+  'Live simulation',
   () => state.live,
   (v) => (state.live = v),
 );
 for (const [key, label] of [
-  ['speed', 'Vitesse'],
-  ['thickness', 'Épaisseur'],
-  ['density', 'Densité'],
-  ['glow', 'Halo'],
+  ['speed', 'Speed'],
+  ['thickness', 'Thickness'],
+  ['density', 'Density'],
+  ['glow', 'Glow'],
 ] as const) {
   toggle(
     label,
-    () => config.animation?.[key] !== false,
+    () => config.animation?.[key] ?? DEFAULT_TOGGLES[key],
     (v) =>
       withConfig((c) => {
         c.animation = { ...(c.animation ?? {}), [key]: v };
@@ -339,22 +345,22 @@ for (const [key, label] of [
   );
 }
 toggle(
-  'Masquer à zéro',
+  'Hide when zero',
   () => config.hide_when_zero !== false,
   (v) => withConfig((c) => (c.hide_when_zero = v)),
 );
 toggle(
-  'Flux inactifs estompés',
+  'Dim idle flows',
   () => config.inactive_flows === 'dim',
   (v) => withConfig((c) => (c.inactive_flows = v ? 'dim' : 'hide')),
 );
 toggle(
-  'Tri par puissance',
+  'Sort by power',
   () => !!config.sort_devices,
   (v) => withConfig((c) => (c.sort_devices = v)),
 );
 toggle(
-  'Non suivi',
+  'Untracked',
   () => !!config.show_untracked,
   (v) => withConfig((c) => (c.show_untracked = v)),
 );
@@ -364,15 +370,15 @@ toggle(
   (v) => withConfig((c) => (c.show_ratios = v)),
 );
 toggle(
-  'Titre',
+  'Title',
   () => !!config.title,
-  (v) => withConfig((c) => (v ? (c.title = 'Flux en direct') : delete c.title)),
+  (v) => withConfig((c) => (v ? (c.title = 'Live energy') : delete c.title)),
 );
 
 const layoutSelect = document.createElement('label');
 layoutSelect.className = 'chip';
-layoutSelect.innerHTML = `Appareils <select>
-  <option value="auto">auto</option><option value="column">colonne</option><option value="grid">grille</option>
+layoutSelect.innerHTML = `Devices <select>
+  <option value="auto">auto</option><option value="column">column</option><option value="grid">grid</option>
 </select>`;
 const select = layoutSelect.querySelector('select')!;
 select.value = config.devices_layout ?? 'auto';
@@ -407,8 +413,8 @@ const standby = () => ({
 });
 
 const PRESETS: Record<string, () => void> = {
-  Nuit: () => Object.assign(state, { solar: 0, battery: 220, soc: 38, baseLoad: 90, devices: standby() }),
-  'Plein soleil, surplus': () =>
+  Night: () => Object.assign(state, { solar: 0, battery: 220, soc: 38, baseLoad: 90, devices: standby() }),
+  'Full sun, surplus': () =>
     Object.assign(state, {
       solar: 4300,
       battery: -900,
@@ -416,7 +422,7 @@ const PRESETS: Record<string, () => void> = {
       baseLoad: 120,
       devices: { ...standby(), [DEVICES[4].entity]: 130 },
     }),
-  'Chauffe-eau solaire': () =>
+  'Solar water heater': () =>
     Object.assign(state, {
       solar: 3100,
       battery: 0,
@@ -424,7 +430,7 @@ const PRESETS: Record<string, () => void> = {
       baseLoad: 110,
       devices: { ...standby(), [DEVICES[1].entity]: 2050 },
     }),
-  'Pic de consommation': () =>
+  'Consumption peak': () =>
     Object.assign(state, {
       solar: 650,
       battery: 1500,
@@ -438,11 +444,11 @@ const PRESETS: Record<string, () => void> = {
         [DEVICES[4].entity]: 160,
       },
     }),
-  'Charge batterie (HC)': () =>
+  'Off-peak battery charge': () =>
     Object.assign(state, { solar: 0, battery: -2500, soc: 20, baseLoad: 100, devices: standby() }),
-  'Batterie → réseau': () =>
+  'Battery → grid': () =>
     Object.assign(state, { solar: 0, battery: 2800, soc: 90, baseLoad: 80, devices: standby() }),
-  'Tout à zéro': () =>
+  'All zero': () =>
     Object.assign(state, { solar: 0, battery: 0, soc: 50, baseLoad: 0, devices: devicesOff() }),
 };
 
@@ -492,7 +498,7 @@ $('reset').addEventListener('click', () => applyConfig(structuredClone(DEFAULT_C
 
 card.addEventListener('hass-action', (ev) => {
   const { config: c, action } = (ev as CustomEvent).detail;
-  const line = `${new Date().toLocaleTimeString()} · ${action} → ${c.entity ?? '(aucune entité)'} (${
+  const line = `${new Date().toLocaleTimeString()} · ${action} → ${c.entity ?? '(no entity)'} (${
     c[`${action}_action`]?.action ?? 'none'
   })`;
   const log = $('log');
@@ -504,7 +510,7 @@ new ResizeObserver(() => {
 }).observe(frame);
 
 document.documentElement.dataset.theme = state.dark ? 'dark' : 'light';
-PRESETS['Plein soleil, surplus']();
+PRESETS['Full sun, surplus']();
 refreshSliders();
 setWidth();
 applyConfig(config);

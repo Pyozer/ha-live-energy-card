@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PowerFlow Card · Démo</title>
+    <title>PowerFlow Card · Demo</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
       href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap"
@@ -225,13 +225,13 @@
 
       <aside class="panel">
         <div>
-          <h2>Scénarios</h2>
+          <h2>Scenarios</h2>
           <div class="chips" id="presets"></div>
         </div>
         <div>
-          <h2>Affichage</h2>
+          <h2>Display</h2>
           <div class="row">
-            <label for="width">Largeur</label
+            <label for="width">Width</label
             ><input id="width" type="range" min="300" max="1200" step="10" /><output id="width-out"></output>
           </div>
           <div class="chips" id="display"></div>
@@ -241,24 +241,24 @@
           <div id="sources"></div>
         </div>
         <div>
-          <h2>Appareils</h2>
+          <h2>Devices</h2>
           <div id="devices"></div>
         </div>
         <div>
-          <h2>Capteurs indisponibles</h2>
+          <h2>Unavailable sensors</h2>
           <div class="unavailable" id="unavailable"></div>
         </div>
         <div>
-          <h2>Configuration YAML</h2>
+          <h2>YAML configuration</h2>
           <textarea id="yaml" spellcheck="false"></textarea>
           <div class="chips" style="margin-top: 8px">
-            <button id="apply">Appliquer</button>
-            <button id="reset">Réinitialiser</button>
+            <button id="apply">Apply</button>
+            <button id="reset">Reset</button>
           </div>
           <div class="error" id="error"></div>
         </div>
         <div>
-          <h2>Actions déclenchées</h2>
+          <h2>Triggered actions</h2>
           <div class="log" id="log">—</div>
         </div>
       </aside>
