@@ -5,7 +5,7 @@ import { FlowAnimator } from './animator';
 import { DEFAULT_COLORS } from './colors';
 import { validateConfig, watchedEntities } from './config';
 import { computeLayout, type Layout } from './layout';
-import { localize } from './localize/localize';
+import { localize, resolveLanguage } from './localize/localize';
 import {
   applyDeviceTree,
   buildModel,
@@ -157,8 +157,14 @@ export class PowerFlowCard extends LitElement {
     this._model.flows = applyDeviceTree(this._model, this._layout, this._config);
   }
 
+  /** Number formatting follows the Home Assistant locale. */
   private get _lang(): string | undefined {
     return this.hass?.locale?.language ?? this.hass?.language;
+  }
+
+  /** Labels follow the card `language` option, then the Home Assistant user language. */
+  private get _labelLang(): string {
+    return resolveLanguage(this._config?.language, this.hass);
   }
 
   private _format = (watts: number) =>
@@ -248,7 +254,7 @@ export class PowerFlowCard extends LitElement {
     const shape = n.kind === 'device' ? 'pill' : 'circle';
     const label =
       n.watts === null
-        ? `${n.name} : ${localize(this._lang, 'state.unavailable')}`
+        ? `${n.name} : ${localize(this._labelLang, 'state.unavailable')}`
         : `${n.name} : ${Object.values(this._format(n.watts)).join(' ')}`;
     const classes = [
       'node',
@@ -385,8 +391,8 @@ export class PowerFlowCard extends LitElement {
       </div>
     `;
     return html`<div class="ratios">
-      ${item(localize(this._lang, 'ratio.self_consumption'), r.selfConsumption, DEFAULT_COLORS.solar)}
-      ${item(localize(this._lang, 'ratio.autarky'), r.autarky, DEFAULT_COLORS.battery)}
+      ${item(localize(this._labelLang, 'ratio.self_consumption'), r.selfConsumption, DEFAULT_COLORS.solar)}
+      ${item(localize(this._labelLang, 'ratio.autarky'), r.autarky, DEFAULT_COLORS.battery)}
     </div>`;
   }
 

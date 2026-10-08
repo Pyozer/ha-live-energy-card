@@ -10,7 +10,7 @@ import {
 import { normalizePower, resolveToggles } from './intensity';
 import type { Layout, PathGeometry, Rect, SourceFlowId } from './layout';
 import { buildDeviceTree } from './tree';
-import { localize } from './localize/localize';
+import { localize, resolveLanguage } from './localize/localize';
 import type {
   ActionConfig,
   AnimationToggles,
@@ -91,6 +91,7 @@ export const DEFAULTS = {
   inactive_flows: 'hide' as const,
   sort_devices: false,
   devices_layout: 'auto' as const,
+  language: 'auto',
   show_untracked: false,
   show_ratios: false,
   kilo_threshold: 1000,
@@ -186,7 +187,7 @@ export function buildModel(
   hass: HomeAssistant,
   previousOrder: string[] = [],
 ): CardModel {
-  const lang = hass.locale?.language ?? hass.language;
+  const lang = resolveLanguage(config.language, hass);
   const t = (key: Parameters<typeof localize>[1]) => localize(lang, key);
   const threshold = config.threshold_w ?? DEFAULTS.threshold_w;
   const globalHide = config.hide_when_zero ?? DEFAULTS.hide_when_zero;

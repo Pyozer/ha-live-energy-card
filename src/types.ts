@@ -71,6 +71,8 @@ export interface PowerFlowCardConfig {
   devices_columns?: number;
   show_untracked?: boolean;
   show_ratios?: boolean;
+  /** Label language: `auto` (Home Assistant user language, default) or a language code. */
+  language?: string;
   kilo_threshold?: number;
   decimals?: number;
   kilo_decimals?: number;

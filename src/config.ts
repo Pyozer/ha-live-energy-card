@@ -10,7 +10,8 @@ const NUMERIC_FIELDS = [
   'kilo_decimals',
 ] as const;
 
-function lang(): string {
+function lang(configured: unknown): string {
+  if (typeof configured === 'string' && configured && configured !== 'auto') return configured;
   if (typeof document !== 'undefined') {
     const ha = document.querySelector('home-assistant') as unknown as { hass?: { language?: string } } | null;
     if (ha?.hass?.language) return ha.hass.language;
@@ -23,7 +24,7 @@ function lang(): string {
 export function validateConfig(input: unknown): PowerFlowCardConfig {
   if (!input || typeof input !== 'object') throw new Error('Invalid configuration');
   const config = { ...(input as PowerFlowCardConfig) };
-  const l = lang();
+  const l = lang(config.language);
 
   for (const field of NUMERIC_FIELDS) {
     const value = config[field];

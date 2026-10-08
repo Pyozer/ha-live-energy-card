@@ -2,7 +2,7 @@ import { mdiArrowDown, mdiArrowUp, mdiChevronDown, mdiChevronUp, mdiDeleteOutlin
 import { LitElement, css, html, nothing, type TemplateResult } from 'lit';
 import { fireEvent } from '../actions';
 import { DEFAULT_TOGGLES } from '../intensity';
-import { localize, type LocalizeKey } from '../localize/localize';
+import { LANGUAGE_NAMES, localize, SUPPORTED_LANGUAGES, type LocalizeKey } from '../localize/localize';
 import { DEFAULTS } from '../model';
 import type {
   AnimationToggles,
@@ -138,7 +138,25 @@ export class PowerFlowCardEditor extends LitElement {
       schema: this._nodeSchema(kind),
     });
     return [
-      { name: 'title', selector: { text: {} } },
+      {
+        type: 'grid',
+        name: '',
+        schema: [
+          { name: 'title', selector: { text: {} } },
+          {
+            name: 'language',
+            selector: {
+              select: {
+                mode: 'dropdown',
+                options: [
+                  { value: 'auto', label: this._t('editor.option.language_auto') },
+                  ...SUPPORTED_LANGUAGES.map((code) => ({ value: code, label: LANGUAGE_NAMES[code] })),
+                ],
+              },
+            },
+          },
+        ],
+      },
       node('solar', 'mdi:solar-power-variant'),
       node('grid', 'mdi:transmission-tower'),
       node('battery', 'mdi:home-battery-outline'),

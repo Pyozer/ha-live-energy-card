@@ -53,7 +53,7 @@ hass + config ─► model.ts ─► layout.ts ─► tree.ts ─► powerflow-c
 | `src/styles.ts` | Styles and palette (`--pf-*` variables, light / dark). |
 | `src/actions.ts` | `tap_action`, `hold_action`, `double_tap_action` (`hass-action` event). |
 | `src/editor/editor.ts` | Visual editor. Only writes values that differ from the defaults. |
-| `src/localize/` | `en.ts` is the reference; `fr.ts` is typed against it (a missing key fails to compile). |
+| `src/localize/` | `en.ts` is the reference; `fr.ts` is typed against it (a missing key fails to compile). `resolveLanguage` picks the card `language` option, then the HA user language. |
 | `demo/` | Demo page: simulated `hass`, scenarios, sliders, YAML editor. Stubs for `ha-card` and `ha-icon`. |
 | `test/` | Vitest tests, running in Node (no DOM). |
 
@@ -77,7 +77,7 @@ Design rules:
 Every change or new feature must be **testable and tested**:
 
 - Add or extend tests in `test/` (`*.test.ts`), one file per area: `compute`, `units-intensity`,
-  `layout-model`. Create a new file when a new module appears.
+  `layout-model`, `localize`. Create a new file when a new module appears.
 - Design for testing: extract logic into an exported pure function instead of leaving it in the
   component or the animator.
 - A bug fix starts with a test that reproduces the bug.
@@ -93,7 +93,9 @@ Every code change comes with the matching documentation update, in the same comm
 
 - `README.md`: options (tables), YAML examples, user-visible behavior.
 - `AGENTS.md`: architecture, commands, conventions, known pitfalls.
-- `src/localize/en.ts` and `fr.ts`: every new label, in both languages.
+- `src/localize/en.ts` and `fr.ts`: every new label, in both languages. To add a language, create
+  `src/localize/xx.ts` typed against `en`, register it in `LANGUAGES` and `LANGUAGE_NAMES`
+  (`localize.ts`), and list it in the README.
 - `demo/main.ts`: a way to try the change outside Home Assistant.
 
 ## Versioning and release

@@ -43,6 +43,7 @@ export const en = {
     off: 'show',
     field: {
       title: 'Title',
+      language: 'Language',
       entity: 'Power entity',
       name: 'Name',
       icon: 'Icon',
@@ -80,6 +81,7 @@ export const en = {
     },
     option: {
       auto: 'Automatic',
+      language_auto: 'Home Assistant language',
       column: 'Single column',
       grid: 'Grid',
       linear: 'Linear',

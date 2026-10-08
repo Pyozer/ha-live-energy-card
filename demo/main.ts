@@ -308,7 +308,7 @@ toggle(
   },
 );
 toggle(
-  'Français',
+  'HA in French',
   () => state.lang === 'fr',
   (v) => {
     state.lang = v ? 'fr' : 'en';
@@ -389,6 +389,21 @@ select.addEventListener('change', () =>
   }),
 );
 display.appendChild(layoutSelect);
+
+const languageSelect = document.createElement('label');
+languageSelect.className = 'chip';
+languageSelect.innerHTML = `Card language <select>
+  <option value="auto">auto (HA)</option><option value="en">English</option><option value="fr">Français</option>
+</select>`;
+const langInput = languageSelect.querySelector('select')!;
+langInput.value = config.language ?? 'auto';
+langInput.addEventListener('change', () =>
+  withConfig((c) => {
+    if (langInput.value === 'auto') delete c.language;
+    else c.language = langInput.value;
+  }),
+);
+display.appendChild(languageSelect);
 
 const widthInput = $<HTMLInputElement>('width');
 widthInput.value = String(state.width);

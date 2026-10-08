@@ -47,6 +47,7 @@ export const fr: DeepStrings<typeof en> = {
     off: 'affiché',
     field: {
       title: 'Titre',
+      language: 'Langue',
       entity: 'Entité de puissance',
       name: 'Nom',
       icon: 'Icône',
@@ -84,6 +85,7 @@ export const fr: DeepStrings<typeof en> = {
     },
     option: {
       auto: 'Automatique',
+      language_auto: 'Langue de Home Assistant',
       column: 'Une colonne',
       grid: 'Grille',
       linear: 'Linéaire',

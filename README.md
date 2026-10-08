@@ -26,7 +26,8 @@ colors reserved for icons and flows. Each flow's animation follows its power.
 - `unavailable` / `unknown` entities are reported cleanly: never `NaN`.
 - `tap_action`, `hold_action`, `double_tap_action` on every node (more-info by default).
 - Automatic light and dark themes, `prefers-reduced-motion` support, animation paused off-screen.
-- Full visual editor, English and French translations.
+- Full visual editor, English and French translations (following the Home Assistant user's
+  language, or set per card).
 
 ## Installation
 
@@ -129,6 +130,7 @@ devices:
 | Option | Default | Description |
 | --- | --- | --- |
 | `title` | — | Title shown at the top of the card. |
+| `language` | `auto` | Language of the default labels: `auto` (language of the logged-in Home Assistant user), `en` or `fr`. |
 | `min_power` / `max_power` | `0` / `5000` | Range (W) used to compute flow intensity. |
 | `power_curve` | `sqrt` | `linear`, `sqrt` or `log`. `sqrt` and `log` make low power easier to read. |
 | `threshold_w` | `5` | Below this threshold, a value is treated as zero. |
@@ -163,6 +165,13 @@ Specific options:
 - `grid`: `import_entity` / `export_entity` (alternative to a signed entity), `export_color`.
 - `battery`: `charge_entity` / `discharge_entity`, `soc_entity` (charge level in %), `charge_color`.
 - `home`: `entity` is optional. Without it, consumption is computed from the sources.
+
+### Language
+
+Default labels (Solar, Grid, Battery, Home, states, ratios) follow the language of the logged-in
+Home Assistant user. Set `language: en` or `language: fr` to force a language for a card. A node's
+`name` option always takes precedence over the translated label. Numbers keep the Home Assistant
+number format.
 
 ### Colors
 
