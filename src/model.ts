@@ -22,10 +22,11 @@ import type {
   ActionConfig,
   AnimationToggles,
   BaseNodeConfig,
+  EntityRef,
   HomeAssistant,
   LiveEnergyCardConfig,
 } from './types';
-import { numberFormat, readPercent, readPower, type Reading } from './units';
+import { entityIds, numberFormat, readPercentAverage, readPowerSum, type Reading } from './units';
 
 export type NodeKind = 'solar' | 'grid' | 'battery' | 'home' | 'device';
 
@@ -140,7 +141,9 @@ function formatSecondary(hass: HomeAssistant, entityId: string | undefined): str
   return unit ? `${value} ${unit}` : value;
 }
 
-function actionsFor(cfg: BaseNodeConfig | undefined, entity: string | undefined): NodeActions {
+/** Default action: more-info of the node's (first) entity. */
+function actionsFor(cfg: BaseNodeConfig | undefined, ref: EntityRef | undefined): NodeActions {
+  const entity = entityIds(ref)[0];
   return {
     entity,
     tap_action: cfg?.tap_action ?? (entity ? { action: 'more-info' } : { action: 'none' }),
@@ -203,24 +206,26 @@ export function buildModel(
   const max = config.max_power ?? DEFAULTS.max_power;
   const curve = config.power_curve ?? DEFAULTS.power_curve;
   const dimIdle = (config.inactive_flows ?? DEFAULTS.inactive_flows) === 'dim';
-  const read = (id: string | undefined, invert = false): Reading | undefined =>
-    id ? readPower(hass.states[id], invert) : undefined;
+  const has = (ref: EntityRef | undefined): boolean => entityIds(ref).length > 0;
+  const read = (ref: EntityRef | undefined, invert = false): Reading | undefined =>
+    has(ref) ? readPowerSum(hass.states, ref, invert) : undefined;
   const friendly = (id: string | undefined): string | undefined =>
     id ? hass.states[id]?.attributes.friendly_name : undefined;
 
   // --- Source readings -------------------------------------------------------------------------
-  const solarCfg = config.solar?.entity ? config.solar : undefined;
+  const solarCfg = has(config.solar?.entity) ? config.solar : undefined;
   const solarR = read(solarCfg?.entity, solarCfg?.invert);
 
   const gridCfg =
-    config.grid && (config.grid.entity || config.grid.import_entity || config.grid.export_entity)
+    config.grid &&
+    (has(config.grid.entity) || has(config.grid.import_entity) || has(config.grid.export_entity))
       ? config.grid
       : undefined;
   let gridImport: number | undefined;
   let gridExport: number | undefined;
   let gridAvailable = true;
   if (gridCfg) {
-    if (gridCfg.entity) {
+    if (has(gridCfg.entity)) {
       const r = read(gridCfg.entity, gridCfg.invert)!;
       gridAvailable = r.available;
       const s = splitSigned(r.value ?? 0);
@@ -237,14 +242,14 @@ export function buildModel(
 
   const batCfg =
     config.battery &&
-    (config.battery.entity || config.battery.charge_entity || config.battery.discharge_entity)
+    (has(config.battery.entity) || has(config.battery.charge_entity) || has(config.battery.discharge_entity))
       ? config.battery
       : undefined;
   let batCharge: number | undefined;
   let batDischarge: number | undefined;
   let batAvailable = true;
   if (batCfg) {
-    if (batCfg.entity) {
+    if (has(batCfg.entity)) {
       const r = read(batCfg.entity, batCfg.invert)!;
       batAvailable = r.available;
       const s = splitSigned(r.value ?? 0);
@@ -332,7 +337,7 @@ export function buildModel(
   const batColor = resolveColor(batCfg?.color, DEFAULT_COLORS.battery);
   const batChargeColor = resolveColor(batCfg?.charge_color ?? batCfg?.color, DEFAULT_COLORS.batteryCharge);
   if (batCfg) {
-    const soc = batCfg.soc_entity ? readPercent(hass.states[batCfg.soc_entity]) : undefined;
+    const soc = has(batCfg.soc_entity) ? readPercentAverage(hass.states, batCfg.soc_entity) : undefined;
     const net = result.batteryDischarge - result.batteryCharge;
     const active = net !== 0;
     nodes.push({
@@ -361,7 +366,7 @@ export function buildModel(
   const homeColor = resolveColor(homeCfg?.color, DEFAULT_COLORS.home);
   const f = result.flows;
   const homeSources = f.solarToHome + f.batteryToHome + f.gridToHome;
-  const homeAvailable = homeCfg?.entity ? (homeR?.available ?? false) : true;
+  const homeAvailable = has(homeCfg?.entity) ? (homeR?.available ?? false) : true;
   nodes.push({
     id: 'home',
     kind: 'home',
@@ -388,8 +393,9 @@ export function buildModel(
   const deviceNodes: NodeModel[] = [];
   const deviceWatts: number[] = [];
   (config.devices ?? []).forEach((dev, index) => {
-    if (!dev?.entity) return;
-    const r = readPower(hass.states[dev.entity], dev.invert);
+    const ids = entityIds(dev?.entity);
+    if (ids.length === 0) return;
+    const r = readPowerSum(hass.states, dev.entity, dev.invert);
     const watts = r.available ? Math.max(0, r.value ?? 0) : null;
     const value = watts !== null && watts >= threshold ? watts : 0;
     if (!dev.exclude_from_untracked) deviceWatts.push(value);
@@ -397,11 +403,9 @@ export function buildModel(
     deviceNodes.push({
       id: `device:${index}`,
       kind: 'device',
-      name: dev.name ?? cleanName(friendly(dev.entity), dev.entity),
+      name: dev.name ?? cleanName(friendly(ids[0]), ids[0]),
       icon:
-        dev.icon ??
-        (hass.states[dev.entity]?.attributes.icon as string | undefined) ??
-        'mdi:power-plug-outline',
+        dev.icon ?? (hass.states[ids[0]]?.attributes.icon as string | undefined) ?? 'mdi:power-plug-outline',
       color: resolveColor(dev.color, DEFAULT_COLORS.device),
       watts: watts === null ? null : value,
       available: r.available,

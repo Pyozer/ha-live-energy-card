@@ -1,4 +1,4 @@
-import type { HassEntity } from './types';
+import type { EntityRef, HassEntity } from './types';
 
 export const POWER_UNITS: Record<string, number> = {
   mW: 0.001,
@@ -38,6 +38,42 @@ export function readPower(entity: HassEntity | undefined, invert = false): Readi
   if (!Number.isFinite(num)) return UNAVAILABLE;
   const watts = num * unitFactor(entity.attributes?.unit_of_measurement);
   return { value: invert ? -watts : watts, available: true };
+}
+
+/** Entity ids of a reference, without empty values. */
+export function entityIds(ref: EntityRef | undefined | null): string[] {
+  if (!ref) return [];
+  return (Array.isArray(ref) ? ref : [ref]).filter((id): id is string => typeof id === 'string' && !!id);
+}
+
+/**
+ * Sum of the powers of several entities. Unavailable as soon as one of them is: a partial total
+ * (one phase or one inverter missing) would be misleading.
+ */
+export function readPowerSum(
+  states: Record<string, HassEntity>,
+  ref: EntityRef | undefined,
+  invert = false,
+): Reading {
+  const ids = entityIds(ref);
+  if (ids.length === 0) return UNAVAILABLE;
+  let total = 0;
+  for (const id of ids) {
+    const r = readPower(states[id], invert);
+    if (!r.available || r.value === null) return UNAVAILABLE;
+    total += r.value;
+  }
+  return { value: total, available: true };
+}
+
+/** Average of several percentages (charge level of several batteries). */
+export function readPercentAverage(
+  states: Record<string, HassEntity>,
+  ref: EntityRef | undefined,
+): number | null {
+  const values = entityIds(ref).map((id) => readPercent(states[id]));
+  if (values.length === 0 || values.some((v) => v === null)) return null;
+  return (values as number[]).reduce((a, b) => a + b, 0) / values.length;
 }
 
 /** Reads a percentage (battery SOC), clamped between 0 and 100. */

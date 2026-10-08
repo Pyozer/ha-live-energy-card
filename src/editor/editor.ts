@@ -10,7 +10,8 @@ import {
 import { LitElement, css, html, nothing, type TemplateResult } from 'lit';
 import { fireEvent } from '../actions';
 import { configFromEnergyPrefs, fetchEnergyPrefs, importedCount, mergeEnergyImport } from '../energy';
-import { entitySelector, type EntityKind } from '../entities';
+import { compactRef, entitySelector, type EntityKind } from '../entities';
+import { entityIds } from '../units';
 import { DEFAULT_TOGGLES } from '../intensity';
 import { LANGUAGE_NAMES, localize, SUPPORTED_LANGUAGES, type LocalizeKey } from '../localize/localize';
 import { DEFAULTS } from '../model';
@@ -18,6 +19,7 @@ import type {
   AnimationToggles,
   BaseNodeConfig,
   DeviceConfig,
+  EntityRef,
   HomeAssistant,
   LiveEnergyCardConfig,
 } from '../types';
@@ -86,8 +88,8 @@ export class LiveEnergyCardEditor extends LitElement {
   // --- Schemas -----------------------------------------------------------------------------------
 
   /** Entity selector listing only entities of the expected kind (power, %…). */
-  private _entity(kind: EntityKind, current: unknown): Schema {
-    return entitySelector(this.hass, kind, typeof current === 'string' ? current : undefined);
+  private _entity(kind: EntityKind, current: unknown, multiple = false): Schema {
+    return entitySelector(this.hass, kind, current as EntityRef | undefined, multiple);
   }
 
   private _nodeSchema(kind: NodeKey): Schema[] {
@@ -104,7 +106,8 @@ export class LiveEnergyCardEditor extends LitElement {
         ...(kind === 'battery' ? [{ name: 'charge_color', selector: { ui_color: {} } }] : []),
       ],
     };
-    const entities: Schema[] = [power('entity')];
+    // The main entity accepts several sensors, added up (several inverters, phases…).
+    const entities: Schema[] = [{ name: 'entity', selector: this._entity('power', cfg.entity, true) }];
     if (kind === 'grid') {
       entities.push({ type: 'grid', name: '', schema: [power('import_entity'), power('export_entity')] });
     }
@@ -276,7 +279,7 @@ export class LiveEnergyCardEditor extends LitElement {
 
   private _deviceSchema(dev: DeviceConfig): Schema[] {
     return [
-      { name: 'entity', selector: this._entity('power', dev.entity) },
+      { name: 'entity', selector: this._entity('power', dev.entity, true) },
       {
         type: 'grid',
         name: '',
@@ -314,7 +317,11 @@ export class LiveEnergyCardEditor extends LitElement {
     const c = this._config!;
     const node = (kind: NodeKey) => {
       const cfg = (c[kind] ?? {}) as BaseNodeConfig;
-      return { ...cfg, hide_when_zero: cfg.hide_when_zero ?? this._hideDefault(kind) };
+      return {
+        ...cfg,
+        entity: entityIds(cfg.entity),
+        hide_when_zero: cfg.hide_when_zero ?? this._hideDefault(kind),
+      };
     };
     return {
       ...DEFAULTS,
@@ -340,6 +347,7 @@ export class LiveEnergyCardEditor extends LitElement {
 
     for (const kind of ['solar', 'grid', 'battery', 'home'] as NodeKey[]) {
       const cfg = { ...((data[kind] as BaseNodeConfig) ?? {}) };
+      cfg.entity = compactRef(cfg.entity);
       const def = kind === 'grid' || kind === 'home' ? false : globalHide;
       const previous = (this._config?.[kind] as BaseNodeConfig | undefined)?.hide_when_zero;
       if (cfg.hide_when_zero === def && previous === undefined) delete cfg.hide_when_zero;
@@ -378,6 +386,7 @@ export class LiveEnergyCardEditor extends LitElement {
     ev.stopPropagation();
     const devices = this._devices();
     const value = { ...(ev.detail.value as DeviceConfig) };
+    value.entity = compactRef(value.entity) ?? '';
     const def = this._hideDefault('device');
     if (value.hide_when_zero === def && devices[index]?.hide_when_zero === undefined)
       delete value.hide_when_zero;
@@ -466,16 +475,21 @@ export class LiveEnergyCardEditor extends LitElement {
 
   private _renderDevice(dev: DeviceConfig, index: number, total: number): TemplateResult {
     const expanded = this._expanded === index;
-    const state = dev.entity ? this.hass!.states[dev.entity] : undefined;
-    const title = dev.name ?? state?.attributes.friendly_name ?? (dev.entity || '—');
-    const data = { ...dev, hide_when_zero: dev.hide_when_zero ?? this._hideDefault('device') };
+    const ids = entityIds(dev.entity);
+    const state = ids.length ? this.hass!.states[ids[0]] : undefined;
+    const title = dev.name ?? state?.attributes.friendly_name ?? (ids[0] || '—');
+    const data = {
+      ...dev,
+      entity: ids,
+      hide_when_zero: dev.hide_when_zero ?? this._hideDefault('device'),
+    };
     return html`
       <div class="device ${expanded ? 'expanded' : ''}">
         <div class="device-head">
           <ha-icon .icon=${dev.icon ?? state?.attributes.icon ?? 'mdi:power-plug-outline'}></ha-icon>
           <button class="device-title" @click=${() => (this._expanded = expanded ? -1 : index)}>
             <span>${title}</span>
-            <small>${dev.entity}</small>
+            <small>${ids.join(', ')}</small>
           </button>
           <ha-icon-button
             .label=${this._t('editor.move_up')}

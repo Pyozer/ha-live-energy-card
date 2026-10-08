@@ -9,7 +9,7 @@ import {
 } from '../src/layout';
 import { applyDeviceTree, buildModel, cleanName, sortWithHysteresis, UNTRACKED_ID } from '../src/model';
 import { buildDeviceTree } from '../src/tree';
-import { validateConfig } from '../src/config';
+import { validateConfig, watchedEntities } from '../src/config';
 import type { HassEntity, HomeAssistant, LiveEnergyCardConfig } from '../src/types';
 
 const overlaps = (a: Rect, b: Rect, margin = 0) =>
@@ -299,6 +299,47 @@ describe('buildModel', () => {
     expect(model.nodes.find((n) => n.id === 'device:1')?.watts).toBe(150);
   });
 
+  it('several entities on a node are added up', () => {
+    const model = buildModel(
+      {
+        type: 'custom:live-energy-card',
+        solar: { entity: ['sensor.roof', 'sensor.garage'] },
+        grid: { entity: ['sensor.l1', 'sensor.l2', 'sensor.l3'] },
+        battery: { entity: ['sensor.b1', 'sensor.b2'], soc_entity: ['sensor.s1', 'sensor.s2'] },
+        devices: [{ entity: ['sensor.oven', 'sensor.hob'], name: 'Kitchen' }],
+      },
+      hassWith([
+        state('sensor.roof', 1000),
+        state('sensor.garage', 0.5, 'kW'),
+        state('sensor.l1', 100),
+        state('sensor.l2', -50),
+        state('sensor.l3', 50),
+        state('sensor.b1', 300),
+        state('sensor.b2', -100),
+        state('sensor.s1', 40, '%'),
+        state('sensor.s2', 60, '%'),
+        state('sensor.oven', 900),
+        state('sensor.hob', 600),
+      ]),
+    );
+    const byId = Object.fromEntries(model.nodes.map((n) => [n.id, n]));
+    expect(byId.solar.watts).toBe(1500);
+    expect(byId.grid.watts).toBe(100);
+    expect(byId.battery.watts).toBe(200);
+    expect(byId.battery.soc).toBe(50);
+    expect(byId['device:0'].watts).toBe(1500);
+    // More-info opens the first entity.
+    expect(byId.solar.actions.entity).toBe('sensor.roof');
+  });
+
+  it('a node is unavailable when one of its entities is', () => {
+    const model = buildModel(
+      { type: 'x', solar: { entity: ['sensor.roof', 'sensor.garage'] } },
+      hassWith([state('sensor.roof', 1000), state('sensor.garage', 'unavailable')]),
+    );
+    expect(model.nodes.find((n) => n.id === 'solar')?.available).toBe(false);
+  });
+
   it('applyDeviceTree: shared segments carry the downstream sum', () => {
     const many: LiveEnergyCardConfig = {
       type: 'custom:live-energy-card',
@@ -351,6 +392,17 @@ describe('utilities', () => {
         prev,
       ),
     ).toEqual(['b', 'a']);
+  });
+
+  it('watched entities include every entity of a list', () => {
+    expect(
+      watchedEntities({
+        type: 'x',
+        grid: { entity: ['sensor.l1', 'sensor.l2'] },
+        devices: [{ entity: ['sensor.a', 'sensor.b'] }],
+      }).sort(),
+    ).toEqual(['sensor.a', 'sensor.b', 'sensor.l1', 'sensor.l2']);
+    expect(() => validateConfig({ type: 'x', solar: { entity: [] } })).toThrow();
   });
 
   it('validateConfig', () => {

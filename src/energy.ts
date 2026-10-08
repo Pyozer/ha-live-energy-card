@@ -71,33 +71,60 @@ export function configFromEnergyPrefs(prefs: EnergyPrefs): EnergyImport {
   const sources = prefs.energy_sources ?? [];
   const out: EnergyImport = {};
 
-  const solar = sources.find((s) => s.type === 'solar' && hasPower(powerOf(s)));
-  if (solar) {
-    const p = powerOf(solar);
-    const cfg: SolarConfig = { entity: p.entity ?? p.from };
-    if (p.invert) cfg.invert = true;
+  // Several sources of a type (inverters, batteries, grid entries per tariff) are added up when they
+  // all use a single signed sensor; otherwise the first one with a power sensor is used.
+  const powered = (type: string) =>
+    sources
+      .filter((s) => s.type === type)
+      .map(powerOf)
+      .filter(hasPower);
+  const signed = (list: ReturnType<typeof powerOf>[]) => {
+    const unique = [...new Set(list.filter((p) => p.entity && !p.invert).map((p) => p.entity!))];
+    return unique.length > 1 && unique.length === list.length ? unique : undefined;
+  };
+
+  const solars = powered('solar');
+  if (solars.length) {
+    const many = signed(solars);
+    const p = solars[0];
+    const cfg: SolarConfig = { entity: many ?? p.entity ?? p.from };
+    if (!many && p.invert) cfg.invert = true;
     out.solar = cfg;
   }
 
-  // The grid can be split into several entries (one per tariff): the first with a power sensor wins.
-  const grid = sources.find((s) => s.type === 'grid' && hasPower(powerOf(s)));
-  if (grid) {
-    const p = powerOf(grid);
-    const cfg: GridConfig = p.entity ? { entity: p.entity } : { import_entity: p.from, export_entity: p.to };
-    if (p.invert) cfg.invert = true;
+  const grids = powered('grid');
+  if (grids.length) {
+    // Grid entries of the same meter often share one sensor: duplicates are merged.
+    const unique = grids.filter(
+      (p, i) => grids.findIndex((q) => q.entity && q.entity === p.entity) === i || !p.entity,
+    );
+    const many = signed(unique);
+    const p = unique[0];
+    const cfg: GridConfig = many
+      ? { entity: many }
+      : p.entity
+        ? { entity: p.entity }
+        : { import_entity: p.from, export_entity: p.to };
+    if (!many && p.invert) cfg.invert = true;
     out.grid = cfg;
   }
 
-  const battery = sources.find((s) => s.type === 'battery' && hasPower(powerOf(s)));
-  if (battery) {
-    const p = powerOf(battery);
+  const batterySources = sources.filter((s) => s.type === 'battery' && hasPower(powerOf(s)));
+  if (batterySources.length) {
+    const list = batterySources.map(powerOf);
+    const many = signed(list);
+    const p = list[0];
     // Battery power: positive = discharge, as in the Energy dashboard.
-    const cfg: BatteryConfig = p.entity
-      ? { entity: p.entity }
-      : { discharge_entity: p.from, charge_entity: p.to };
-    if (p.invert) cfg.invert = true;
-    if (str(battery.name)) cfg.name = battery.name!;
-    if (str(battery.stat_soc)) cfg.soc_entity = battery.stat_soc!;
+    const cfg: BatteryConfig = many
+      ? { entity: many }
+      : p.entity
+        ? { entity: p.entity }
+        : { discharge_entity: p.from, charge_entity: p.to };
+    if (!many && p.invert) cfg.invert = true;
+    const first = batterySources[0];
+    if (!many && str(first.name)) cfg.name = first.name!;
+    const socs = (many ? batterySources : [first]).map((b) => str(b.stat_soc)).filter(Boolean) as string[];
+    if (socs.length) cfg.soc_entity = socs.length === 1 ? socs[0] : socs;
     out.battery = cfg;
   }
 

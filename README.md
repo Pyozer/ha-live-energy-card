@@ -14,6 +14,7 @@ colors reserved for icons and flows. Each flow's animation follows its power.
 
 - **Animated flows** whose speed, thickness, particle density and glow depend on the power. Each
   of these four effects can be toggled separately (globally or per node).
+- **Several entities per node**: inverters, grid phases or batteries added up.
 - **Every source is optional**: without solar, battery or grid, the layout rearranges itself with
   no gaps.
 - **Hide when zero**, configurable globally or per node, with a fade.
@@ -119,6 +120,26 @@ home:
   entity: sensor.home_consumption_power
 ```
 
+### Several inverters, three-phase grid, two batteries
+
+A node is unavailable as soon as one of its entities is, so a partial total is never shown.
+
+```yaml
+type: custom:live-energy-card
+solar:
+  entity:
+    - sensor.inverter_roof_power
+    - sensor.inverter_garage_power
+grid:
+  entity:
+    - sensor.grid_l1_power
+    - sensor.grid_l2_power
+    - sensor.grid_l3_power
+battery:
+  entity: [sensor.battery_1_power, sensor.battery_2_power]
+  soc_entity: [sensor.battery_1_level, sensor.battery_2_level]
+```
+
 ### Six devices in a grid, dimmed idle flows
 
 ```yaml
@@ -172,7 +193,7 @@ Available for `solar`, `grid`, `battery`, `home` and each item of `devices`:
 
 | Option | Description |
 | --- | --- |
-| `entity` | Power entity (W, kW…). For `grid`: positive = import. For `battery`: positive = discharge. |
+| `entity` | Power entity (W, kW…), or a list of entities whose values are added up (several inverters, grid phases, batteries, or a device made of several plugs). For `grid`: positive = import. For `battery`: positive = discharge. |
 | `name`, `icon` | Label and icon. |
 | `color` | HA color name (`amber`, `blue`…) or CSS color. |
 | `invert` | Inverts the entity's sign. |
@@ -184,7 +205,7 @@ Available for `solar`, `grid`, `battery`, `home` and each item of `devices`:
 Specific options:
 
 - `grid`: `import_entity` / `export_entity` (alternative to a signed entity), `export_color`.
-- `battery`: `charge_entity` / `discharge_entity`, `soc_entity` (charge level in %), `charge_color`.
+- `battery`: `charge_entity` / `discharge_entity`, `soc_entity` (charge level in %; a list is averaged), `charge_color`.
 - `home`: `entity` is optional. Without it, consumption is computed from the sources.
 - `devices`: `exclude_from_untracked: true` for a device that is not part of the home consumption
   (separate circuit, or a sub-meter of another device already listed). Its power is not

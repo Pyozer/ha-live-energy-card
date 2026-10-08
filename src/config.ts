@@ -1,5 +1,6 @@
 import { localize } from './localize/localize';
-import type { LineStyle, LiveEnergyCardConfig } from './types';
+import type { EntityRef, LineStyle, LiveEnergyCardConfig } from './types';
+import { entityIds } from './units';
 
 export const LINE_STYLES: LineStyle[] = ['rounded', 'square', 'curved', 'straight'];
 
@@ -56,12 +57,13 @@ export function validateConfig(input: unknown): LiveEnergyCardConfig {
   // Empty rows left by the editor are ignored.
   config.devices = (config.devices ?? []).filter((d) => d && typeof d === 'object');
 
+  const has = (...refs: unknown[]) => refs.some((r) => entityIds(r as EntityRef).length > 0);
   const hasEntity =
-    !!config.solar?.entity ||
-    !!(config.grid?.entity || config.grid?.import_entity || config.grid?.export_entity) ||
-    !!(config.battery?.entity || config.battery?.charge_entity || config.battery?.discharge_entity) ||
-    !!config.home?.entity ||
-    config.devices.some((d) => !!d.entity);
+    has(config.solar?.entity) ||
+    has(config.grid?.entity, config.grid?.import_entity, config.grid?.export_entity) ||
+    has(config.battery?.entity, config.battery?.charge_entity, config.battery?.discharge_entity) ||
+    has(config.home?.entity) ||
+    config.devices.some((d) => has(d.entity));
   if (!hasEntity) throw new Error(localize(l, 'error.no_entity'));
 
   return config;
@@ -70,7 +72,7 @@ export function validateConfig(input: unknown): LiveEnergyCardConfig {
 /** All entities whose state affects rendering. */
 export function watchedEntities(config: LiveEnergyCardConfig): string[] {
   const ids = new Set<string>();
-  const add = (id: string | undefined) => id && ids.add(id);
+  const add = (ref: EntityRef | undefined) => entityIds(ref).forEach((id) => ids.add(id));
   for (const node of [config.solar, config.grid, config.battery, config.home, ...(config.devices ?? [])]) {
     if (!node) continue;
     add(node.entity);

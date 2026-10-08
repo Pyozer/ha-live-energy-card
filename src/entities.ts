@@ -1,5 +1,5 @@
-import type { HassEntity, HomeAssistant } from './types';
-import { POWER_UNITS } from './units';
+import type { EntityRef, HassEntity, HomeAssistant } from './types';
+import { entityIds, POWER_UNITS } from './units';
 
 /**
  * Entity kinds offered by the visual editor. Each field only lists entities of the matching kind,
@@ -52,15 +52,25 @@ export function entitiesOfKind(hass: Pick<HomeAssistant, 'states'> | undefined, 
 }
 
 /**
- * `ha-form` entity selector restricted to a kind. The current value stays selectable even when it
- * does not match, so an existing configuration is never silently emptied.
+ * `ha-form` entity selector restricted to a kind. The current values stay selectable even when they
+ * do not match, so an existing configuration is never silently emptied. `multiple` lets a field
+ * take several entities, whose values are added up.
  */
 export function entitySelector(
   hass: Pick<HomeAssistant, 'states'> | undefined,
   kind: EntityKind,
-  current?: string,
-): { entity: { include_entities: string[] } } {
+  current?: EntityRef,
+  multiple = false,
+): { entity: { include_entities: string[]; multiple?: boolean } } {
   const ids = entitiesOfKind(hass, kind);
-  const include = current && !ids.includes(current) ? [...ids, current] : ids;
-  return { entity: { include_entities: include } };
+  const extra = entityIds(current).filter((id) => !ids.includes(id));
+  const include = extra.length ? [...ids, ...extra] : ids;
+  return { entity: multiple ? { include_entities: include, multiple: true } : { include_entities: include } };
+}
+
+/** Single string for one entity, list for several, `undefined` for none (keeps YAML readable). */
+export function compactRef(value: unknown): EntityRef | undefined {
+  const ids = entityIds(value as EntityRef);
+  if (ids.length === 0) return undefined;
+  return ids.length === 1 ? ids[0] : ids;
 }

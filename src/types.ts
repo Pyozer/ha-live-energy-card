@@ -11,8 +11,11 @@ export interface AnimationToggles {
   glow?: boolean;
 }
 
+/** One entity, or several whose values are added up (several inverters, phases, batteries…). */
+export type EntityRef = string | string[];
+
 export interface BaseNodeConfig {
-  entity?: string;
+  entity?: EntityRef;
   name?: string;
   icon?: string;
   /** Home Assistant color name (amber, teal…) or CSS color (#ffb300, rgb(), var()). */
@@ -32,23 +35,23 @@ export type SolarConfig = BaseNodeConfig;
 
 export interface GridConfig extends BaseNodeConfig {
   /** Alternative to the signed `entity`: two separate positive entities. */
-  import_entity?: string;
-  export_entity?: string;
+  import_entity?: EntityRef;
+  export_entity?: EntityRef;
   export_color?: string;
 }
 
 export interface BatteryConfig extends BaseNodeConfig {
-  charge_entity?: string;
-  discharge_entity?: string;
-  /** State of charge in %. */
-  soc_entity?: string;
+  charge_entity?: EntityRef;
+  discharge_entity?: EntityRef;
+  /** State of charge in %. Several entities are averaged. */
+  soc_entity?: EntityRef;
   charge_color?: string;
 }
 
 export type HomeConfig = BaseNodeConfig;
 
 export interface DeviceConfig extends BaseNodeConfig {
-  entity: string;
+  entity: EntityRef;
   /**
    * The device is not part of the home consumption (separate circuit, or already measured by
    * another device): it is not subtracted when computing the "Other" node.

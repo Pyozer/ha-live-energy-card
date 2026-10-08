@@ -67,6 +67,26 @@ describe('Energy dashboard import', () => {
     expect(imported.battery).toEqual({ entity: 'sensor.bat', invert: true, soc_entity: 'sensor.soc' });
   });
 
+  it('several solar arrays and batteries are added up', () => {
+    const imported = configFromEnergyPrefs({
+      energy_sources: [
+        { type: 'solar', stat_rate: 'sensor.roof' },
+        { type: 'solar', stat_rate: 'sensor.garage' },
+        { type: 'grid', power_config: { stat_rate: 'sensor.grid' } },
+        { type: 'grid', power_config: { stat_rate: 'sensor.grid' } },
+        { type: 'battery', stat_rate: 'sensor.bat1', stat_soc: 'sensor.soc1' },
+        { type: 'battery', stat_rate: 'sensor.bat2', stat_soc: 'sensor.soc2' },
+      ],
+    });
+    expect(imported.solar).toEqual({ entity: ['sensor.roof', 'sensor.garage'] });
+    // Same sensor on two tariff entries: imported once.
+    expect(imported.grid).toEqual({ entity: 'sensor.grid' });
+    expect(imported.battery).toEqual({
+      entity: ['sensor.bat1', 'sensor.bat2'],
+      soc_entity: ['sensor.soc1', 'sensor.soc2'],
+    });
+  });
+
   it('empty dashboard: nothing imported', () => {
     expect(importedCount(configFromEnergyPrefs({}))).toBe(0);
   });
