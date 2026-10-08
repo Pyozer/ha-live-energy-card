@@ -1,0 +1,79 @@
+import { localize } from './localize/localize';
+import type { PowerFlowCardConfig } from './types';
+
+const NUMERIC_FIELDS = [
+  'min_power',
+  'max_power',
+  'threshold_w',
+  'kilo_threshold',
+  'decimals',
+  'kilo_decimals',
+] as const;
+
+function lang(): string {
+  if (typeof document !== 'undefined') {
+    const ha = document.querySelector('home-assistant') as unknown as { hass?: { language?: string } } | null;
+    if (ha?.hass?.language) return ha.hass.language;
+    if (document.documentElement.lang) return document.documentElement.lang;
+  }
+  return 'en';
+}
+
+/** Valide la configuration ; lève une erreur lisible (affichée par Home Assistant dans la carte). */
+export function validateConfig(input: unknown): PowerFlowCardConfig {
+  if (!input || typeof input !== 'object') throw new Error('Invalid configuration');
+  const config = { ...(input as PowerFlowCardConfig) };
+  const l = lang();
+
+  for (const field of NUMERIC_FIELDS) {
+    const value = config[field];
+    if (value === undefined || value === null || (value as unknown) === '') {
+      delete config[field];
+      continue;
+    }
+    const num = Number(value);
+    if (!Number.isFinite(num)) throw new Error(localize(l, 'error.invalid_power', { field }));
+    config[field] = num;
+  }
+
+  if (
+    config.min_power !== undefined &&
+    config.max_power !== undefined &&
+    config.max_power <= config.min_power
+  ) {
+    throw new Error(localize(l, 'error.invalid_range'));
+  }
+
+  if (config.devices !== undefined && !Array.isArray(config.devices)) {
+    throw new Error(localize(l, 'error.invalid_devices'));
+  }
+  // Les lignes vides laissées par l'éditeur sont ignorées.
+  config.devices = (config.devices ?? []).filter((d) => d && typeof d === 'object');
+
+  const hasEntity =
+    !!config.solar?.entity ||
+    !!(config.grid?.entity || config.grid?.import_entity || config.grid?.export_entity) ||
+    !!(config.battery?.entity || config.battery?.charge_entity || config.battery?.discharge_entity) ||
+    !!config.home?.entity ||
+    config.devices.some((d) => !!d.entity);
+  if (!hasEntity) throw new Error(localize(l, 'error.no_entity'));
+
+  return config;
+}
+
+/** Toutes les entités dont l'état influe sur le rendu. */
+export function watchedEntities(config: PowerFlowCardConfig): string[] {
+  const ids = new Set<string>();
+  const add = (id: string | undefined) => id && ids.add(id);
+  for (const node of [config.solar, config.grid, config.battery, config.home, ...(config.devices ?? [])]) {
+    if (!node) continue;
+    add(node.entity);
+    add(node.secondary_entity);
+  }
+  add(config.grid?.import_entity);
+  add(config.grid?.export_entity);
+  add(config.battery?.charge_entity);
+  add(config.battery?.discharge_entity);
+  add(config.battery?.soc_entity);
+  return [...ids];
+}
