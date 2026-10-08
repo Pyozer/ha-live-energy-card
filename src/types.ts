@@ -53,6 +53,7 @@ export interface DeviceConfig extends BaseNodeConfig {
 
 export type PowerCurve = 'linear' | 'sqrt' | 'log';
 export type InactiveFlows = 'hide' | 'dim';
+export type LineStyle = 'rounded' | 'square' | 'curved' | 'straight';
 
 export interface LiveEnergyCardConfig {
   type: string;
@@ -64,6 +65,8 @@ export interface LiveEnergyCardConfig {
   animation?: AnimationToggles;
   hide_when_zero?: boolean;
   inactive_flows?: InactiveFlows;
+  /** Shape of every flow line. */
+  line_style?: LineStyle;
   sort_devices?: boolean;
   /** Device arrangement: a column, a grid, or automatic depending on available space. */
   devices_layout?: 'auto' | 'column' | 'grid';

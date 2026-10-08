@@ -47,7 +47,7 @@ hass + config ─► model.ts ─► layout.ts ─► tree.ts ─► live-energy
 | `src/compute.ts` | Energy balance and flow allocation (solar → home → battery → grid…), ratios. |
 | `src/model.ts` | Builds displayable nodes and flows (`buildModel`), defaults (`DEFAULTS`), device sorting, "untracked" node. |
 | `src/layout.ts` | Node positions for a given width and source flow paths (right angles with rounded corners, like the bus). Device modes: `column`, `grid`, `stack` (narrow screens). |
-| `src/tree.ts` | Paths of the distribution bus feeding devices in grid / stack modes. |
+| `src/tree.ts` | Paths of the distribution bus feeding devices in grid / stack modes (and column mode with the `rounded` / `square` line styles). |
 | `src/intensity.ts` | Power → visual parameters (speed, thickness, density, glow). |
 | `src/animator.ts` | `requestAnimationFrame` loop: SVG particles, transitions, animated counters. |
 | `src/live-energy-card.ts` | Lit element: Lovelace lifecycle, rendering, width measurement, registration. |

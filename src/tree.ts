@@ -28,7 +28,7 @@ function line(a: Point, b: Point): PathGeometry {
 }
 
 /** Vertical then horizontal segment, with a rounded corner. */
-function corner(a: Point, b: Point, radius = 9): PathGeometry {
+function corner(a: Point, b: Point, radius: number): PathGeometry {
   const dy = b.y - a.y;
   const r = Math.max(0, Math.min(radius, Math.abs(dy), b.x - a.x));
   const sy = Math.sign(dy) || 1;
@@ -41,12 +41,16 @@ function corner(a: Point, b: Point, radius = 9): PathGeometry {
 const INSET = 2;
 const RADIUS = 9;
 
-/** End of a leftward horizontal segment, turning down with a rounded corner. */
-const turnDown = (x: number, y: number): string =>
-  `L${f(x + RADIUS)},${f(y)} Q${f(x)},${f(y)} ${f(x)},${f(y + RADIUS)}`;
-
-export function buildDeviceTree(arr: DevicesArrangement): TreeEdge[] {
+/**
+ * `radius` is the corner toward each device (0 = square, large = quarter curve). Bus turns use at
+ * most the default radius, as the space around the home is tight.
+ */
+export function buildDeviceTree(arr: DevicesArrangement, radius = RADIUS): TreeEdge[] {
   const edges: TreeEdge[] = [];
+  const turn = Math.min(radius, RADIUS);
+  /** End of a leftward horizontal segment, turning down with a rounded corner. */
+  const turnDown = (x: number, y: number): string =>
+    `L${f(x + turn)},${f(y)} Q${f(x)},${f(y)} ${f(x)},${f(y + turn)}`;
   const cols = arr.columns;
   const busX = (rects: Record<string, Rect>, c: number): number | null => {
     const r = rects[cols[c][0]];
@@ -65,7 +69,7 @@ export function buildDeviceTree(arr: DevicesArrangement): TreeEdge[] {
   // starts after the turn.
   const branchStart = (rects: Record<string, Rect>, c: number): number | null => {
     const y = busY(rects);
-    return y !== null && stacked && c === 0 ? y + RADIUS : y;
+    return y !== null && stacked && c === 0 ? y + turn : y;
   };
 
   if (stacked) {
@@ -81,7 +85,7 @@ export function buildDeviceTree(arr: DevicesArrangement): TreeEdge[] {
         if (!home || y1 === null || x1 === null) return null;
         const x0 = home.x + home.w / 2 - 3;
         const xt = x0 + 15;
-        const r = RADIUS;
+        const r = turn;
         // With a single column, the trunk joins its branch directly.
         const end = lastCol === 0 ? turnDown(x1, y1) : `L${f(x1)},${f(y1)}`;
         const d =
@@ -102,7 +106,7 @@ export function buildDeviceTree(arr: DevicesArrangement): TreeEdge[] {
           if (y === null || x0 === null || x1 === null) return null;
           if (c > 0) return line({ x: x0, y }, { x: x1, y });
           const d = `M${f(x0)},${f(y)} ${turnDown(x1, y)}`;
-          return { d, from: { x: x0, y }, to: { x: x1, y: y + RADIUS } };
+          return { d, from: { x: x0, y }, to: { x: x1, y: y + turn } };
         },
       });
     }
@@ -165,7 +169,7 @@ export function buildDeviceTree(arr: DevicesArrangement): TreeEdge[] {
             if (!last) return line({ x, y: tile.y }, end);
             const y0 = yAt(rects, k - 1);
             if (y0 === null) return null;
-            return corner({ x, y: y0 }, end);
+            return corner({ x, y: y0 }, end, radius);
           },
         });
       });

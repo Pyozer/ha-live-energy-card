@@ -20,6 +20,8 @@ colors reserved for icons and flows. Each flow's animation follows its power.
 - **Devices in a column or a grid**: with many devices, the card switches to a grid fed by a bus.
   Each bus segment carries the sum of the devices downstream. On narrow screens, devices move
   below the diagram.
+- **Line styles**: rounded corners, square corners, curves or direct lines, applied to every line
+  of the card.
 - **Home ring**: share of solar, battery and grid in the consumption.
 - **Battery ring**: state of charge.
 - Automatic unit conversion (W, kW, MW), animated counters, tabular figures.
@@ -136,6 +138,7 @@ devices:
 | `power_curve` | `sqrt` | `linear`, `sqrt` or `log`. `sqrt` and `log` make low power easier to read. |
 | `threshold_w` | `5` | Below this threshold, a value is treated as zero. |
 | `hide_when_zero` | `true` | Hides nodes at zero (solar, battery, devices). Grid and home stay visible unless set explicitly. |
+| `line_style` | `rounded` | Shape of every flow line: `rounded` (right angles with rounded corners), `square` (sharp right angles), `curved` (soft curves) or `straight` (direct lines). |
 | `inactive_flows` | `hide` | `hide`: zero flows are invisible. `dim`: dimmed grey path. |
 | `animation` | see below | Intensity effects: `speed`, `thickness`, `density` (on), `glow` (off: soft light around particles, stronger as power increases). |
 | `devices_layout` | `auto` | `auto`, `column` or `grid`. |

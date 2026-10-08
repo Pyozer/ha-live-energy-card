@@ -1,5 +1,6 @@
 import { flowVisual, type FlowVisual } from './intensity';
 import { deviceFlowPath, sourceFlowPath, type Layout, type Rect } from './layout';
+import type { LineStyle } from './types';
 import type { FlowModel } from './model';
 
 /**
@@ -63,6 +64,7 @@ export class FlowAnimator {
   private last = 0;
   private visible = true;
   private reducedMotion = false;
+  private lineStyle: LineStyle = 'rounded';
   private motionQuery?: MediaQueryList;
   private format: ValueFormatter = (w) => ({ value: String(Math.round(w)), unit: 'W' });
 
@@ -127,7 +129,9 @@ export class FlowAnimator {
     nodeVisibility: Map<string, boolean>,
     flows: FlowModel[],
     values: Map<string, number | null>,
+    lineStyle: LineStyle = 'rounded',
   ): void {
+    this.lineStyle = lineStyle;
     this.scale = layout.size / 80;
     this.height.target = layout.height;
     if (this.height.current === 0) this.height.current = layout.height;
@@ -321,8 +325,8 @@ export class FlowAnimator {
         const geom = m.geometry
           ? m.geometry(rects)
           : m.source
-            ? sourceFlowPath(m.source, rects)
-            : deviceFlowPath(from, to);
+            ? sourceFlowPath(m.source, rects, this.lineStyle)
+            : deviceFlowPath(from, to, this.lineStyle);
         if (geom) {
           for (const p of [els.track, els.halo, els.dots]) p.setAttribute('d', geom.d);
           els.gradient.setAttribute('x1', String(r1(geom.from.x)));

@@ -8,7 +8,14 @@ import {
   type Ratios,
 } from './compute';
 import { normalizePower, resolveToggles } from './intensity';
-import type { Layout, PathGeometry, Rect, SourceFlowId } from './layout';
+import {
+  busCornerRadius,
+  usesBus,
+  type Layout,
+  type PathGeometry,
+  type Rect,
+  type SourceFlowId,
+} from './layout';
 import { buildDeviceTree } from './tree';
 import { localize, resolveLanguage } from './localize/localize';
 import type {
@@ -89,6 +96,7 @@ export const DEFAULTS = {
   power_curve: 'sqrt' as const,
   hide_when_zero: true,
   inactive_flows: 'hide' as const,
+  line_style: 'rounded' as const,
   sort_devices: false,
   devices_layout: 'auto' as const,
   language: 'auto',
@@ -519,7 +527,9 @@ export function buildModel(
  * the sum of the devices downstream.
  */
 export function applyDeviceTree(model: CardModel, layout: Layout, config: LiveEnergyCardConfig): FlowModel[] {
-  if (layout.devices.mode === 'column') return model.flows;
+  const style = config.line_style ?? DEFAULTS.line_style;
+  // In column mode, only right-angle styles use the bus; the others draw one line per device.
+  if (layout.devices.mode === 'column' && !usesBus(style)) return model.flows;
   const min = config.min_power ?? DEFAULTS.min_power;
   const max = config.max_power ?? DEFAULTS.max_power;
   const curve = config.power_curve ?? DEFAULTS.power_curve;
@@ -531,7 +541,7 @@ export function applyDeviceTree(model: CardModel, layout: Layout, config: LiveEn
 
   const flows = model.flows.filter((f) => f.source !== null);
   const used = new Set<string>();
-  for (const edge of buildDeviceTree(layout.devices)) {
+  for (const edge of buildDeviceTree(layout.devices, busCornerRadius(style))) {
     if (edge.leaf) {
       const leaf = byId.get(edge.id);
       if (!leaf) continue;

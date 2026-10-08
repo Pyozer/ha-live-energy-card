@@ -189,6 +189,18 @@ export class LiveEnergyCardEditor extends LitElement {
             },
           },
           {
+            name: 'line_style',
+            selector: {
+              select: {
+                mode: 'dropdown',
+                options: (['rounded', 'square', 'curved', 'straight'] as const).map((v) => ({
+                  value: v,
+                  label: this._t(`editor.option.${v}`),
+                })),
+              },
+            },
+          },
+          {
             name: 'inactive_flows',
             selector: {
               select: {

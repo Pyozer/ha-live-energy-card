@@ -1,3 +1,5 @@
+import type { LineStyle } from './types';
+
 /**
  * Node placement (in px) and flow paths.
  *
@@ -204,6 +206,8 @@ export function computeLayout(input: LayoutInput): Layout {
       ids.forEach((id, i) => {
         nodes[id] = { x, y: top + pillH / 2 + i * (pillH + pillGap), w: pillW, h: pillH };
       });
+      // Devices above the home, for the bus when the line style uses one.
+      above.push(ids.filter((id) => nodes[id].y < yMid - 0.5).length);
     }
   });
 
@@ -378,25 +382,47 @@ export function elbowBetween(
 /** Corner radius of the source flows, proportional to the node size. */
 export const sourceCornerRadius = (size: number): number => clamp(size * 0.3, 12, 26);
 
-export function sourceFlowPath(id: SourceFlowId, nodes: Record<string, Rect>): PathGeometry | null {
+export function sourceFlowPath(
+  id: SourceFlowId,
+  nodes: Record<string, Rect>,
+  style: LineStyle = 'rounded',
+): PathGeometry | null {
   const [a, aAngle, b, bAngle] = SOURCE_FLOWS[id];
   const ra = nodes[a];
   const rb = nodes[b];
   if (!ra || !rb) return null;
-  return elbowBetween(
-    edgePoint(ra, aAngle, 'circle'),
-    aAngle,
-    edgePoint(rb, bAngle, 'circle'),
-    bAngle,
-    sourceCornerRadius(ra.w),
-  );
+  if (style === 'straight') {
+    // Center to center, starting and ending on the circles' edges.
+    const angle = (Math.atan2(rb.y - ra.y, rb.x - ra.x) * 180) / Math.PI;
+    const from = edgePoint(ra, angle, 'circle');
+    const to = edgePoint(rb, angle + 180, 'circle');
+    return { d: `M${f(from.x)},${f(from.y)} L${f(to.x)},${f(to.y)}`, from, to };
+  }
+  const from = edgePoint(ra, aAngle, 'circle');
+  const to = edgePoint(rb, bAngle, 'circle');
+  if (style === 'curved') return curveBetween(from, aAngle, to, bAngle);
+  return elbowBetween(from, aAngle, to, bAngle, style === 'square' ? 0 : sourceCornerRadius(ra.w));
 }
 
-/** Home → device flow: starts on the home circle, pointing toward the device. */
-export function deviceFlowPath(home: Rect, device: Rect): PathGeometry {
+/**
+ * Home → device flow in column mode, when the style does not use the distribution bus: a soft curve
+ * (`curved`) or a direct line (`straight`). Starts on the home circle, pointing toward the device.
+ */
+export function deviceFlowPath(home: Rect, device: Rect, style: LineStyle = 'curved'): PathGeometry {
   const to = edgePoint(device, 180, 'pill');
   const raw = (Math.atan2(to.y - home.y, to.x - home.x) * 180) / Math.PI;
   const angle = clamp(raw, -58, 58);
   const from = edgePoint(home, angle, 'circle');
+  if (style === 'straight') return { d: `M${f(from.x)},${f(from.y)} L${f(to.x)},${f(to.y)}`, from, to };
   return curveBetween(from, angle, to, 180, 0.5);
+}
+
+/** Styles that feed column devices through the distribution bus (right angles). */
+export const usesBus = (style: LineStyle): boolean => style === 'rounded' || style === 'square';
+
+/** Radius of the bus corners toward each device. */
+export function busCornerRadius(style: LineStyle): number {
+  if (style === 'rounded') return 9;
+  if (style === 'curved') return 40;
+  return 0;
 }

@@ -404,7 +404,13 @@ export class LiveEnergyCard extends LitElement {
     this._animator.setFormatter(this._format);
     const visibility = new Map(this._model.nodes.map((n) => [n.id, n.visible]));
     const values = new Map(this._model.nodes.map((n) => [n.id, n.watts]));
-    this._animator.update(this._layout, visibility, this._model.flows, values);
+    this._animator.update(
+      this._layout,
+      visibility,
+      this._model.flows,
+      values,
+      this._config?.line_style ?? DEFAULTS.line_style,
+    );
     this._animator.bind(this.renderRoot as ShadowRoot);
   }
 }

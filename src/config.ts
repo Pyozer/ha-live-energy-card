@@ -1,5 +1,7 @@
 import { localize } from './localize/localize';
-import type { LiveEnergyCardConfig } from './types';
+import type { LineStyle, LiveEnergyCardConfig } from './types';
+
+export const LINE_STYLES: LineStyle[] = ['rounded', 'square', 'curved', 'straight'];
 
 const NUMERIC_FIELDS = [
   'min_power',
@@ -44,6 +46,9 @@ export function validateConfig(input: unknown): LiveEnergyCardConfig {
   ) {
     throw new Error(localize(l, 'error.invalid_range'));
   }
+
+  // An unknown line style falls back to the default instead of breaking the card.
+  if (config.line_style !== undefined && !LINE_STYLES.includes(config.line_style)) delete config.line_style;
 
   if (config.devices !== undefined && !Array.isArray(config.devices)) {
     throw new Error(localize(l, 'error.invalid_devices'));

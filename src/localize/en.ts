@@ -62,6 +62,7 @@ export const en = {
       max_power: 'Maximum power (W)',
       threshold_w: 'Zero threshold (W)',
       power_curve: 'Intensity curve',
+      line_style: 'Line style',
       inactive_flows: 'Inactive flows',
       devices_layout: 'Devices layout',
       devices_columns: 'Grid columns (empty = automatic)',
@@ -89,6 +90,10 @@ export const en = {
       log: 'Logarithmic (small values stand out)',
       hide: 'Hidden',
       dim: 'Dimmed',
+      rounded: 'Rounded corners',
+      square: 'Square corners',
+      curved: 'Curves',
+      straight: 'Straight lines',
     },
   },
 };

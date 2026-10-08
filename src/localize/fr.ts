@@ -66,6 +66,7 @@ export const fr: DeepStrings<typeof en> = {
       max_power: 'Puissance maximale (W)',
       threshold_w: 'Seuil de zéro (W)',
       power_curve: "Courbe d'intensité",
+      line_style: 'Style des lignes',
       inactive_flows: 'Flux inactifs',
       devices_layout: 'Disposition des appareils',
       devices_columns: 'Colonnes de la grille (vide = automatique)',
@@ -93,6 +94,10 @@ export const fr: DeepStrings<typeof en> = {
       log: 'Logarithmique (petites valeurs visibles)',
       hide: 'Masqués',
       dim: 'Estompés',
+      rounded: 'Angles arrondis',
+      square: 'Angles droits',
+      curved: 'Courbes',
+      straight: 'Lignes directes',
     },
   },
 };

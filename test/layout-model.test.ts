@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { computeLayout, elbowBetween, sourceFlowPath, type Layout, type Rect } from '../src/layout';
+import {
+  computeLayout,
+  deviceFlowPath,
+  elbowBetween,
+  sourceFlowPath,
+  type Layout,
+  type Rect,
+} from '../src/layout';
 import { applyDeviceTree, buildModel, cleanName, sortWithHysteresis, UNTRACKED_ID } from '../src/model';
 import { buildDeviceTree } from '../src/tree';
 import { validateConfig } from '../src/config';
@@ -152,6 +159,65 @@ describe('source flow paths', () => {
   it('the corner radius never exceeds the segments', () => {
     const geom = elbowBetween({ x: 0, y: 0 }, 0, { x: 5, y: 40 }, -90, 20);
     expect(geom.d).toBe('M0,0 L0,0 Q5,0 5,5 L5,40');
+  });
+});
+
+describe('line styles', () => {
+  const layout = computeLayout({ width: 900, solar: true, grid: true, battery: true, devices: devices(3) });
+  const solarHome = (style: Parameters<typeof sourceFlowPath>[2]) =>
+    sourceFlowPath('solar_home', layout.nodes, style)!.d;
+
+  it('each style draws the source flows with its own shape', () => {
+    expect(solarHome('rounded')).toMatch(/ Q/);
+    expect(solarHome('curved')).toMatch(/ C/);
+    expect(solarHome('straight')).toMatch(/^M[\d.,]+ L[\d.,]+$/);
+    // Square: the corner is degenerate (zero radius).
+    const square = solarHome('square').match(/Q([\d.]+),([\d.]+) ([\d.]+),([\d.]+)/)!;
+    expect(square[1]).toBe(square[3]);
+    expect(square[2]).toBe(square[4]);
+  });
+
+  it('straight lines start on the circle edge, toward the other node', () => {
+    const { solar, home } = layout.nodes;
+    const geom = sourceFlowPath('solar_home', layout.nodes, 'straight')!;
+    expect(Math.hypot(geom.from.x - solar.x, geom.from.y - solar.y)).toBeCloseTo(solar.w / 2 - 3);
+    expect(Math.hypot(geom.to.x - home.x, geom.to.y - home.y)).toBeCloseTo(home.w / 2 - 3);
+  });
+
+  it('column devices: curves or direct lines without a bus', () => {
+    const { home } = layout.nodes;
+    const tile = layout.nodes['device:0'];
+    expect(deviceFlowPath(home, tile, 'curved').d).toContain('C');
+    expect(deviceFlowPath(home, tile, 'straight').d).not.toMatch(/[QC]/);
+  });
+
+  it('column devices: right-angle styles go through the bus', () => {
+    const cfg = (line_style: LiveEnergyCardConfig['line_style']): LiveEnergyCardConfig => ({
+      type: 'custom:live-energy-card',
+      devices_layout: 'column',
+      line_style,
+      devices: [0, 1, 2].map((i) => ({ entity: `sensor.d${i}` })),
+    });
+    const hass = hassWith([0, 1, 2].map((i) => state(`sensor.d${i}`, 100)));
+    for (const [style, bus] of [
+      ['rounded', true],
+      ['square', true],
+      ['curved', false],
+      ['straight', false],
+    ] as const) {
+      const model = buildModel(cfg(style), hass);
+      const ids = applyDeviceTree(model, layout, cfg(style)).map((f) => f.id);
+      expect(
+        ids.some((id) => id.startsWith('tree:')),
+        style,
+      ).toBe(bus);
+    }
+    expect(layout.devices.above).toEqual([1]);
+  });
+
+  it('an unknown style falls back to the default', () => {
+    const config = validateConfig({ type: 'x', line_style: 'zigzag', grid: { entity: 'sensor.g' } });
+    expect(config.line_style).toBeUndefined();
   });
 });
 

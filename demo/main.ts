@@ -405,6 +405,22 @@ langInput.addEventListener('change', () =>
 );
 display.appendChild(languageSelect);
 
+const lineSelect = document.createElement('label');
+lineSelect.className = 'chip';
+lineSelect.innerHTML = `Lines <select>
+  <option value="rounded">rounded</option><option value="square">square</option>
+  <option value="curved">curved</option><option value="straight">straight</option>
+</select>`;
+const lineInput = lineSelect.querySelector('select')!;
+lineInput.value = config.line_style ?? 'rounded';
+lineInput.addEventListener('change', () =>
+  withConfig((c) => {
+    if (lineInput.value === 'rounded') delete c.line_style;
+    else c.line_style = lineInput.value as LiveEnergyCardConfig['line_style'];
+  }),
+);
+display.appendChild(lineSelect);
+
 const widthInput = $<HTMLInputElement>('width');
 widthInput.value = String(state.width);
 const setWidth = () => {
