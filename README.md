@@ -30,7 +30,8 @@ colors reserved for icons and flows. Each flow's animation follows its power.
 - Automatic unit conversion (W, kW, MW), animated counters, tabular figures.
 - `unavailable` / `unknown` entities are reported cleanly: never `NaN`.
 - `tap_action`, `hold_action`, `double_tap_action` on every node (more-info by default).
-- Automatic light and dark themes, `prefers-reduced-motion` support, animation paused off-screen.
+- Automatic light and dark themes, `prefers-reduced-motion` support, animation paused off-screen,
+  **eco mode** for low-power devices.
 - **Import from the Energy dashboard**: solar, grid, battery and devices in one click.
 - Full visual editor whose entity pickers only offer matching entities (power sensors for flows,
   percentages for the charge level), English and French translations (following the Home Assistant user's
@@ -203,6 +204,7 @@ devices:
 | `line_style` | `rounded` | Shape of every flow line: `rounded` (right angles with rounded corners), `square` (sharp right angles), `curved` (soft curves) or `straight` (direct lines). |
 | `inactive_flows` | `hide` | `hide`: zero flows are invisible. `dim`: dimmed grey path. |
 | `animation` | see below | Intensity effects: `speed`, `thickness`, `density` (on), `glow` (off: soft light around particles, stronger as power increases). |
+| `eco_mode` | `false` | Lighter animation for wall tablets and low-power devices: 30 frames per second instead of the display rate, and no glow (its blur is the most expensive effect). Roughly halves the rendering work. |
 | `devices_layout` | `auto` | `auto`, `column` or `grid`. |
 | `devices_columns` | auto | Number of columns in grid mode. |
 | `sort_devices` | `false` | Sorts devices by power (with hysteresis so the list does not keep moving). |

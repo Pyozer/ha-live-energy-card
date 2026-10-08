@@ -67,6 +67,9 @@ Design rules:
   what makes them testable. Keep `live-energy-card.ts` and `animator.ts` thin.
 - **Animation bypasses Lit.** `animator.ts` writes SVG attributes and counters directly every frame.
   Lit only re-renders when the model changes (`shouldUpdate` reacts to watched entities only).
+- **Cheap frames.** Most frames only move particles: the animator then writes just
+  `stroke-dashoffset`. The other attributes are written when the flow's look changes. The glow
+  path is `display="none"` unless visible, so its blur filter costs nothing when off.
 - **Lit without decorators**: `static properties` + `declare` fields, with
   `useDefineForClassFields: false`. Do not initialize these fields at declaration.
 - **A hidden node has no layout position.** Any element attached to a node (caption, ring, badge)

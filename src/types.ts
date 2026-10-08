@@ -95,6 +95,8 @@ export interface LiveEnergyCardConfig {
   inactive_flows?: InactiveFlows;
   /** Shape of every flow line. */
   line_style?: LineStyle;
+  /** Lighter animation for low-power devices: 30 frames per second, no glow. */
+  eco_mode?: boolean;
   sort_devices?: boolean;
   /** Device arrangement: a column, a grid, or automatic depending on available space. */
   devices_layout?: 'auto' | 'column' | 'grid';

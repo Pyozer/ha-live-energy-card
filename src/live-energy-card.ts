@@ -1,7 +1,7 @@
 import { LitElement, html, nothing, svg, type PropertyValues, type TemplateResult } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 import { actionHandlers, isInteractive } from './actions';
-import { FlowAnimator } from './animator';
+import { ECO_FPS, FlowAnimator } from './animator';
 import { DEFAULT_COLORS } from './colors';
 import { formatCarbonRate, formatMoneyRate } from './cost';
 import { configFromEnergyPrefs, fetchEnergyPrefs, guessConfig, importedCount } from './energy';
@@ -210,7 +210,7 @@ export class LiveEnergyCard extends LitElement {
                   return svg`
                     <g class="flow" data-flow=${f.id} style="opacity: 0">
                       <path class="track" stroke=${idle ? 'var(--lec-idle-line)' : stroke}></path>
-                      <path class="halo" stroke=${stroke} filter="url(#${this._uid}-glow)"></path>
+                      <path class="halo" display="none" stroke=${stroke} filter="url(#${this._uid}-glow)"></path>
                       <path class="dots" stroke=${stroke}></path>
                     </g>`;
                 },
@@ -471,6 +471,7 @@ export class LiveEnergyCard extends LitElement {
     this.toggleAttribute('dark', !!this.hass?.themes?.darkMode);
     if (!this._model || !this._layout) return;
     this._animator.setFormatter(this._format);
+    this._animator.setMaxFps(this._config?.eco_mode ? ECO_FPS : 0);
     const visibility = new Map(this._model.nodes.map((n) => [n.id, n.visible]));
     const values = new Map(this._model.nodes.map((n) => [n.id, n.watts]));
     this._animator.update(

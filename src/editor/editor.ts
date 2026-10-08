@@ -266,6 +266,7 @@ export class LiveEnergyCardEditor extends LitElement {
               { name: 'sort_devices', selector: { boolean: {} } },
               { name: 'show_untracked', selector: { boolean: {} } },
               { name: 'show_ratios', selector: { boolean: {} } },
+              { name: 'eco_mode', selector: { boolean: {} } },
             ],
           },
         ],

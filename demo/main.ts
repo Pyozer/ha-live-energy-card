@@ -409,6 +409,11 @@ toggle(
   (v) => withConfig((c) => (c.show_ratios = v)),
 );
 toggle(
+  'Eco mode',
+  () => !!config.eco_mode,
+  (v) => withConfig((c) => (v ? (c.eco_mode = true) : delete c.eco_mode)),
+);
+toggle(
   'Cost & CO₂',
   () => !!config.cost,
   (v) =>

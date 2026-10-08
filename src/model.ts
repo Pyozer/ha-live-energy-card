@@ -114,6 +114,7 @@ export const DEFAULTS = {
   language: 'auto',
   show_untracked: false,
   show_ratios: false,
+  eco_mode: false,
   kilo_threshold: 1000,
   decimals: 0,
   kilo_decimals: 1,
@@ -171,6 +172,15 @@ function batteryIcon(soc: number | null | undefined, charging: boolean): string 
   if (level >= 100) return 'mdi:battery';
   if (level <= 0) return 'mdi:battery-outline';
   return `mdi:battery-${level}`;
+}
+
+/** Effects of a flow. Eco mode turns the glow off: its blur is the most expensive effect to draw. */
+export function flowToggles(
+  config: LiveEnergyCardConfig,
+  node?: AnimationToggles,
+): Required<AnimationToggles> {
+  const toggles = resolveToggles(config.animation, node);
+  return config.eco_mode ? { ...toggles, glow: false } : toggles;
 }
 
 /**
@@ -541,7 +551,7 @@ export function buildModel(
       idle,
       colorFrom,
       colorTo,
-      toggles: resolveToggles(config.animation, nodeCfg[from]?.animation),
+      toggles: flowToggles(config, nodeCfg[from]?.animation),
       source: id,
     });
   };
@@ -568,7 +578,7 @@ export function buildModel(
       idle: dimIdle && !active && dev.visible,
       colorFrom: homeColor,
       colorTo: dev.color,
-      toggles: resolveToggles(config.animation, deviceCfg.get(dev.id)?.animation),
+      toggles: flowToggles(config, deviceCfg.get(dev.id)?.animation),
       source: null,
     });
   }
@@ -623,7 +633,7 @@ export function applyDeviceTree(model: CardModel, layout: Layout, config: LiveEn
       idle: dimIdle && !active,
       colorFrom: home.color,
       colorTo: home.color,
-      toggles: resolveToggles(config.animation),
+      toggles: flowToggles(config),
       source: null,
       geometry: edge.geometry,
     });

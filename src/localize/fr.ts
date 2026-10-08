@@ -79,6 +79,7 @@ export const fr: DeepStrings<typeof en> = {
       export_price_entity: 'Entité du prix de revente',
       currency: 'Devise (ex. EUR, vide = automatique)',
       intensity_entity: 'Intensité carbone du réseau (gCO2eq/kWh)',
+      eco_mode: 'Mode éco (30 i/s, sans halo) pour les appareils peu puissants',
       hide_when_zero: 'Masquer à zéro',
       secondary_entity: 'Entité secondaire (ex. énergie du jour)',
       import_entity: 'Entité de soutirage (alternative)',

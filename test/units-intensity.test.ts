@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { ECO_FPS, frameDue } from '../src/animator';
+import { flowToggles } from '../src/model';
 import { DEFAULT_TOGGLES, flowVisual, normalizePower, resolveToggles } from '../src/intensity';
 import { formatPower, readPower, unitFactor } from '../src/units';
 import type { HassEntity } from '../src/types';
@@ -70,5 +72,22 @@ describe('intensity', () => {
   it('per-node override', () => {
     expect(resolveToggles({ density: false }, { density: true }).density).toBe(true);
     expect(resolveToggles(undefined, { glow: true }).glow).toBe(true);
+  });
+});
+
+describe('eco mode', () => {
+  it('frameDue caps the frame rate', () => {
+    expect(frameDue(1000, 0, ECO_FPS)).toBe(true);
+    expect(frameDue(1016.7, 1000, ECO_FPS)).toBe(false);
+    expect(frameDue(1033.3, 1000, ECO_FPS)).toBe(true);
+    // No cap: every frame is drawn.
+    expect(frameDue(1016.7, 1000, 0)).toBe(true);
+  });
+
+  it('turns the glow off', () => {
+    const config = { type: 'x', animation: { glow: true } };
+    expect(flowToggles(config).glow).toBe(true);
+    expect(flowToggles({ ...config, eco_mode: true }).glow).toBe(false);
+    expect(flowToggles({ ...config, eco_mode: true }).speed).toBe(true);
   });
 });

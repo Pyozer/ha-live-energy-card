@@ -27,6 +27,8 @@ interface FlowState {
   dotAlpha: number;
   geometryKey: string;
   applied: string;
+  /** Last particle offset written, so a frame where only particles move writes just that. */
+  appliedPos: string;
 }
 
 interface NodeState {
@@ -51,6 +53,18 @@ const exp = (dt: number, tau: number): number => 1 - Math.exp(-dt / tau);
 const near = (a: number, b: number, eps: number): boolean => Math.abs(a - b) < eps;
 const r1 = (v: number): number => Math.round(v * 10) / 10;
 
+/** Frame rate of the eco mode. */
+export const ECO_FPS = 30;
+
+/**
+ * Whether a frame must be drawn at `now`, given the last drawn frame and a frame rate cap
+ * (0 = none). A small tolerance keeps a steady cadence despite display timing jitter.
+ */
+export function frameDue(now: number, last: number, maxFps: number): boolean {
+  if (!maxFps || !last) return true;
+  return now - last >= 1000 / maxFps - 2;
+}
+
 export class FlowAnimator {
   private nodes = new Map<string, NodeState>();
   private flows = new Map<string, FlowState>();
@@ -65,6 +79,7 @@ export class FlowAnimator {
   private visible = true;
   private reducedMotion = false;
   private lineStyle: LineStyle = 'rounded';
+  private maxFps = 0;
   private motionQuery?: MediaQueryList;
   private format: ValueFormatter = (w) => ({ value: String(Math.round(w)), unit: 'W' });
 
@@ -110,6 +125,7 @@ export class FlowAnimator {
         if (changed) {
           state.geometryKey = '';
           state.applied = '';
+          state.appliedPos = '';
         }
       } else {
         state.els = undefined;
@@ -167,6 +183,7 @@ export class FlowAnimator {
           dotAlpha: 0,
           geometryKey: '',
           applied: '',
+          appliedPos: '',
         };
         this.flows.set(model.id, state);
       }
@@ -213,8 +230,18 @@ export class FlowAnimator {
     this.raf = 0;
   }
 
+  /** Caps the frame rate (0 = display rate). */
+  setMaxFps(fps: number): void {
+    this.maxFps = fps;
+  }
+
   private frame = (now: number): void => {
     this.raf = 0;
+    // Skipped frame: nothing is computed or written, the next one is simply requested.
+    if (!frameDue(now, this.last, this.maxFps)) {
+      if (this.visible) this.raf = requestAnimationFrame(this.frame);
+      return;
+    }
     const dt = this.last ? Math.min(0.05, (now - this.last) / 1000) : 0;
     const first = this.last === 0;
     this.last = now;
@@ -339,34 +366,44 @@ export class FlowAnimator {
 
       const gap = Math.max(4, v.gap);
       const pos = f.offset % gap;
-      const dotOffset = -pos;
-      const state = [
+      const offset = (-pos).toFixed(2);
+      const glowing = v.glow > 0 && f.dotAlpha > 0.001;
+      const shape = [
         f.trackAlpha.toFixed(3),
         f.dotAlpha.toFixed(3),
         v.width.toFixed(2),
         v.dot.toFixed(2),
         gap.toFixed(2),
         v.glow.toFixed(3),
-        pos.toFixed(2),
       ].join('|');
-      if (state === f.applied) continue;
-      f.applied = state;
 
-      els.group.style.opacity = f.trackAlpha > 0.001 || f.dotAlpha > 0.001 ? '1' : '0';
-      els.track.setAttribute('stroke-width', v.width.toFixed(2));
-      els.track.style.opacity = (f.trackAlpha * (m.active ? 0.34 : 0.5)).toFixed(3);
+      if (shape !== f.applied) {
+        f.applied = shape;
+        f.appliedPos = '';
+        els.group.style.opacity = f.trackAlpha > 0.001 || f.dotAlpha > 0.001 ? '1' : '0';
+        els.track.setAttribute('stroke-width', v.width.toFixed(2));
+        els.track.style.opacity = (f.trackAlpha * (m.active ? 0.34 : 0.5)).toFixed(3);
 
-      const dash = `0 ${gap.toFixed(2)}`;
-      els.dots.setAttribute('stroke-width', v.dot.toFixed(2));
-      els.dots.setAttribute('stroke-dasharray', dash);
-      els.dots.setAttribute('stroke-dashoffset', dotOffset.toFixed(2));
-      els.dots.style.opacity = f.dotAlpha.toFixed(3);
+        const dash = `0 ${gap.toFixed(2)}`;
+        els.dots.setAttribute('stroke-width', v.dot.toFixed(2));
+        els.dots.setAttribute('stroke-dasharray', dash);
+        els.dots.style.opacity = f.dotAlpha.toFixed(3);
 
-      // Optional glow: blurred light around particles, stronger as power increases.
-      els.halo.setAttribute('stroke-width', (v.dot * 2).toFixed(2));
-      els.halo.setAttribute('stroke-dasharray', dash);
-      els.halo.setAttribute('stroke-dashoffset', dotOffset.toFixed(2));
-      els.halo.style.opacity = (f.dotAlpha * v.glow * 0.4).toFixed(3);
+        // Optional glow: blurred light around particles, stronger as power increases.
+        els.halo.setAttribute('stroke-width', (v.dot * 2).toFixed(2));
+        els.halo.setAttribute('stroke-dasharray', dash);
+        els.halo.style.opacity = glowing ? (f.dotAlpha * v.glow * 0.4).toFixed(3) : '0';
+        // The blur filter is the most expensive part of a frame: only attached while visible.
+        if (glowing) els.halo.removeAttribute('display');
+        else els.halo.setAttribute('display', 'none');
+      }
+
+      // Most frames only move the particles.
+      if (offset !== f.appliedPos) {
+        f.appliedPos = offset;
+        els.dots.setAttribute('stroke-dashoffset', offset);
+        if (glowing) els.halo.setAttribute('stroke-dashoffset', offset);
+      }
     }
 
     // Displayed values (animated counter).
