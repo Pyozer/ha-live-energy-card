@@ -1,0 +1,33 @@
+{
+  "name": "powerflow-card",
+  "version": "0.1.5",
+  "description": "Carte Lovelace moderne et animée des flux d'énergie pour Home Assistant",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "watch": "vite build --watch --mode development",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src demo test",
+    "format": "prettier --write src demo test",
+    "format:check": "prettier --check src demo test",
+    "check": "npm run lint && npm run format:check && npm test && npm run build"
+  },
+  "dependencies": {
+    "@mdi/js": "^7.4.47",
+    "lit": "^3.3.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.4",
+    "eslint": "^10.12.0",
+    "prettier": "^3.9.9",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.1",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.3",
+    "yaml": "^2.9.1"
+  }
+}
