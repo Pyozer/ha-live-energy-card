@@ -1,7 +1,7 @@
 {
   "name": "powerflow-card",
   "version": "0.1.5",
-  "description": "Carte Lovelace moderne et animée des flux d'énergie pour Home Assistant",
+  "description": "Modern animated energy flow card for Home Assistant",
   "type": "module",
   "license": "MIT",
   "scripts": {

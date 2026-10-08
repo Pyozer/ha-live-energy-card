@@ -1,12 +1,12 @@
 import { css } from 'lit';
 
 /**
- * Langage visuel inspiré des apps iOS : surfaces remplies sans bordure, couleurs système
- * réservées aux icônes et aux flux, hiérarchie typographique nette.
+ * Visual language inspired by iOS apps: borderless filled surfaces, system colors
+ * reserved for icons and flows, clear typographic hierarchy.
  */
 export const cardStyles = css`
   :host {
-    /* Couleurs système iOS (clair). */
+    /* iOS system colors (light). */
     --pf-solar: #ff9500;
     --pf-grid: #007aff;
     --pf-export: #5856d6;
@@ -75,7 +75,7 @@ export const cardStyles = css`
     stroke-linejoin: round;
   }
 
-  /* ---------- Nœuds ---------- */
+  /* ---------- Nodes ---------- */
 
   .node {
     position: absolute;
@@ -149,7 +149,7 @@ export const cardStyles = css`
     letter-spacing: 0;
   }
 
-  /* Cercles : sources et maison */
+  /* Circles: sources and home */
 
   .circle .node-inner {
     border-radius: 50%;
@@ -279,7 +279,7 @@ export const cardStyles = css`
     opacity: 0.45;
   }
 
-  /* Pastilles : appareils */
+  /* Pills: devices */
 
   .pill .node-inner {
     display: grid;
@@ -353,7 +353,7 @@ export const cardStyles = css`
     font-weight: 500;
   }
 
-  /* Grille et écrans étroits : la valeur passe sous le nom, comme une tile Home Assistant. */
+  /* Grid and narrow screens: the value moves below the name, like a Home Assistant tile. */
   .stage.grid-devices .pill .node-inner {
     grid-template-columns: auto minmax(0, 1fr);
     grid-template-rows: auto auto;
@@ -392,7 +392,7 @@ export const cardStyles = css`
     display: none;
   }
 
-  /* ---------- Indicateurs ---------- */
+  /* ---------- Indicators ---------- */
 
   .ratios {
     display: flex;

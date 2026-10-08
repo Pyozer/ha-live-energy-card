@@ -31,7 +31,7 @@ const actionsSchema = (title: string): Schema => ({
   ],
 });
 
-/** Valeurs neutres retirées de la config pour la garder lisible. */
+/** Neutral values removed from the config to keep it readable. */
 function clean<T extends object>(obj: T): T {
   const out = { ...obj } as Record<string, unknown>;
   for (const [key, value] of Object.entries(out)) {
@@ -71,7 +71,7 @@ export class PowerFlowCardEditor extends LitElement {
     return this._config?.hide_when_zero ?? DEFAULTS.hide_when_zero;
   }
 
-  // --- Schémas -----------------------------------------------------------------------------------
+  // --- Schemas -----------------------------------------------------------------------------------
 
   private _nodeSchema(kind: NodeKey): Schema[] {
     const appearance: Schema = {
@@ -274,9 +274,9 @@ export class PowerFlowCardEditor extends LitElement {
     return text === key ? schema.name : text;
   };
 
-  // --- Données ----------------------------------------------------------------------------------
+  // --- Data -------------------------------------------------------------------------------------
 
-  /** Données affichées : valeurs par défaut résolues pour que les interrupteurs reflètent la réalité. */
+  /** Displayed data: defaults resolved so toggles reflect the actual behavior. */
   private _formData(): Record<string, unknown> {
     const c = this._config!;
     const node = (kind: NodeKey) => {
@@ -299,7 +299,7 @@ export class PowerFlowCardEditor extends LitElement {
     const data = ev.detail.value as Record<string, unknown>;
     const next: Record<string, unknown> = { ...data, type: this._config!.type };
 
-    // Options générales : on n'écrit que ce qui diffère des valeurs par défaut.
+    // General options: only write what differs from the defaults.
     for (const [key, value] of Object.entries(DEFAULTS)) {
       if (next[key] === value) delete next[key];
     }
@@ -318,8 +318,8 @@ export class PowerFlowCardEditor extends LitElement {
 
     const anim = (data.animation ?? {}) as AnimationToggles;
     const animOut: AnimationToggles = {};
-    // Seuls les effets qui diffèrent de leur valeur par défaut sont écrits (le halo est désactivé
-    // par défaut, les autres sont actifs).
+    // Only effects that differ from their default are written (glow is off by default, the
+    // others are on).
     for (const k of Object.keys(DEFAULT_TOGGLES) as (keyof AnimationToggles)[]) {
       if (typeof anim[k] === 'boolean' && anim[k] !== DEFAULT_TOGGLES[k]) animOut[k] = anim[k];
     }
@@ -331,7 +331,7 @@ export class PowerFlowCardEditor extends LitElement {
   }
 
   private _emit(config: PowerFlowCardConfig): void {
-    // `type` en premier pour un YAML lisible.
+    // `type` first for readable YAML.
     const { type, ...rest } = config;
     this._config = { type, ...rest };
     fireEvent(this, 'config-changed', { config: this._config });
@@ -376,7 +376,7 @@ export class PowerFlowCardEditor extends LitElement {
     this._emit({ ...this._config!, devices });
   }
 
-  // --- Rendu ------------------------------------------------------------------------------------
+  // --- Render -----------------------------------------------------------------------------------
 
   protected override render(): TemplateResult | typeof nothing {
     if (!this.hass || !this._config) return nothing;

@@ -60,7 +60,7 @@ export class PowerFlowCard extends LitElement {
     return document.createElement('powerflow-card-editor');
   }
 
-  /** Configuration proposée à l'ajout de la carte, à partir des capteurs de puissance existants. */
+  /** Configuration suggested when adding the card, based on existing power sensors. */
   static getStubConfig(hass?: HomeAssistant): Partial<PowerFlowCardConfig> {
     const power = Object.values(hass?.states ?? {}).filter(
       (s) =>
@@ -284,7 +284,7 @@ export class PowerFlowCard extends LitElement {
   }
 
   private _renderValue(n: NodeModel): TemplateResult {
-    // Le contenu est écrit par le moteur d'animation (compteur animé).
+    // Content is written by the animation engine (animated counter).
     return html`<div class="value">
       <span class="num" data-num=${n.id}></span><span class="unit" data-unit=${n.id}></span>
     </div>`;

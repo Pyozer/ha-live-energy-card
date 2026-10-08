@@ -14,8 +14,8 @@ power.
 - Element `custom:powerflow-card` and visual editor `powerflow-card-editor` (built on `ha-form`).
 - Runtime dependencies are limited to `lit` and `@mdi/js`. Do not add more without a real need:
   everything ends up in the bundle loaded by every HA client.
-- UI translations: English and French. Documentation and commits are in English. Existing code
-  comments are in French; keep the language of the file you edit.
+- **Everything is written in English**: documentation, code comments, test names and commits.
+  Only the UI is translated (English and French, see `src/localize/`).
 
 ## Commands
 

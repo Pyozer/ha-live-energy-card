@@ -42,16 +42,16 @@ export interface NodeModel {
   name: string;
   icon: string;
   color: string;
-  /** Puissance affichée (W, valeur absolue), `null` si indisponible. */
+  /** Displayed power (W, absolute value), `null` when unavailable. */
   watts: number | null;
   available: boolean;
   visible: boolean;
   active: boolean;
-  /** Libellé d'état (Injection, En charge…). */
+  /** State label (Exporting, Charging…). */
   status?: string;
   secondary?: string;
   soc?: number | null;
-  /** Répartition des sources de la maison, pour l'anneau. */
+  /** Home source mix, for the ring. */
   mix?: MixSegment[];
   actions: NodeActions;
 }
@@ -61,16 +61,16 @@ export interface FlowModel {
   from: string;
   to: string;
   watts: number;
-  /** Intensité normalisée (0..1). */
+  /** Normalized intensity (0..1). */
   intensity: number;
   active: boolean;
-  /** Afficher le tracé estompé quand le flux est nul. */
+  /** Show the dimmed path when the flow is zero. */
   idle: boolean;
   colorFrom: string;
   colorTo: string;
   toggles: Required<AnimationToggles>;
   source: SourceFlowId | null;
-  /** Tracé personnalisé (réseau de distribution en mode grille). */
+  /** Custom path (distribution bus in grid mode). */
   geometry?: (rects: Record<string, Rect>) => PathGeometry | null;
 }
 
@@ -106,7 +106,7 @@ const NAME_SUFFIXES = [
   /^puissance\s+/i,
 ];
 
-/** Nom lisible d'une entité, sans les suffixes du type « Puissance ». */
+/** Readable entity name, without suffixes such as "Power". */
 export function cleanName(friendly: string | undefined, fallback: string): string {
   if (!friendly) return fallback;
   let name = friendly.trim();
@@ -151,8 +151,8 @@ function batteryIcon(soc: number | null | undefined, charging: boolean): string 
 }
 
 /**
- * Trie les appareils par puissance décroissante avec une hystérésis : un appareil ne passe devant
- * son voisin que s'il le dépasse nettement, pour éviter que la liste ne bouge en permanence.
+ * Sorts devices by decreasing power with hysteresis: a device only overtakes its neighbour when
+ * clearly above it, so the list does not keep moving.
  */
 export function sortWithHysteresis(
   items: { id: string; watts: number }[],
@@ -168,7 +168,7 @@ export function sortWithHysteresis(
   });
   const beats = (a: { watts: number }, b: { watts: number }): boolean =>
     a.watts > b.watts * (1 + margin) + minDelta;
-  // Tri par insertion stable avec seuil de dépassement.
+  // Stable insertion sort with an overtaking threshold.
   for (let i = 1; i < ordered.length; i++) {
     const item = ordered[i];
     let j = i - 1;
@@ -199,7 +199,7 @@ export function buildModel(
   const friendly = (id: string | undefined): string | undefined =>
     id ? hass.states[id]?.attributes.friendly_name : undefined;
 
-  // --- Lectures des sources -------------------------------------------------------------------
+  // --- Source readings -------------------------------------------------------------------------
   const solarCfg = config.solar?.entity ? config.solar : undefined;
   const solarR = read(solarCfg?.entity, solarCfg?.invert);
 
@@ -270,7 +270,7 @@ export function buildModel(
   const hideFor = (cfg: BaseNodeConfig | undefined, defaultHide: boolean) =>
     cfg?.hide_when_zero ?? defaultHide;
 
-  // --- Nœuds sources ---------------------------------------------------------------------------
+  // --- Source nodes ----------------------------------------------------------------------------
   const solarColor = resolveColor(solarCfg?.color, DEFAULT_COLORS.solar);
   if (solarCfg) {
     const available = solarR?.available ?? false;
@@ -335,7 +335,7 @@ export function buildModel(
       watts: batAvailable ? Math.abs(net) : null,
       available: batAvailable,
       active,
-      // Avec un niveau de charge configuré, la batterie reste visible au repos sauf demande explicite.
+      // With a charge level configured, an idle battery stays visible unless explicitly hidden.
       visible: !(batAvailable && !active && hideFor(batCfg, globalHide && soc === undefined)),
       status: charging
         ? t('state.charging')
@@ -348,7 +348,7 @@ export function buildModel(
     });
   }
 
-  // --- Maison ----------------------------------------------------------------------------------
+  // --- Home ------------------------------------------------------------------------------------
   const homeColor = resolveColor(homeCfg?.color, DEFAULT_COLORS.home);
   const f = result.flows;
   const homeSources = f.solarToHome + f.batteryToHome + f.gridToHome;
@@ -375,7 +375,7 @@ export function buildModel(
     actions: actionsFor(homeCfg, homeCfg?.entity),
   });
 
-  // --- Appareils -------------------------------------------------------------------------------
+  // --- Devices ---------------------------------------------------------------------------------
   const deviceNodes: NodeModel[] = [];
   const deviceWatts: number[] = [];
   (config.devices ?? []).forEach((dev, index) => {
@@ -433,7 +433,7 @@ export function buildModel(
   }
   nodes.push(...deviceNodes);
 
-  // --- Flux ------------------------------------------------------------------------------------
+  // --- Flows -----------------------------------------------------------------------------------
   const visible = new Set(nodes.filter((n) => n.visible).map((n) => n.id));
   const nodeCfg: Record<string, BaseNodeConfig | undefined> = {
     solar: solarCfg,
@@ -459,7 +459,7 @@ export function buildModel(
     if (!nodeCfg[from] && from !== 'home') return;
     if (!nodeCfg[to] && to !== 'home') return;
     const active = watts > 0 && visible.has(from) && visible.has(to);
-    // Le tracé réseau ↔ batterie n'est dessiné qu'une fois à l'arrêt.
+    // The grid ↔ battery path is drawn only once when idle.
     const idle = dimIdle && !active && id !== 'battery_grid' && visible.has(from) && visible.has(to);
     flows.push({
       id,
@@ -514,8 +514,8 @@ export function buildModel(
 }
 
 /**
- * En mode grille, remplace les flux maison → appareil par le réseau de distribution : chaque
- * segment porte la somme des appareils en aval.
+ * In grid mode, replaces home → device flows with the distribution bus: each segment carries
+ * the sum of the devices downstream.
  */
 export function applyDeviceTree(model: CardModel, layout: Layout, config: PowerFlowCardConfig): FlowModel[] {
   if (layout.devices.mode === 'column') return model.flows;
@@ -555,7 +555,7 @@ export function applyDeviceTree(model: CardModel, layout: Layout, config: PowerF
       geometry: edge.geometry,
     });
   }
-  // Appareils masqués : un court segment qui s'efface avec la pastille.
+  // Hidden devices: a short segment that fades out with the pill.
   for (const f of model.flows) {
     if (f.source !== null || used.has(f.id)) continue;
     flows.push({

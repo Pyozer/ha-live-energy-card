@@ -19,7 +19,7 @@ function lang(): string {
   return 'en';
 }
 
-/** Valide la configuration ; lève une erreur lisible (affichée par Home Assistant dans la carte). */
+/** Validates the configuration; throws a readable error (shown by Home Assistant in the card). */
 export function validateConfig(input: unknown): PowerFlowCardConfig {
   if (!input || typeof input !== 'object') throw new Error('Invalid configuration');
   const config = { ...(input as PowerFlowCardConfig) };
@@ -47,7 +47,7 @@ export function validateConfig(input: unknown): PowerFlowCardConfig {
   if (config.devices !== undefined && !Array.isArray(config.devices)) {
     throw new Error(localize(l, 'error.invalid_devices'));
   }
-  // Les lignes vides laissées par l'éditeur sont ignorées.
+  // Empty rows left by the editor are ignored.
   config.devices = (config.devices ?? []).filter((d) => d && typeof d === 'object');
 
   const hasEntity =
@@ -61,7 +61,7 @@ export function validateConfig(input: unknown): PowerFlowCardConfig {
   return config;
 }
 
-/** Toutes les entités dont l'état influe sur le rendu. */
+/** All entities whose state affects rendering. */
 export function watchedEntities(config: PowerFlowCardConfig): string[] {
   const ids = new Set<string>();
   const add = (id: string | undefined) => id && ids.add(id);

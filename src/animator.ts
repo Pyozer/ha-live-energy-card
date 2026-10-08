@@ -3,9 +3,9 @@ import { deviceFlowPath, sourceFlowPath, type Layout, type Rect } from './layout
 import type { FlowModel } from './model';
 
 /**
- * Moteur d'animation : positionne les nœuds, trace les flux et fait circuler les particules.
- * Il agit directement sur le DOM rendu par Lit (sans re-rendu) à chaque frame, avec un lissage
- * exponentiel de toutes les grandeurs pour des transitions douces et interruptibles.
+ * Animation engine: positions nodes, draws flows and moves particles.
+ * It works directly on the DOM rendered by Lit (no re-render) every frame, with exponential
+ * smoothing of every value for soft, interruptible transitions.
  */
 
 interface FlowEls {
@@ -57,7 +57,7 @@ export class FlowAnimator {
   private stage?: HTMLElement;
   private height = { current: 0, target: 0 };
   private scale = 1;
-  /** Incrémenté dès que la géométrie peut avoir changé (nœuds déplacés, nouvelle disposition). */
+  /** Incremented whenever the geometry may have changed (moved nodes, new layout). */
   private geomVersion = 0;
   private raf = 0;
   private last = 0;
@@ -85,7 +85,7 @@ export class FlowAnimator {
     this.kick();
   }
 
-  /** Relie le moteur aux éléments rendus par Lit (après chaque rendu). */
+  /** Binds the engine to the elements rendered by Lit (after each render). */
   bind(root: ShadowRoot | HTMLElement): void {
     this.stage = root.querySelector<HTMLElement>('.stage') ?? undefined;
     for (const [id, state] of this.nodes) {
@@ -121,7 +121,7 @@ export class FlowAnimator {
     this.kick();
   }
 
-  /** Nouvelles cibles : disposition, flux et valeurs. */
+  /** New targets: layout, flows and values. */
   update(
     layout: Layout,
     nodeVisibility: Map<string, boolean>,
@@ -140,7 +140,7 @@ export class FlowAnimator {
       }
       const target = layout.nodes[id];
       if (visible && target) {
-        // Un nœud qui réapparaît se place directement à sa position, sans glisser.
+        // A reappearing node jumps straight to its position instead of sliding.
         if (!state.visible || !state.rect) state.rect = { ...target };
         state.target = { ...target };
       }
@@ -167,7 +167,7 @@ export class FlowAnimator {
         this.flows.set(model.id, state);
       }
       state.model = model;
-      // Un flux qui s'éteint garde son allure pendant le fondu de sortie.
+      // A flow turning off keeps its look during the fade-out.
       if (model.active) state.target = target;
     }
     for (const id of [...this.flows.keys()]) if (!seen.has(id)) this.flows.delete(id);
@@ -218,7 +218,7 @@ export class FlowAnimator {
     if (busy && this.visible) this.raf = requestAnimationFrame(this.frame);
   };
 
-  /** Avance l'animation de `dt` secondes. Retourne `true` s'il reste du mouvement. */
+  /** Advances the animation by `dt` seconds. Returns `true` while something is still moving. */
   step(dt: number, snap = false): boolean {
     let busy = false;
     const kPos = snap ? 1 : exp(dt, 0.1);
@@ -226,7 +226,7 @@ export class FlowAnimator {
     const kFade = snap ? 1 : exp(dt, 0.16);
     const kNum = snap ? 1 : exp(dt, 0.14);
 
-    // Hauteur de la scène.
+    // Stage height.
     const h = this.height;
     h.current += (h.target - h.current) * kPos;
     if (near(h.current, h.target, 0.3)) h.current = h.target;
@@ -236,7 +236,7 @@ export class FlowAnimator {
       if (this.stage.style.height !== px) this.stage.style.height = px;
     }
 
-    // Nœuds.
+    // Nodes.
     const rects: Record<string, Rect> = {};
     let moved = snap;
     for (const [id, n] of this.nodes) {
@@ -272,7 +272,7 @@ export class FlowAnimator {
 
     if (moved) this.geomVersion++;
 
-    // Flux.
+    // Flows.
     const motion = !this.reducedMotion;
     for (const f of this.flows.values()) {
       const m = f.model;
@@ -287,8 +287,8 @@ export class FlowAnimator {
 
       const v = f.visual;
       const t = f.target;
-      // La phase est conservée en proportion de l'espacement pour que les particules ne sautent
-      // pas quand la densité change.
+      // The phase is kept proportional to the spacing so particles do not jump when the
+      // density changes.
       const frac = v.gap > 0 ? f.offset / v.gap : 0;
       for (const key of ['speed', 'width', 'gap', 'dot', 'glow'] as const) {
         v[key] += (t[key] - v[key]) * kVis;
@@ -327,7 +327,7 @@ export class FlowAnimator {
           for (const p of [els.track, els.halo, els.dots]) p.setAttribute('d', geom.d);
           els.gradient.setAttribute('x1', String(r1(geom.from.x)));
           els.gradient.setAttribute('y1', String(r1(geom.from.y)));
-          // Évite un dégradé dégénéré sur les tracés parfaitement verticaux ou horizontaux.
+          // Avoids a degenerate gradient on perfectly vertical or horizontal paths.
           els.gradient.setAttribute('x2', String(r1(geom.to.x) + 0.01));
           els.gradient.setAttribute('y2', String(r1(geom.to.y) + 0.01));
         }
@@ -358,14 +358,14 @@ export class FlowAnimator {
       els.dots.setAttribute('stroke-dashoffset', dotOffset.toFixed(2));
       els.dots.style.opacity = f.dotAlpha.toFixed(3);
 
-      // Halo optionnel : lueur floutée autour des particules, plus marquée quand la puissance monte.
+      // Optional glow: blurred light around particles, stronger as power increases.
       els.halo.setAttribute('stroke-width', (v.dot * 2).toFixed(2));
       els.halo.setAttribute('stroke-dasharray', dash);
       els.halo.setAttribute('stroke-dashoffset', dotOffset.toFixed(2));
       els.halo.style.opacity = (f.dotAlpha * v.glow * 0.4).toFixed(3);
     }
 
-    // Valeurs affichées (compteur animé).
+    // Displayed values (animated counter).
     for (const v of this.values.values()) {
       if (v.target === null) {
         v.current = null;

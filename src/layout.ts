@@ -1,13 +1,13 @@
 /**
- * Placement des nœuds (en px) et tracé des flux.
+ * Node placement (in px) and flow paths.
  *
- *            Solaire
- *   Réseau            Maison  ──►  Appareils
- *           Batterie
+ *            Solar
+ *   Grid              Home  ──►  Devices
+ *           Battery
  */
 
 export interface Rect {
-  /** Centre. */
+  /** Center. */
   x: number;
   y: number;
   w: number;
@@ -21,21 +21,21 @@ export interface LayoutInput {
   solar: boolean;
   grid: boolean;
   battery: boolean;
-  /** Identifiants des appareils visibles, dans l'ordre d'affichage. */
+  /** Visible device ids, in display order. */
   devices: string[];
   devicesLayout?: DevicesLayout;
-  /** Nombre de colonnes imposé en mode grille. */
+  /** Forced number of columns in grid mode. */
   devicesColumns?: number;
 }
 
 export interface DevicesArrangement {
-  /** `stack` : appareils sous le schéma (écrans étroits). */
+  /** `stack`: devices below the diagram (narrow screens). */
   mode: 'column' | 'grid' | 'stack';
-  /** Appareils par colonne, de haut en bas. */
+  /** Devices per column, top to bottom. */
   columns: string[][];
-  /** Nombre d'appareils au-dessus du couloir central, par colonne (mode grille). */
+  /** Number of devices above the central corridor, per column (grid mode). */
   above: number[];
-  /** Distance entre le bus vertical et le bord gauche des pastilles (mode grille). */
+  /** Distance between the vertical bus and the left edge of the pills (grid mode). */
   bus: number;
 }
 
@@ -43,7 +43,7 @@ export interface Layout {
   width: number;
   height: number;
   nodes: Record<string, Rect>;
-  /** Diamètre des nœuds sources. */
+  /** Source node diameter. */
   size: number;
   compact: boolean;
   devices: DevicesArrangement;
@@ -57,7 +57,7 @@ interface DiagramMetrics {
   spacing: number;
   width: number;
   V: number;
-  /** Distances entre le centre de la maison et les bords haut / bas du schéma. */
+  /** Distances from the home center to the top / bottom edges of the diagram. */
   above: number;
   below: number;
   pillH: number;
@@ -72,7 +72,7 @@ function diagramMetrics(input: LayoutInput, areaW: number): DiagramMetrics {
   const Dh = Math.min(D * 1.16, 104);
   const spacing = cols > 1 ? clamp((areaW - D / 2 - Dh / 2) / (cols - 1), D * 1.3, D * 2.3) : 0;
   const width = cols > 1 ? D / 2 + spacing * (cols - 1) + Dh / 2 : Dh;
-  // Espace réservé sous la batterie pour sa légende (niveau de charge).
+  // Space reserved below the battery for its caption (charge level).
   const caption = input.battery ? clamp(D * 0.28, 18, 24) : 0;
   const V = D * 1.3;
   const pillH = clamp(D * 0.56, 36, 46);
@@ -101,7 +101,7 @@ export function computeLayout(input: LayoutInput): Layout {
 
   if (compact && n > 0 && mode !== 'column') return stackLayout(input, W, pad);
 
-  // --- Disposition en colonne (référence) ------------------------------------------------------
+  // --- Column arrangement (reference) -----------------------------------------------------------
   let pillW = n > 0 ? clamp(W * 0.31, 112, 230) : 0;
   let devGap = n > 0 ? clamp(W * 0.075, 24, 72) : 0;
   let m = diagramMetrics(input, W - 2 * pad - pillW - devGap);
@@ -109,7 +109,7 @@ export function computeLayout(input: LayoutInput): Layout {
   let gridMode = false;
   let tileGap = 0;
 
-  // --- Disposition en grille : plusieurs colonnes alimentées par un bus -------------------------
+  // --- Grid arrangement: several columns fed by a bus -------------------------------------------
   if (n > 1 && mode !== 'column') {
     const columnH = stackHeight(n, m.pillH, m.pillGap);
     const diagramH = m.above + m.below;
@@ -139,7 +139,7 @@ export function computeLayout(input: LayoutInput): Layout {
         devGap = gap;
         const devicesW = count * pillW + (count - 1) * gutter;
         m = diagramMetrics(input, W - 2 * pad - devGap - devicesW);
-        // Pastilles sur deux lignes (nom puis valeur) : un peu plus hautes.
+        // Two-line pills (name then value): slightly taller.
         m.pillH = Math.max(m.pillH, 44);
         const rows = Math.ceil(n / count);
         columns = [];
@@ -155,7 +155,7 @@ export function computeLayout(input: LayoutInput): Layout {
   const totalW = m.width + (n > 0 ? devGap + devicesW : 0);
   const offsetX = pad + Math.max(0, (W - 2 * pad - totalW) / 2);
 
-  // --- Vertical : la maison est alignée sur le centre des appareils (ou le couloir du bus) -----
+  // --- Vertical: home is aligned with the center of the devices (or the bus corridor) ----------
   const { pillH, pillGap } = m;
   const corridor = clamp(pillH * 0.55, 20, 26);
   const rows = columns.reduce((acc, c) => Math.max(acc, c.length), 0);
@@ -217,7 +217,7 @@ export function computeLayout(input: LayoutInput): Layout {
   };
 }
 
-/** Écrans étroits : schéma sur toute la largeur, appareils en grille en dessous. */
+/** Narrow screens: full-width diagram, devices in a grid below. */
 function stackLayout(input: LayoutInput, W: number, pad: number): Layout {
   const n = input.devices.length;
   const m = diagramMetrics(input, W - 2 * pad - 18);
@@ -267,11 +267,11 @@ export interface Point {
   y: number;
 }
 
-/** Point du bord d'un nœud dans la direction `angle` (degrés, 0 = droite, 90 = bas). */
+/** Point on a node's edge in direction `angle` (degrees, 0 = right, 90 = down). */
 export function edgePoint(rect: Rect, angle: number, kind: 'circle' | 'pill', inset = 3): Point {
   const rad = (angle * Math.PI) / 180;
   if (kind === 'pill') {
-    // Les appareils sont toujours raccordés par leur bord gauche.
+    // Devices are always connected by their left edge.
     return { x: rect.x - rect.w / 2 + inset, y: rect.y };
   }
   const r = rect.w / 2 - inset;
@@ -292,8 +292,8 @@ const dir = (angle: number): Point => {
 const f = (v: number): string => (Math.round(v * 10) / 10).toString();
 
 /**
- * Courbe de Bézier entre deux bords. Les points de contrôle prolongent la normale sortante de
- * chaque extrémité, ce qui produit des quarts d'arc doux ou des droites selon les orientations.
+ * Bézier curve between two edges. Control points extend the outgoing normal of each end,
+ * producing soft quarter arcs or straight lines depending on orientation.
  */
 export function curveBetween(
   from: Point,
@@ -326,7 +326,7 @@ export type SourceFlowId =
   | 'battery_home'
   | 'battery_grid';
 
-/** Ancrage des flux sources : [nœud, angle de sortie, nœud, angle d'arrivée]. */
+/** Source flow anchors: [node, exit angle, node, entry angle]. */
 export const SOURCE_FLOWS: Record<SourceFlowId, [string, number, string, number]> = {
   solar_home: ['solar', 0, 'home', -90],
   solar_grid: ['solar', 180, 'grid', -90],
@@ -345,7 +345,7 @@ export function sourceFlowPath(id: SourceFlowId, nodes: Record<string, Rect>): P
   return curveBetween(edgePoint(ra, aAngle, 'circle'), aAngle, edgePoint(rb, bAngle, 'circle'), bAngle);
 }
 
-/** Flux maison → appareil : départ sur le cercle de la maison, orienté vers l'appareil. */
+/** Home → device flow: starts on the home circle, pointing toward the device. */
 export function deviceFlowPath(home: Rect, device: Rect): PathGeometry {
   const to = edgePoint(device, 180, 'pill');
   const raw = (Math.atan2(to.y - home.y, to.x - home.x) * 180) / Math.PI;

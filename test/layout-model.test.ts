@@ -28,7 +28,7 @@ const devices = (n: number) => Array.from({ length: n }, (_, i) => `device:${i}`
 describe('computeLayout', () => {
   for (const width of [320, 380, 520, 700, 1000, 1400]) {
     for (const n of [0, 1, 4, 13]) {
-      it(`pas de chevauchement (${width}px, ${n} appareils)`, () => {
+      it(`no overlap (${width}px, ${n} devices)`, () => {
         assertNoOverlap(
           computeLayout({ width, solar: true, grid: true, battery: true, devices: devices(n) }),
         );
@@ -36,7 +36,7 @@ describe('computeLayout', () => {
     }
   }
 
-  it('sources optionnelles : la grille se réorganise', () => {
+  it('optional sources: the layout rearranges', () => {
     const layout = computeLayout({
       width: 700,
       solar: false,
@@ -50,7 +50,7 @@ describe('computeLayout', () => {
     assertNoOverlap(layout);
   });
 
-  it('beaucoup d’appareils : passage en grille', () => {
+  it('many devices: switches to grid', () => {
     const layout = computeLayout({
       width: 900,
       solar: true,
@@ -63,14 +63,14 @@ describe('computeLayout', () => {
     expect(layout.devices.columns.flat()).toHaveLength(13);
   });
 
-  it('écran étroit : appareils sous le schéma', () => {
+  it('narrow screen: devices below the diagram', () => {
     const layout = computeLayout({ width: 340, solar: true, grid: true, battery: true, devices: devices(6) });
     expect(layout.devices.mode).toBe('stack');
     const lowest = Math.max(layout.nodes.home.y, layout.nodes.battery.y);
     for (const id of devices(6)) expect(layout.nodes[id].y).toBeGreaterThan(lowest);
   });
 
-  it('disposition forcée en colonne', () => {
+  it('forced column arrangement', () => {
     const layout = computeLayout({
       width: 900,
       solar: true,
@@ -82,7 +82,7 @@ describe('computeLayout', () => {
     expect(layout.devices.mode).toBe('column');
   });
 
-  it('chaque appareil de la grille a son segment terminal', () => {
+  it('each grid device has an end segment', () => {
     const layout = computeLayout({
       width: 900,
       solar: true,
@@ -98,7 +98,7 @@ describe('computeLayout', () => {
     }
   });
 
-  it('écran étroit : le bus tourne en arrondi vers la première colonne', () => {
+  it('narrow screen: the bus turns into the first column with a rounded corner', () => {
     for (const n of [1, 6]) {
       const layout = computeLayout({
         width: 340,
@@ -139,7 +139,7 @@ describe('buildModel', () => {
     ],
   };
 
-  it('masque les nœuds à zéro selon la config', () => {
+  it('hides zero nodes according to the config', () => {
     const model = buildModel(
       config,
       hassWith([
@@ -157,7 +157,7 @@ describe('buildModel', () => {
     expect(byId['device:2'].visible).toBe(false);
   });
 
-  it('entité indisponible : nœud signalé sans NaN', () => {
+  it('unavailable entity: node flagged without NaN', () => {
     const model = buildModel(
       config,
       hassWith([state('sensor.solar', 'unavailable'), state('sensor.grid', 'unknown')]),
@@ -168,7 +168,7 @@ describe('buildModel', () => {
     for (const f of model.flows) expect(Number.isFinite(f.watts)).toBe(true);
   });
 
-  it('sens du réseau : export quand la valeur est négative', () => {
+  it('grid direction: export when the value is negative', () => {
     const model = buildModel(config, hassWith([state('sensor.solar', 3000), state('sensor.grid', -2000)]));
     const flows = Object.fromEntries(model.flows.map((f) => [f.id, f]));
     expect(flows.solar_grid.active).toBe(true);
@@ -176,7 +176,7 @@ describe('buildModel', () => {
     expect(flows.grid_home.active).toBe(false);
   });
 
-  it('consommation non suivie', () => {
+  it('untracked consumption', () => {
     const model = buildModel(
       { ...config, show_untracked: true },
       hassWith([
@@ -189,7 +189,7 @@ describe('buildModel', () => {
     expect(model.nodes.find((n) => n.id === UNTRACKED_ID)?.watts).toBe(250);
   });
 
-  it('applyDeviceTree : les segments partagés portent la somme en aval', () => {
+  it('applyDeviceTree: shared segments carry the downstream sum', () => {
     const many: PowerFlowCardConfig = {
       type: 'custom:powerflow-card',
       grid: { entity: 'sensor.grid' },
@@ -214,14 +214,14 @@ describe('buildModel', () => {
   });
 });
 
-describe('utilitaires', () => {
-  it('cleanName retire les suffixes de puissance', () => {
+describe('utilities', () => {
+  it('cleanName strips power suffixes', () => {
     expect(cleanName('Prise frigo Puissance', 'x')).toBe('Prise frigo');
     expect(cleanName('VMC Power', 'x')).toBe('VMC');
     expect(cleanName(undefined, 'fallback')).toBe('fallback');
   });
 
-  it('tri avec hystérésis : pas d’inversion pour un faible écart', () => {
+  it('hysteresis sort: no swap for a small difference', () => {
     const prev = ['a', 'b'];
     expect(
       sortWithHysteresis(

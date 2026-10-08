@@ -3,7 +3,7 @@ export interface ActionConfig {
   [key: string]: unknown;
 }
 
-/** Effets visuels liés à l'intensité d'un flux, activables séparément. */
+/** Visual effects tied to flow intensity, each one can be toggled. */
 export interface AnimationToggles {
   speed?: boolean;
   thickness?: boolean;
@@ -15,12 +15,12 @@ export interface BaseNodeConfig {
   entity?: string;
   name?: string;
   icon?: string;
-  /** Nom de couleur Home Assistant (amber, teal…) ou couleur CSS (#ffb300, rgb(), var()). */
+  /** Home Assistant color name (amber, teal…) or CSS color (#ffb300, rgb(), var()). */
   color?: string;
   hide_when_zero?: boolean;
-  /** Inverse le signe de l'entité. */
+  /** Inverts the entity's sign. */
   invert?: boolean;
-  /** Entité affichée en complément (ex. énergie du jour). */
+  /** Additional entity shown in the node (e.g. today's energy). */
   secondary_entity?: string;
   animation?: AnimationToggles;
   tap_action?: ActionConfig;
@@ -31,7 +31,7 @@ export interface BaseNodeConfig {
 export type SolarConfig = BaseNodeConfig;
 
 export interface GridConfig extends BaseNodeConfig {
-  /** Alternative à `entity` (signée) : deux entités positives séparées. */
+  /** Alternative to the signed `entity`: two separate positive entities. */
   import_entity?: string;
   export_entity?: string;
   export_color?: string;
@@ -40,7 +40,7 @@ export interface GridConfig extends BaseNodeConfig {
 export interface BatteryConfig extends BaseNodeConfig {
   charge_entity?: string;
   discharge_entity?: string;
-  /** Niveau de charge en %. */
+  /** State of charge in %. */
   soc_entity?: string;
   charge_color?: string;
 }
@@ -65,9 +65,9 @@ export interface PowerFlowCardConfig {
   hide_when_zero?: boolean;
   inactive_flows?: InactiveFlows;
   sort_devices?: boolean;
-  /** Disposition des appareils : une colonne, une grille, ou automatique selon la place. */
+  /** Device arrangement: a column, a grid, or automatic depending on available space. */
   devices_layout?: 'auto' | 'column' | 'grid';
-  /** Nombre de colonnes en mode grille (automatique si absent). */
+  /** Number of columns in grid mode (automatic when missing). */
   devices_columns?: number;
   show_untracked?: boolean;
   show_ratios?: boolean;

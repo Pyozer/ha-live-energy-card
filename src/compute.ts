@@ -1,21 +1,21 @@
 /**
- * Répartition des flux d'énergie entre sources (solaire, réseau, batterie) et consommateurs
- * (maison, batterie, réseau). Toutes les valeurs sont en watts et positives.
+ * Allocation of energy flows between sources (solar, grid, battery) and consumers
+ * (home, battery, grid). All values are positive watts.
  *
- * Priorités appliquées :
- *  1. le solaire alimente d'abord la maison, puis la batterie (si elle charge), puis le réseau (surplus) ;
- *  2. la batterie qui se décharge alimente la maison avant le réseau ;
- *  3. le réseau complète le besoin restant de la maison, puis la charge de la batterie.
+ * Priorities:
+ *  1. solar feeds the home first, then the battery (if charging), then the grid (surplus);
+ *  2. a discharging battery feeds the home before the grid;
+ *  3. the grid covers the remaining home demand, then the battery charge.
  */
 
 export interface SourceInputs {
-  /** Production solaire (W). Ignorée si non configurée. */
+  /** Solar production (W). Ignored when not configured. */
   solar?: number;
   gridImport?: number;
   gridExport?: number;
   batteryCharge?: number;
   batteryDischarge?: number;
-  /** Consommation mesurée de la maison. Si absente, elle est déduite du bilan. */
+  /** Measured home consumption. When missing, it is derived from the balance. */
   home?: number;
 }
 
@@ -31,10 +31,10 @@ export interface Flows {
 
 export interface FlowResult {
   flows: Flows;
-  /** Consommation de la maison (mesurée ou calculée). */
+  /** Home consumption (measured or computed). */
   home: number;
   homeMeasured: boolean;
-  /** Totaux normalisés utilisés pour le calcul. */
+  /** Normalized totals used for the computation. */
   solar: number;
   gridImport: number;
   gridExport: number;
@@ -44,7 +44,7 @@ export interface FlowResult {
 
 const pos = (v: number | undefined): number => (v !== undefined && Number.isFinite(v) && v > 0 ? v : 0);
 
-/** Sépare une puissance signée en deux composantes positives. */
+/** Splits a signed power into two positive components. */
 export function splitSigned(value: number | undefined): { positive: number; negative: number } {
   if (value === undefined || !Number.isFinite(value)) return { positive: 0, negative: 0 };
   return value >= 0 ? { positive: value, negative: 0 } : { positive: 0, negative: -value };
@@ -62,7 +62,7 @@ export function computeFlows(inputs: SourceInputs, threshold = 0): FlowResult {
   let batteryCharge = clean(inputs.batteryCharge);
   let batteryDischarge = clean(inputs.batteryDischarge);
 
-  // Mesures simultanées dans les deux sens : on ne garde que le solde net.
+  // Both directions measured at once: keep only the net balance.
   if (gridImport > 0 && gridExport > 0) {
     const net = gridImport - gridExport;
     gridImport = Math.max(0, net);
@@ -78,7 +78,7 @@ export function computeFlows(inputs: SourceInputs, threshold = 0): FlowResult {
   const computedHome = solar + gridImport + batteryDischarge - gridExport - batteryCharge;
   const home = homeMeasured ? pos(inputs.home) : Math.max(0, computedHome);
 
-  // 1. Solaire : maison → batterie → réseau.
+  // 1. Solar: home → battery → grid.
   let solarLeft = solar;
   const solarToHome = Math.min(solarLeft, home);
   solarLeft -= solarToHome;
@@ -86,7 +86,7 @@ export function computeFlows(inputs: SourceInputs, threshold = 0): FlowResult {
   solarLeft -= solarToBattery;
   const solarToGrid = Math.min(solarLeft, gridExport);
 
-  // 2. Batterie : maison → réseau.
+  // 2. Battery: home → grid.
   let homeLeft = home - solarToHome;
   let dischargeLeft = batteryDischarge;
   const batteryToHome = Math.min(dischargeLeft, homeLeft);
@@ -94,7 +94,7 @@ export function computeFlows(inputs: SourceInputs, threshold = 0): FlowResult {
   homeLeft -= batteryToHome;
   const batteryToGrid = Math.min(dischargeLeft, Math.max(0, gridExport - solarToGrid));
 
-  // 3. Réseau : maison → batterie.
+  // 3. Grid: home → battery.
   let importLeft = gridImport;
   const gridToHome = Math.min(importLeft, Math.max(0, homeLeft));
   importLeft = Math.max(0, importLeft - gridToHome);
@@ -120,16 +120,16 @@ export function computeFlows(inputs: SourceInputs, threshold = 0): FlowResult {
   };
 }
 
-/** Puissance non attribuée aux appareils suivis (jamais négative). */
+/** Power not attributed to tracked devices (never negative). */
 export function untrackedPower(home: number, devices: number[]): number {
   const sum = devices.reduce((acc, v) => acc + pos(v), 0);
   return Math.max(0, home - sum);
 }
 
 export interface Ratios {
-  /** Part de la production solaire consommée sur place (%), `null` sans production. */
+  /** Share of solar production consumed on site (%), `null` without production. */
   selfConsumption: number | null;
-  /** Part de la consommation couverte sans le réseau (%), `null` sans consommation. */
+  /** Share of consumption covered without the grid (%), `null` without consumption. */
   autarky: number | null;
 }
 

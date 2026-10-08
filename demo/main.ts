@@ -16,7 +16,7 @@ const ENT = {
   soc: 'sensor.batterie_niveau',
 };
 
-// Appareils du dashboard « Foyer », avec une consommation typique quand ils fonctionnent.
+// Devices from the "Foyer" dashboard, with typical consumption when running.
 const DEVICES = [
   { entity: 'sensor.prise_chaudiere_power', name: 'Chaudière', icon: 'mdi:radiator', typical: 90 },
   {
@@ -81,7 +81,7 @@ function homeLoad(): number {
 }
 
 function computedGrid(): number {
-  // Bilan : maison = solaire + réseau + batterie (positif = décharge).
+  // Balance: home = solar + grid + battery (positive = discharge).
   return Math.round(homeLoad() - state.solar - state.battery);
 }
 
@@ -107,7 +107,7 @@ function buildHass(): HomeAssistant {
   for (const d of DEVICES)
     fresh[d.entity] = entity(d.entity, state.devices[d.entity], 'W', `${d.name} Puissance`);
 
-  // Comme Home Assistant : un nouvel objet seulement pour les entités qui ont changé.
+  // Like Home Assistant: a new object only for entities that changed.
   const states: Record<string, HassEntity> = {};
   for (const [id, st] of Object.entries(fresh)) {
     const old = previous[id];
@@ -143,7 +143,7 @@ function applyConfig(next: PowerFlowCardConfig): void {
   }
 }
 
-// --- Contrôles ----------------------------------------------------------------------------------
+// --- Controls ------------------------------------------------------------------------------------
 
 function slider(
   parent: HTMLElement,
@@ -276,7 +276,7 @@ for (const [label, id] of [
   unavailable.appendChild(chip);
 }
 
-// Options d'affichage rapides (modifient la config YAML).
+// Quick display options (they edit the YAML config).
 const display = $('display');
 function toggle(label: string, checked: () => boolean, onChange: (v: boolean) => void, id?: string): void {
   const chip = document.createElement('label');
@@ -393,7 +393,7 @@ const setWidth = () => {
 };
 widthInput.addEventListener('input', setWidth);
 
-// --- Scénarios ----------------------------------------------------------------------------------
+// --- Scenarios ----------------------------------------------------------------------------------
 
 const devicesOff = () => Object.fromEntries(DEVICES.map((d) => [d.entity, 0]));
 const standby = () => ({
@@ -460,7 +460,7 @@ for (const [name, apply] of Object.entries(PRESETS)) {
   presets.appendChild(btn);
 }
 
-// Simulation : variations aléatoires réalistes.
+// Simulation: realistic random variations.
 setInterval(() => {
   if (!state.live) return;
   const jitter = (v: number, amp: number, min = 0, max = Infinity) =>

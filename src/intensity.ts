@@ -1,6 +1,6 @@
 import type { AnimationToggles, PowerCurve } from './types';
 
-/** Ramène une puissance dans [0, 1] selon la plage et la courbe choisies. */
+/** Maps a power to [0, 1] according to the chosen range and curve. */
 export function normalizePower(watts: number, min: number, max: number, curve: PowerCurve = 'sqrt'): number {
   const lo = Math.max(0, min);
   const hi = Math.max(lo + 1, max);
@@ -18,15 +18,15 @@ export function normalizePower(watts: number, min: number, max: number, curve: P
 }
 
 export interface FlowVisual {
-  /** Vitesse des particules (px/s). */
+  /** Particle speed (px/s). */
   speed: number;
-  /** Épaisseur du tracé de fond (px). */
+  /** Background path thickness (px). */
   width: number;
-  /** Espacement entre deux particules (px). */
+  /** Spacing between two particles (px). */
   gap: number;
-  /** Diamètre des particules (px). */
+  /** Particle diameter (px). */
   dot: number;
-  /** Intensité du halo, de 0 à 1. */
+  /** Glow intensity, from 0 to 1. */
   glow: number;
 }
 
@@ -40,9 +40,9 @@ export const DEFAULT_TOGGLES: Required<AnimationToggles> = {
 };
 
 /**
- * Paramètres visuels d'un flux pour une intensité `t` (0..1).
- * Chaque effet désactivé reste figé sur une valeur médiane neutre.
- * `scale` adapte les dimensions à la taille des nœuds (1 = nœud de 80 px).
+ * Visual parameters of a flow for an intensity `t` (0..1).
+ * A disabled effect stays fixed at a neutral median value.
+ * `scale` adapts dimensions to the node size (1 = 80 px node).
  */
 export function flowVisual(t: number, toggles: Required<AnimationToggles>, scale = 1): FlowVisual {
   const k = Math.min(1, Math.max(0, t));

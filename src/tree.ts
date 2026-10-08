@@ -1,22 +1,22 @@
 import type { DevicesArrangement, PathGeometry, Point, Rect } from './layout';
 
 /**
- * Réseau de distribution vers les appareils en mode grille :
+ * Distribution bus feeding devices in grid mode:
  *
  *            │ [A]    │ [D]
  *            ├─[B]    ├─[E]
- *   Maison ──┴────────┴──────   ← bus principal (couloir central)
+ *   Home   ──┴────────┴──────   ← main bus (central corridor)
  *            ├─[C]    └─[F]
  *
- * Chaque segment transporte la somme des appareils situés en aval, si bien que l'épaisseur et
- * la vitesse des particules décroissent naturellement vers les extrémités.
+ * Each segment carries the sum of the devices downstream, so particle thickness and speed
+ * naturally decrease toward the ends.
  */
 
 export interface TreeEdge {
   id: string;
-  /** Appareils alimentés par ce segment. */
+  /** Devices fed by this segment. */
   downstream: string[];
-  /** Appareil terminal, si le segment aboutit à une pastille. */
+  /** End device, when the segment reaches a pill. */
   leaf?: string;
   geometry: (rects: Record<string, Rect>) => PathGeometry | null;
 }
@@ -27,7 +27,7 @@ function line(a: Point, b: Point): PathGeometry {
   return { d: `M${f(a.x)},${f(a.y)} L${f(b.x)},${f(b.y)}`, from: a, to: b };
 }
 
-/** Segment vertical puis horizontal, avec un coin arrondi. */
+/** Vertical then horizontal segment, with a rounded corner. */
 function corner(a: Point, b: Point, radius = 9): PathGeometry {
   const dy = b.y - a.y;
   const r = Math.max(0, Math.min(radius, Math.abs(dy), b.x - a.x));
@@ -41,7 +41,7 @@ function corner(a: Point, b: Point, radius = 9): PathGeometry {
 const INSET = 2;
 const RADIUS = 9;
 
-/** Fin d'un segment horizontal allant vers la gauche, qui tourne vers le bas en arrondi. */
+/** End of a leftward horizontal segment, turning down with a rounded corner. */
 const turnDown = (x: number, y: number): string =>
   `L${f(x + RADIUS)},${f(y)} Q${f(x)},${f(y)} ${f(x)},${f(y + RADIUS)}`;
 
@@ -54,22 +54,22 @@ export function buildDeviceTree(arr: DevicesArrangement): TreeEdge[] {
   };
   const tileLeft = (r: Rect): number => r.x - r.w / 2 + INSET;
 
-  // Ligne du bus principal : couloir central (grille) ou ligne au-dessus des pastilles (empilé).
+  // Main bus line: central corridor (grid) or line above the pills (stack).
   const stacked = arr.mode === 'stack';
   const busY = (rects: Record<string, Rect>): number | null => {
     if (!stacked) return rects.home?.y ?? null;
     const first = rects[cols[0]?.[0]];
     return first ? first.y - first.h / 2 - 14 : null;
   };
-  // En mode empilé, le bus s'arrête sur la première colonne et tourne vers le bas : sa branche
-  // démarre donc après le virage.
+  // In stack mode, the bus ends at the first column and turns down, so that column's branch
+  // starts after the turn.
   const branchStart = (rects: Record<string, Rect>, c: number): number | null => {
     const y = busY(rects);
     return y !== null && stacked && c === 0 ? y + RADIUS : y;
   };
 
   if (stacked) {
-    // Descente depuis le flanc droit de la maison jusqu'au bus, puis vers la dernière colonne.
+    // Drop from the right side of the home down to the bus, then toward the last column.
     const lastCol = cols.length - 1;
     edges.push({
       id: 'tree:trunk',
@@ -82,7 +82,7 @@ export function buildDeviceTree(arr: DevicesArrangement): TreeEdge[] {
         const x0 = home.x + home.w / 2 - 3;
         const xt = x0 + 15;
         const r = RADIUS;
-        // Avec une seule colonne, le tronc rejoint directement sa branche.
+        // With a single column, the trunk joins its branch directly.
         const end = lastCol === 0 ? turnDown(x1, y1) : `L${f(x1)},${f(y1)}`;
         const d =
           `M${f(x0)},${f(home.y)} L${f(xt - r)},${f(home.y)} Q${f(xt)},${f(home.y)} ${f(xt)},${f(home.y + r)} ` +
@@ -107,7 +107,7 @@ export function buildDeviceTree(arr: DevicesArrangement): TreeEdge[] {
       });
     }
   } else {
-    // Bus principal, de la maison vers chaque colonne.
+    // Main bus, from the home to each column.
     cols.forEach((_, c) => {
       edges.push({
         id: `tree:spine:${c}`,
@@ -124,7 +124,7 @@ export function buildDeviceTree(arr: DevicesArrangement): TreeEdge[] {
     });
   }
 
-  // Branches verticales de chaque colonne, vers le haut puis vers le bas.
+  // Vertical branches of each column, upward then downward.
   cols.forEach((ids, c) => {
     const up = arr.above[c] ?? 0;
     const branches: [string, string[]][] = [
@@ -132,14 +132,14 @@ export function buildDeviceTree(arr: DevicesArrangement): TreeEdge[] {
       ['down', ids.slice(up)],
     ];
     for (const [side, chain] of branches) {
-      // `chain` part du couloir et s'en éloigne.
+      // `chain` starts at the corridor and moves away from it.
       chain.forEach((id, k) => {
         const last = k === chain.length - 1;
         const yAt = (rects: Record<string, Rect>, idx: number): number | null => {
           if (idx < 0) return branchStart(rects, c);
           return rects[chain[idx]]?.y ?? null;
         };
-        // Tronçon de bus entre le nœud précédent et celui-ci (sauf pour le dernier, fusionné au coin).
+        // Bus segment between the previous node and this one (except the last, merged into the corner).
         if (!last) {
           edges.push({
             id: `tree:bus:${c}:${side}:${k}`,

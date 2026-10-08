@@ -1,6 +1,6 @@
 /**
- * Remplaçants minimalistes des composants Home Assistant utilisés par la carte,
- * pour l'afficher hors de Home Assistant.
+ * Minimal stand-ins for the Home Assistant components used by the card,
+ * to display it outside Home Assistant.
  */
 import * as mdi from '@mdi/js';
 

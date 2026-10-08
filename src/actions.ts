@@ -9,7 +9,7 @@ export function fireEvent(node: HTMLElement, type: string, detail: unknown): voi
 
 const hasAction = (cfg: { action: string } | undefined): boolean => !!cfg && cfg.action !== 'none';
 
-/** Déclenche une action via l'évènement `hass-action`, géré nativement par le frontend. */
+/** Runs an action through the `hass-action` event, handled natively by the frontend. */
 export function runAction(
   host: HTMLElement,
   actions: NodeActions,
@@ -19,8 +19,8 @@ export function runAction(
 }
 
 /**
- * Gestion toucher / appui long / double toucher sur un nœud.
- * Retourne les écouteurs à poser sur l'élément.
+ * Tap / hold / double tap handling on a node.
+ * Returns the listeners to attach to the element.
  */
 export function actionHandlers(host: HTMLElement, getActions: () => NodeActions) {
   let holdTimer: number | undefined;

@@ -1,4 +1,4 @@
-/** Couleurs nommées de Home Assistant (mêmes noms que le sélecteur `ui_color`). */
+/** Home Assistant named colors (same names as the `ui_color` selector). */
 const HA_COLORS: Record<string, string> = {
   primary: 'var(--primary-color)',
   accent: 'var(--accent-color)',
@@ -28,7 +28,7 @@ const HA_COLORS: Record<string, string> = {
   disabled: 'var(--disabled-color, #bdbdbd)',
 };
 
-/** Convertit une couleur de config en valeur CSS (nom HA → variable de thème avec repli). */
+/** Converts a config color to a CSS value (HA name → theme variable with fallback). */
 export function resolveColor(color: string | undefined, fallback: string): string {
   if (!color) return fallback;
   const key = color.trim();
@@ -40,8 +40,8 @@ export function resolveColor(color: string | undefined, fallback: string): strin
 }
 
 /**
- * Palette par défaut : couleurs système iOS, définies en variables CSS dans les styles de la carte
- * (avec leurs variantes sombres) et surchargeables par le thème.
+ * Default palette: iOS system colors, defined as CSS variables in the card styles
+ * (with their dark variants) and overridable by the theme.
  */
 export const DEFAULT_COLORS = {
   solar: 'var(--pf-solar)',

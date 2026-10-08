@@ -8,7 +8,7 @@ const UNIT_FACTORS: Record<string, number> = {
   GW: 1_000_000_000,
 };
 
-/** Facteur de conversion vers le watt. `MW` (méga) et `mW` (milli) sont distingués par la casse. */
+/** Conversion factor to watts. `MW` (mega) and `mW` (milli) only differ by case. */
 export function unitFactor(unit: string | undefined): number {
   if (!unit) return 1;
   const trimmed = unit.trim();
@@ -20,14 +20,14 @@ export function unitFactor(unit: string | undefined): number {
 }
 
 export interface Reading {
-  /** Puissance en W, `null` si l'entité est indisponible ou non numérique. */
+  /** Power in W, `null` when the entity is unavailable or not numeric. */
   value: number | null;
   available: boolean;
 }
 
 export const UNAVAILABLE: Reading = { value: null, available: false };
 
-/** Lit l'état d'une entité de puissance et le convertit en watts. */
+/** Reads a power entity state and converts it to watts. */
 export function readPower(entity: HassEntity | undefined, invert = false): Reading {
   if (!entity) return UNAVAILABLE;
   const raw = entity.state;
@@ -40,7 +40,7 @@ export function readPower(entity: HassEntity | undefined, invert = false): Readi
   return { value: invert ? -watts : watts, available: true };
 }
 
-/** Lit un pourcentage (SOC batterie), borné entre 0 et 100. */
+/** Reads a percentage (battery SOC), clamped between 0 and 100. */
 export function readPercent(entity: HassEntity | undefined): number | null {
   if (!entity) return null;
   const num = Number(entity.state);
@@ -77,7 +77,7 @@ export function numberFormat(locale: string | undefined, decimals: number): Intl
   return fmt;
 }
 
-/** Formate une puissance : `850 W`, `1,2 kW`, `3,4 MW`. */
+/** Formats a power: `850 W`, `1.2 kW`, `3.4 MW`. */
 export function formatPower(watts: number, opts: FormatOptions = {}): { value: string; unit: string } {
   const kilo = opts.kiloThreshold ?? 1000;
   const abs = Math.abs(watts);
@@ -88,7 +88,7 @@ export function formatPower(watts: number, opts: FormatOptions = {}): { value: s
     return { value: numberFormat(opts.locale, opts.kiloDecimals ?? 1).format(watts / 1000), unit: 'kW' };
   }
   const decimals = opts.decimals ?? 0;
-  // Évite l'affichage « -0 W ».
+  // Avoids displaying "-0 W".
   const rounded = Number(watts.toFixed(decimals));
   return { value: numberFormat(opts.locale, decimals).format(rounded === 0 ? 0 : rounded), unit: 'W' };
 }
