@@ -55,6 +55,7 @@ export const fr: DeepStrings<typeof en> = {
       export_color: "Couleur d'injection",
       charge_color: 'Couleur de charge',
       invert: 'Inverser le signe',
+      exclude_from_untracked: 'Hors consommation de la maison (non déduit de Autres)',
       hide_when_zero: 'Masquer à zéro',
       secondary_entity: 'Entité secondaire (ex. énergie du jour)',
       import_entity: 'Entité de soutirage (alternative)',

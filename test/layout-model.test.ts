@@ -283,6 +283,22 @@ describe('buildModel', () => {
     expect(model.nodes.find((n) => n.id === UNTRACKED_ID)?.watts).toBe(250);
   });
 
+  it('a device excluded from untracked is not subtracted from Other', () => {
+    const devices = [{ entity: 'sensor.frigo' }, { entity: 'sensor.tv', exclude_from_untracked: true }];
+    const model = buildModel(
+      { ...config, devices, show_untracked: true },
+      hassWith([
+        state('sensor.solar', 0),
+        state('sensor.grid', 500),
+        state('sensor.frigo', 100),
+        state('sensor.tv', 150),
+      ]),
+    );
+    expect(model.nodes.find((n) => n.id === UNTRACKED_ID)?.watts).toBe(400);
+    // The device itself is still displayed with its power.
+    expect(model.nodes.find((n) => n.id === 'device:1')?.watts).toBe(150);
+  });
+
   it('applyDeviceTree: shared segments carry the downstream sum', () => {
     const many: LiveEnergyCardConfig = {
       type: 'custom:live-energy-card',

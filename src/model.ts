@@ -392,7 +392,7 @@ export function buildModel(
     const r = readPower(hass.states[dev.entity], dev.invert);
     const watts = r.available ? Math.max(0, r.value ?? 0) : null;
     const value = watts !== null && watts >= threshold ? watts : 0;
-    deviceWatts.push(value);
+    if (!dev.exclude_from_untracked) deviceWatts.push(value);
     const active = value > 0;
     deviceNodes.push({
       id: `device:${index}`,

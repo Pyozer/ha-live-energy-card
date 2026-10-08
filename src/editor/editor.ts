@@ -280,6 +280,7 @@ export class LiveEnergyCardEditor extends LitElement {
         schema: [
           { name: 'hide_when_zero', selector: { boolean: {} } },
           { name: 'invert', selector: { boolean: {} } },
+          { name: 'exclude_from_untracked', selector: { boolean: {} } },
         ],
       },
       { name: 'secondary_entity', selector: ANY_ENTITY },
@@ -369,6 +370,7 @@ export class LiveEnergyCardEditor extends LitElement {
     if (value.hide_when_zero === def && devices[index]?.hide_when_zero === undefined)
       delete value.hide_when_zero;
     if (value.invert === false) delete value.invert;
+    if (value.exclude_from_untracked === false) delete value.exclude_from_untracked;
     devices[index] = clean(value);
     this._emit({ ...this._config!, devices });
   }

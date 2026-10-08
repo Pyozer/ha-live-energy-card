@@ -169,6 +169,9 @@ Specific options:
 - `grid`: `import_entity` / `export_entity` (alternative to a signed entity), `export_color`.
 - `battery`: `charge_entity` / `discharge_entity`, `soc_entity` (charge level in %), `charge_color`.
 - `home`: `entity` is optional. Without it, consumption is computed from the sources.
+- `devices`: `exclude_from_untracked: true` for a device that is not part of the home consumption
+  (separate circuit, or a sub-meter of another device already listed). Its power is not
+  subtracted when computing "Other".
 
 ### Language
 
@@ -200,7 +203,7 @@ Allocation then follows fixed priorities:
 3. **Grid** → remaining home demand, then battery charge.
 
 In grid mode, each bus segment carries the sum of the devices downstream.
-"Other" equals `home − Σ devices`, never negative.
+"Other" equals `home − Σ devices` (devices with `exclude_from_untracked` left out), never negative.
 
 ## Development
 

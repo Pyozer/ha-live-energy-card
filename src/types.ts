@@ -49,6 +49,11 @@ export type HomeConfig = BaseNodeConfig;
 
 export interface DeviceConfig extends BaseNodeConfig {
   entity: string;
+  /**
+   * The device is not part of the home consumption (separate circuit, or already measured by
+   * another device): it is not subtracted when computing the "Other" node.
+   */
+  exclude_from_untracked?: boolean;
 }
 
 export type PowerCurve = 'linear' | 'sqrt' | 'log';

@@ -51,6 +51,7 @@ export const en = {
       export_color: 'Export color',
       charge_color: 'Charging color',
       invert: 'Invert sign',
+      exclude_from_untracked: 'Not part of the home consumption (not subtracted from Other)',
       hide_when_zero: 'Hide when zero',
       secondary_entity: 'Secondary entity (e.g. energy today)',
       import_entity: 'Import entity (alternative)',
