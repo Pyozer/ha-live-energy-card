@@ -4,6 +4,7 @@ import {
   mdiChevronDown,
   mdiChevronUp,
   mdiDeleteOutline,
+  mdiFolderPlusOutline,
   mdiLightningBoltCircle,
   mdiPlus,
 } from '@mdi/js';
@@ -11,6 +12,16 @@ import { LitElement, css, html, nothing, type TemplateResult } from 'lit';
 import { fireEvent } from '../actions';
 import { configFromEnergyPrefs, fetchEnergyPrefs, importedCount, mergeEnergyImport } from '../energy';
 import { compactRef, entitySelector, type EntityKind } from '../entities';
+import {
+  addDevice,
+  deviceAt,
+  isGroup,
+  moveDevice,
+  pathKey,
+  removeDevice,
+  updateDevice,
+  type DevicePath,
+} from './device-list';
 import { entityIds } from '../units';
 import { DEFAULT_TOGGLES } from '../intensity';
 import { LANGUAGE_NAMES, localize, SUPPORTED_LANGUAGES, type LocalizeKey } from '../localize/localize';
@@ -63,13 +74,14 @@ export class LiveEnergyCardEditor extends LitElement {
 
   declare hass?: HomeAssistant;
   declare _config?: LiveEnergyCardConfig;
-  declare _expanded: number;
+  /** Path key of the device being edited (`2`, or `2.0` for a group member), empty when none. */
+  declare _expanded: string;
   /** Result of the last Energy dashboard import, shown under the button. */
   declare _importStatus?: { ok: boolean; text: string };
 
   constructor() {
     super();
-    this._expanded = -1;
+    this._expanded = '';
   }
 
   setConfig(config: LiveEnergyCardConfig): void {
@@ -278,8 +290,10 @@ export class LiveEnergyCardEditor extends LitElement {
   }
 
   private _deviceSchema(dev: DeviceConfig): Schema[] {
+    const group = isGroup(dev);
     return [
-      { name: 'entity', selector: this._entity('power', dev.entity, true) },
+      // A group's entity is optional (a circuit meter); without it, its members are added up.
+      { name: group ? 'group_entity' : 'entity', selector: this._entity('power', dev.entity, true) },
       {
         type: 'grid',
         name: '',
@@ -296,6 +310,7 @@ export class LiveEnergyCardEditor extends LitElement {
           { name: 'hide_when_zero', selector: { boolean: {} } },
           { name: 'invert', selector: { boolean: {} } },
           { name: 'exclude_from_untracked', selector: { boolean: {} } },
+          ...(group ? [{ name: 'expanded', selector: { boolean: {} } }] : []),
         ],
       },
       { name: 'secondary_entity', selector: ANY_ENTITY },
@@ -382,41 +397,48 @@ export class LiveEnergyCardEditor extends LitElement {
     return [...(this._config?.devices ?? [])];
   }
 
-  private _deviceChanged(index: number, ev: CustomEvent): void {
+  private _setDevices(devices: DeviceConfig[]): void {
+    this._emit({ ...this._config!, devices });
+  }
+
+  private _deviceChanged(path: DevicePath, ev: CustomEvent): void {
     ev.stopPropagation();
-    const devices = this._devices();
-    const value = { ...(ev.detail.value as DeviceConfig) };
-    value.entity = compactRef(value.entity) ?? '';
+    const previous = deviceAt(this._devices(), path);
+    const raw = { ...(ev.detail.value as DeviceConfig & { group_entity?: unknown }) };
+    const group = isGroup(previous);
+    const value: DeviceConfig = { ...raw };
+    delete (value as { group_entity?: unknown }).group_entity;
+    value.entity = compactRef(group ? raw.group_entity : raw.entity) ?? (group ? undefined : '');
+    if (group) value.devices = previous?.devices ?? [];
     const def = this._hideDefault('device');
-    if (value.hide_when_zero === def && devices[index]?.hide_when_zero === undefined)
-      delete value.hide_when_zero;
-    if (value.invert === false) delete value.invert;
-    if (value.exclude_from_untracked === false) delete value.exclude_from_untracked;
-    devices[index] = clean(value);
-    this._emit({ ...this._config!, devices });
+    if (value.hide_when_zero === def && previous?.hide_when_zero === undefined) delete value.hide_when_zero;
+    for (const key of ['invert', 'exclude_from_untracked', 'expanded'] as const) {
+      if (value[key] === false) delete value[key];
+    }
+    this._setDevices(updateDevice(this._devices(), path, clean(value)));
   }
 
-  private _moveDevice(index: number, delta: number): void {
-    const devices = this._devices();
-    const target = index + delta;
-    if (target < 0 || target >= devices.length) return;
-    [devices[index], devices[target]] = [devices[target], devices[index]];
-    if (this._expanded === index) this._expanded = target;
-    this._emit({ ...this._config!, devices });
+  private _moveDevice(path: DevicePath, delta: number): void {
+    const result = moveDevice(this._devices(), path, delta);
+    if (this._expanded === pathKey(path)) this._expanded = pathKey(result.path);
+    this._setDevices(result.devices);
   }
 
-  private _removeDevice(index: number): void {
-    const devices = this._devices();
-    devices.splice(index, 1);
-    this._expanded = -1;
-    this._emit({ ...this._config!, devices });
+  private _removeDevice(path: DevicePath): void {
+    this._expanded = '';
+    this._setDevices(removeDevice(this._devices(), path));
   }
 
-  private _addDevice(): void {
-    const devices = this._devices();
-    devices.push({ entity: '' });
-    this._expanded = devices.length - 1;
-    this._emit({ ...this._config!, devices });
+  private _addDevice(group?: number): void {
+    const result = addDevice(this._devices(), { entity: '' }, group);
+    this._expanded = pathKey(result.path);
+    this._setDevices(result.devices);
+  }
+
+  private _addGroup(): void {
+    const result = addDevice(this._devices(), { name: this._t('node.group'), devices: [] });
+    this._expanded = pathKey(result.path);
+    this._setDevices(result.devices);
   }
 
   private async _importEnergy(): Promise<void> {
@@ -427,7 +449,7 @@ export class LiveEnergyCardEditor extends LitElement {
       this._importStatus = { ok: false, text: this._t('editor.import_none') };
       return;
     }
-    this._expanded = -1;
+    this._expanded = '';
     this._emit(mergeEnergyImport(this._config!, imported));
     this._importStatus = { ok: true, text: this._t('editor.import_done', { count: String(count) }) };
   }
@@ -465,53 +487,66 @@ export class LiveEnergyCardEditor extends LitElement {
           <span class="count">${devices.length}</span>
         </div>
         ${devices.length === 0 ? html`<div class="empty">${this._t('editor.no_devices')}</div>` : nothing}
-        ${devices.map((dev, i) => this._renderDevice(dev, i, devices.length))}
-        <button class="add" @click=${this._addDevice}>
-          <ha-svg-icon .path=${mdiPlus}></ha-svg-icon>${this._t('editor.add_device')}
-        </button>
+        ${devices.map((dev, i) => this._renderDevice(dev, [i], devices.length))}
+        <div class="actions">
+          <button class="add" @click=${() => this._addDevice()}>
+            <ha-svg-icon .path=${mdiPlus}></ha-svg-icon>${this._t('editor.add_device')}
+          </button>
+          <button class="add" @click=${this._addGroup}>
+            <ha-svg-icon .path=${mdiFolderPlusOutline}></ha-svg-icon>${this._t('editor.add_group')}
+          </button>
+        </div>
       </div>
     `;
   }
 
-  private _renderDevice(dev: DeviceConfig, index: number, total: number): TemplateResult {
-    const expanded = this._expanded === index;
+  private _renderDevice(dev: DeviceConfig, path: DevicePath, total: number): TemplateResult {
+    const key = pathKey(path);
+    const index = path[path.length - 1];
+    const expanded = this._expanded === key;
+    const toggle = () => (this._expanded = expanded ? '' : key);
+    const group = isGroup(dev);
+    const members = dev.devices ?? [];
     const ids = entityIds(dev.entity);
     const state = ids.length ? this.hass!.states[ids[0]] : undefined;
     const title = dev.name ?? state?.attributes.friendly_name ?? (ids[0] || '—');
+    const subtitle = group ? this._t('node.group_count', { count: String(members.length) }) : ids.join(', ');
     const data = {
       ...dev,
-      entity: ids,
+      [group ? 'group_entity' : 'entity']: ids,
       hide_when_zero: dev.hide_when_zero ?? this._hideDefault('device'),
     };
+    const icon =
+      dev.icon ?? state?.attributes.icon ?? (group ? 'mdi:folder-outline' : 'mdi:power-plug-outline');
     return html`
-      <div class="device ${expanded ? 'expanded' : ''}">
+      <div class="device ${expanded ? 'expanded' : ''} ${group ? 'group' : ''}">
         <div class="device-head">
-          <ha-icon .icon=${dev.icon ?? state?.attributes.icon ?? 'mdi:power-plug-outline'}></ha-icon>
-          <button class="device-title" @click=${() => (this._expanded = expanded ? -1 : index)}>
+          <ha-icon .icon=${icon}></ha-icon>
+          <button class="device-title" @click=${toggle}>
             <span>${title}</span>
-            <small>${ids.join(', ')}</small>
+            <small>${subtitle}</small>
           </button>
           <ha-icon-button
             .label=${this._t('editor.move_up')}
             .path=${mdiArrowUp}
             .disabled=${index === 0}
-            @click=${() => this._moveDevice(index, -1)}
+            @click=${() => this._moveDevice(path, -1)}
           ></ha-icon-button>
           <ha-icon-button
             .label=${this._t('editor.move_down')}
             .path=${mdiArrowDown}
             .disabled=${index === total - 1}
-            @click=${() => this._moveDevice(index, 1)}
+            @click=${() => this._moveDevice(path, 1)}
           ></ha-icon-button>
           <ha-icon-button
             .label=${this._t('editor.remove')}
             .path=${mdiDeleteOutline}
-            @click=${() => this._removeDevice(index)}
+            @click=${() => this._removeDevice(path)}
           ></ha-icon-button>
           <ha-icon-button
             .label=${this._t('editor.edit')}
             .path=${expanded ? mdiChevronUp : mdiChevronDown}
-            @click=${() => (this._expanded = expanded ? -1 : index)}
+            @click=${toggle}
           ></ha-icon-button>
         </div>
         ${
@@ -522,8 +557,18 @@ export class LiveEnergyCardEditor extends LitElement {
                   .data=${data}
                   .schema=${this._deviceSchema(dev)}
                   .computeLabel=${this._label}
-                  @value-changed=${(ev: CustomEvent) => this._deviceChanged(index, ev)}
+                  @value-changed=${(ev: CustomEvent) => this._deviceChanged(path, ev)}
                 ></ha-form>
+              </div>`
+            : nothing
+        }
+        ${
+          group
+            ? html`<div class="members">
+                ${members.map((m, j) => this._renderDevice(m, [path[0], j], members.length))}
+                <button class="add" @click=${() => this._addDevice(path[0])}>
+                  <ha-svg-icon .path=${mdiPlus}></ha-svg-icon>${this._t('editor.add_member')}
+                </button>
               </div>`
             : nothing
         }
@@ -638,6 +683,18 @@ export class LiveEnergyCardEditor extends LitElement {
     }
     .import-status.error {
       color: var(--error-color, #db4437);
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .members {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 8px 8px 10px 20px;
+      border-top: 1px solid var(--divider-color);
     }
     .add:hover {
       background: color-mix(in srgb, var(--primary-color) 8%, transparent);

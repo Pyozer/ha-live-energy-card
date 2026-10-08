@@ -7,7 +7,14 @@ import {
   type Layout,
   type Rect,
 } from '../src/layout';
-import { applyDeviceTree, buildModel, cleanName, sortWithHysteresis, UNTRACKED_ID } from '../src/model';
+import {
+  applyDeviceTree,
+  buildModel,
+  cleanName,
+  sortWithHysteresis,
+  TOGGLE_GROUP,
+  UNTRACKED_ID,
+} from '../src/model';
 import { buildDeviceTree } from '../src/tree';
 import { validateConfig, watchedEntities } from '../src/config';
 import type { HassEntity, HomeAssistant, LiveEnergyCardConfig } from '../src/types';
@@ -338,6 +345,93 @@ describe('buildModel', () => {
       hassWith([state('sensor.roof', 1000), state('sensor.garage', 'unavailable')]),
     );
     expect(model.nodes.find((n) => n.id === 'solar')?.available).toBe(false);
+  });
+
+  describe('device groups', () => {
+    const groupConfig: LiveEnergyCardConfig = {
+      type: 'custom:live-energy-card',
+      grid: { entity: 'sensor.grid' },
+      show_untracked: true,
+      devices: [
+        { entity: 'sensor.fridge' },
+        { name: 'Kitchen', devices: [{ entity: 'sensor.oven' }, { entity: 'sensor.hob' }] },
+      ],
+    };
+    const groupHass = hassWith([
+      state('sensor.grid', 2000),
+      state('sensor.fridge', 100),
+      state('sensor.oven', 900),
+      state('sensor.hob', 600),
+    ]);
+
+    it('collapsed: one pill with the members total, members hidden', () => {
+      const model = buildModel(groupConfig, groupHass);
+      const byId = Object.fromEntries(model.nodes.map((n) => [n.id, n]));
+      expect(byId['device:1'].watts).toBe(1500);
+      expect(byId['device:1'].group).toEqual({ expanded: false, count: 2 });
+      expect(byId['device:1'].secondary).toBe('2 appareils');
+      expect(byId['device:1:0'].visible).toBe(false);
+      expect(model.devicesOrder).toEqual(['device:0', 'device:1', 'device:1:0', 'device:1:1', UNTRACKED_ID]);
+      // Members are counted once in the untracked consumption.
+      expect(byId[UNTRACKED_ID].watts).toBe(400);
+      expect(model.flows.find((f) => f.id === 'flow:device:1')?.watts).toBe(1500);
+    });
+
+    it('expanded: the members carry the flows, the group only heads them', () => {
+      const model = buildModel(groupConfig, groupHass, [], new Set(['device:1']));
+      const byId = Object.fromEntries(model.nodes.map((n) => [n.id, n]));
+      expect(byId['device:1:0'].visible).toBe(true);
+      expect(byId['device:1:0'].parent).toBe('device:1');
+      const flows = Object.fromEntries(model.flows.map((f) => [f.id, f]));
+      expect(flows['flow:device:1'].active).toBe(false);
+      expect(flows['flow:device:1:0'].watts).toBe(900);
+      // The bus never counts the group and its members twice.
+      const layout = computeLayout({
+        width: 900,
+        solar: false,
+        grid: true,
+        battery: false,
+        devices: model.devicesOrder.filter((id) => byId[id].visible),
+        devicesLayout: 'grid',
+      });
+      const tree = applyDeviceTree(model, layout, groupConfig);
+      const trunk = tree.find((f) => f.id === 'tree:spine:0')!;
+      expect(trunk.watts).toBe(100 + 900 + 600 + 400);
+    });
+
+    it('tapping a group toggles it unless an action is configured', () => {
+      const model = buildModel(groupConfig, groupHass);
+      expect(model.nodes.find((n) => n.id === 'device:1')?.actions.tap_action).toEqual({
+        action: TOGGLE_GROUP,
+      });
+      const custom = buildModel(
+        {
+          ...groupConfig,
+          devices: [
+            { ...groupConfig.devices![1], tap_action: { action: 'navigate', navigation_path: '/x' } },
+          ],
+        },
+        groupHass,
+      );
+      expect(custom.nodes.find((n) => n.id === 'device:0')?.actions.tap_action?.action).toBe('navigate');
+    });
+
+    it('a group with its own meter shows the meter', () => {
+      const model = buildModel(
+        {
+          ...groupConfig,
+          devices: [{ entity: 'sensor.grid', name: 'Circuit', devices: [{ entity: 'sensor.oven' }] }],
+        },
+        groupHass,
+      );
+      expect(model.nodes.find((n) => n.id === 'device:0')?.watts).toBe(2000);
+    });
+
+    it('a config made only of groups is valid and watches the members', () => {
+      const config = { type: 'x', devices: [{ name: 'G', devices: [{ entity: 'sensor.a' }] }] };
+      expect(() => validateConfig(config)).not.toThrow();
+      expect(watchedEntities(config)).toEqual(['sensor.a']);
+    });
   });
 
   it('applyDeviceTree: shared segments carry the downstream sum', () => {

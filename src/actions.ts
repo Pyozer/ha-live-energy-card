@@ -14,7 +14,11 @@ export function runAction(
   host: HTMLElement,
   actions: NodeActions,
   action: 'tap' | 'hold' | 'double_tap',
+  local?: (name: string) => boolean,
 ): void {
+  // Card-internal actions (e.g. expanding a group) never reach Home Assistant.
+  const name = actions[`${action}_action`]?.action;
+  if (name && local?.(name)) return;
   fireEvent(host, 'hass-action', { config: actions, action });
 }
 
@@ -22,7 +26,11 @@ export function runAction(
  * Tap / hold / double tap handling on a node.
  * Returns the listeners to attach to the element.
  */
-export function actionHandlers(host: HTMLElement, getActions: () => NodeActions) {
+export function actionHandlers(
+  host: HTMLElement,
+  getActions: () => NodeActions,
+  local?: (name: string) => boolean,
+) {
   let holdTimer: number | undefined;
   let held = false;
   let tapTimer: number | undefined;
@@ -43,7 +51,7 @@ export function actionHandlers(host: HTMLElement, getActions: () => NodeActions)
       if (hasAction(getActions().hold_action)) {
         holdTimer = window.setTimeout(() => {
           held = true;
-          runAction(host, getActions(), 'hold');
+          runAction(host, getActions(), 'hold', local);
         }, HOLD_MS);
       }
     },
@@ -64,21 +72,21 @@ export function actionHandlers(host: HTMLElement, getActions: () => NodeActions)
         if (tapTimer) {
           window.clearTimeout(tapTimer);
           tapTimer = undefined;
-          runAction(host, actions, 'double_tap');
+          runAction(host, actions, 'double_tap', local);
           return;
         }
         tapTimer = window.setTimeout(() => {
           tapTimer = undefined;
-          runAction(host, getActions(), 'tap');
+          runAction(host, getActions(), 'tap', local);
         }, DOUBLE_TAP_MS);
         return;
       }
-      if (hasAction(actions.tap_action)) runAction(host, actions, 'tap');
+      if (hasAction(actions.tap_action)) runAction(host, actions, 'tap', local);
     },
     keydown: (ev: KeyboardEvent) => {
       if (ev.key === 'Enter' || ev.key === ' ') {
         ev.preventDefault();
-        runAction(host, getActions(), 'tap');
+        runAction(host, getActions(), 'tap', local);
       }
     },
   };

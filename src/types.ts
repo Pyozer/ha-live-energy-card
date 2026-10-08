@@ -51,7 +51,12 @@ export interface BatteryConfig extends BaseNodeConfig {
 export type HomeConfig = BaseNodeConfig;
 
 export interface DeviceConfig extends BaseNodeConfig {
-  entity: EntityRef;
+  /** Optional for a group: its power is then the sum of its members. */
+  entity?: EntityRef;
+  /** Members of a device group, shown when the group is expanded. */
+  devices?: DeviceConfig[];
+  /** Group initially expanded. */
+  expanded?: boolean;
   /**
    * The device is not part of the home consumption (separate circuit, or already measured by
    * another device): it is not subtracted when computing the "Other" node.

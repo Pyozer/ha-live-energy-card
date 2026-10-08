@@ -22,6 +22,7 @@ import type {
   ActionConfig,
   AnimationToggles,
   BaseNodeConfig,
+  DeviceConfig,
   EntityRef,
   HomeAssistant,
   LiveEnergyCardConfig,
@@ -31,6 +32,9 @@ import { entityIds, numberFormat, readPercentAverage, readPowerSum, type Reading
 export type NodeKind = 'solar' | 'grid' | 'battery' | 'home' | 'device';
 
 export const UNTRACKED_ID = 'device:untracked';
+
+/** Card-internal action: expands or collapses a device group. */
+export const TOGGLE_GROUP = 'toggle-group';
 
 export interface NodeActions {
   entity?: string;
@@ -61,6 +65,10 @@ export interface NodeModel {
   soc?: number | null;
   /** Home source mix, for the ring. */
   mix?: MixSegment[];
+  /** Device group: expanded state and number of members. */
+  group?: { expanded: boolean; count: number };
+  /** Group the device belongs to. */
+  parent?: string;
   actions: NodeActions;
 }
 
@@ -197,6 +205,8 @@ export function buildModel(
   config: LiveEnergyCardConfig,
   hass: HomeAssistant,
   previousOrder: string[] = [],
+  /** Ids of the expanded device groups. */
+  expanded: ReadonlySet<string> = new Set(),
 ): CardModel {
   const lang = resolveLanguage(config.language, hass);
   const t = (key: Parameters<typeof localize>[1]) => localize(lang, key);
@@ -392,28 +402,72 @@ export function buildModel(
   // --- Devices ---------------------------------------------------------------------------------
   const deviceNodes: NodeModel[] = [];
   const deviceWatts: number[] = [];
-  (config.devices ?? []).forEach((dev, index) => {
-    const ids = entityIds(dev?.entity);
-    if (ids.length === 0) return;
-    const r = readPowerSum(hass.states, dev.entity, dev.invert);
-    const watts = r.available ? Math.max(0, r.value ?? 0) : null;
+  /** Configuration of each device node, for its flow. */
+  const deviceCfg = new Map<string, DeviceConfig>();
+  /** Children of each group, in display order. */
+  const groupChildren = new Map<string, string[]>();
+
+  const deviceNode = (dev: DeviceConfig, id: string, reading: Reading, fallbackName: string): NodeModel => {
+    const ids = entityIds(dev.entity);
+    const watts = reading.available ? Math.max(0, reading.value ?? 0) : null;
     const value = watts !== null && watts >= threshold ? watts : 0;
-    if (!dev.exclude_from_untracked) deviceWatts.push(value);
     const active = value > 0;
-    deviceNodes.push({
-      id: `device:${index}`,
+    deviceCfg.set(id, dev);
+    return {
+      id,
       kind: 'device',
-      name: dev.name ?? cleanName(friendly(ids[0]), ids[0]),
+      name: dev.name ?? (ids.length ? cleanName(friendly(ids[0]), ids[0]) : fallbackName),
       icon:
         dev.icon ?? (hass.states[ids[0]]?.attributes.icon as string | undefined) ?? 'mdi:power-plug-outline',
       color: resolveColor(dev.color, DEFAULT_COLORS.device),
       watts: watts === null ? null : value,
-      available: r.available,
+      available: reading.available,
       active,
-      visible: !(r.available && !active && hideFor(dev, globalHide)),
+      visible: !(reading.available && !active && hideFor(dev, globalHide)),
       secondary: formatSecondary(hass, dev.secondary_entity),
       actions: actionsFor(dev, dev.entity),
-    });
+    };
+  };
+
+  (config.devices ?? []).forEach((dev, index) => {
+    if (!dev) return;
+    const id = `device:${index}`;
+    const members = (dev.devices ?? []).filter((c) => c && entityIds(c.entity).length > 0);
+    if (members.length === 0) {
+      if (entityIds(dev.entity).length === 0) return;
+      const node = deviceNode(dev, id, readPowerSum(hass.states, dev.entity, dev.invert), id);
+      if (!dev.exclude_from_untracked) deviceWatts.push(node.watts ?? 0);
+      deviceNodes.push(node);
+      return;
+    }
+
+    // Group: its own entity when it has one (e.g. a circuit meter), otherwise the sum of its members.
+    const expandedGroup = expanded.has(id);
+    const children = members.map((child, j) =>
+      deviceNode(child, `${id}:${j}`, readPowerSum(hass.states, child.entity, child.invert), `${id}:${j}`),
+    );
+    const total: Reading = entityIds(dev.entity).length
+      ? readPowerSum(hass.states, dev.entity, dev.invert)
+      : children.every((c) => c.available)
+        ? { value: children.reduce((acc, c) => acc + (c.watts ?? 0), 0), available: true }
+        : { value: null, available: false };
+    const group = deviceNode(dev, id, total, t('node.group'));
+    group.icon = dev.icon ?? 'mdi:folder-outline';
+    group.group = { expanded: expandedGroup, count: children.length };
+    group.secondary ??= localize(lang, 'node.group_count', { count: String(children.length) });
+    // Tapping a group expands or collapses it, unless another action is configured.
+    group.actions = { ...group.actions, tap_action: dev.tap_action ?? { action: TOGGLE_GROUP } };
+    if (!dev.exclude_from_untracked) deviceWatts.push(group.watts ?? 0);
+    deviceNodes.push(group);
+    for (const child of children) {
+      child.parent = id;
+      child.visible = child.visible && expandedGroup && group.visible;
+      deviceNodes.push(child);
+    }
+    groupChildren.set(
+      id,
+      children.map((c) => c.id),
+    );
   });
 
   if (config.show_untracked) {
@@ -433,17 +487,17 @@ export function buildModel(
     });
   }
 
-  let devicesOrder = deviceNodes.map((d) => d.id);
+  // Top-level devices (optionally sorted), each group followed by its members.
+  const topLevel = deviceNodes.filter((d) => !d.parent && d.id !== UNTRACKED_ID);
+  let topOrder = topLevel.map((d) => d.id);
   if (config.sort_devices) {
-    const untracked = devicesOrder.filter((id) => id === UNTRACKED_ID);
-    devicesOrder = [
-      ...sortWithHysteresis(
-        deviceNodes.filter((d) => d.id !== UNTRACKED_ID).map((d) => ({ id: d.id, watts: d.watts ?? -1 })),
-        previousOrder,
-      ),
-      ...untracked,
-    ];
+    topOrder = sortWithHysteresis(
+      topLevel.map((d) => ({ id: d.id, watts: d.watts ?? -1 })),
+      previousOrder.filter((id) => topOrder.includes(id)),
+    );
   }
+  const devicesOrder = topOrder.flatMap((id) => [id, ...(groupChildren.get(id) ?? [])]);
+  if (deviceNodes.some((d) => d.id === UNTRACKED_ID)) devicesOrder.push(UNTRACKED_ID);
   nodes.push(...deviceNodes);
 
   // --- Flows -----------------------------------------------------------------------------------
@@ -497,10 +551,9 @@ export function buildModel(
   sourceFlow('battery_home', 'battery', 'home', f.batteryToHome, batColor, homeColor);
   sourceFlow('battery_grid', 'battery', 'grid', f.batteryToGrid, batColor, gridExportColor);
 
-  const devCfgs = config.devices ?? [];
   for (const dev of deviceNodes) {
-    const index = dev.id === UNTRACKED_ID ? -1 : Number(dev.id.split(':')[1]);
-    const watts = dev.watts ?? 0;
+    // An expanded group only heads its members, which carry the flows.
+    const watts = dev.group?.expanded ? 0 : (dev.watts ?? 0);
     const active = watts > 0 && dev.visible;
     flows.push({
       id: `flow:${dev.id}`,
@@ -512,7 +565,7 @@ export function buildModel(
       idle: dimIdle && !active && dev.visible,
       colorFrom: homeColor,
       colorTo: dev.color,
-      toggles: resolveToggles(config.animation, index >= 0 ? devCfgs[index]?.animation : undefined),
+      toggles: resolveToggles(config.animation, deviceCfg.get(dev.id)?.animation),
       source: null,
     });
   }
@@ -539,7 +592,8 @@ export function applyDeviceTree(model: CardModel, layout: Layout, config: LiveEn
   const curve = config.power_curve ?? DEFAULTS.power_curve;
   const dimIdle = (config.inactive_flows ?? DEFAULTS.inactive_flows) === 'dim';
   const home = model.nodes.find((n) => n.id === 'home')!;
-  const watts = new Map(model.nodes.map((n) => [n.id, n.watts ?? 0]));
+  // Power carried toward each device (zero for an expanded group, whose members carry it).
+  const watts = new Map(model.flows.filter((f) => f.source === null).map((f) => [f.to, f.watts]));
   const byId = new Map(model.flows.map((f) => [f.id, f]));
   const bus = layout.devices.bus;
 

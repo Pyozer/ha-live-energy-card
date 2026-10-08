@@ -1,4 +1,5 @@
 import { entitiesOfKind } from './entities';
+import { entityIds } from './units';
 import type {
   BatteryConfig,
   DeviceConfig,
@@ -129,16 +130,36 @@ export function configFromEnergyPrefs(prefs: EnergyPrefs): EnergyImport {
   }
 
   const devices = prefs.device_consumption ?? [];
-  // A device "included in" another listed device is a sub-meter: counting it again would
-  // understate the untracked consumption.
-  const listed = new Set(devices.map((d) => d.stat_consumption));
+  // A device "included in" another listed device (a sub-meter) becomes a member of that device's
+  // group, so its consumption is not counted twice. Deeper levels join the top-level ancestor.
+  const byStat = new Map(devices.map((d) => [d.stat_consumption, d]));
+  const root = (d: EnergyDevice): EnergyDevice => {
+    let current = d;
+    for (let guard = 0; guard < devices.length; guard++) {
+      const parent = current.included_in_stat ? byStat.get(current.included_in_stat) : undefined;
+      if (!parent || parent === d) break;
+      current = parent;
+    }
+    return current;
+  };
+  const toConfig = (d: EnergyDevice): DeviceConfig => {
+    const cfg: DeviceConfig = {};
+    if (str(d.stat_rate)) cfg.entity = d.stat_rate!;
+    if (str(d.name)) cfg.name = d.name!;
+    return cfg;
+  };
+  const members = new Map<EnergyDevice, DeviceConfig[]>();
+  for (const d of devices) {
+    const top = root(d);
+    if (top !== d && str(d.stat_rate)) members.set(top, [...(members.get(top) ?? []), toConfig(d)]);
+  }
   out.devices = devices
-    .filter((d) => str(d.stat_rate))
-    .map((d) => {
-      const cfg: DeviceConfig = { entity: d.stat_rate! };
-      if (str(d.name)) cfg.name = d.name!;
-      if (d.included_in_stat && listed.has(d.included_in_stat)) cfg.exclude_from_untracked = true;
-      return cfg;
+    .filter((d) => root(d) === d)
+    .flatMap((d) => {
+      const cfg = toConfig(d);
+      const children = members.get(d);
+      if (children?.length) cfg.devices = children;
+      return cfg.entity || cfg.devices ? [cfg] : [];
     });
   return out;
 }
@@ -149,7 +170,7 @@ export function importedCount(imported: EnergyImport): number {
     (imported.solar ? 1 : 0) +
     (imported.grid ? 1 : 0) +
     (imported.battery ? 1 : 0) +
-    (imported.devices?.length ?? 0)
+    (imported.devices ?? []).reduce((acc, d) => acc + 1 + (d.devices?.length ?? 0), 0)
   );
 }
 
@@ -166,8 +187,10 @@ export function mergeEnergyImport(
     if (imported[key]) next[key] = { ...stripEntities(config[key]), ...imported[key] } as never;
   }
   const existing = config.devices ?? [];
-  const known = new Set(existing.map((d) => d.entity));
-  next.devices = [...existing, ...(imported.devices ?? []).filter((d) => !known.has(d.entity))];
+  // Same entities (or, for a group without its own entity, same name) = same device.
+  const key = (d: DeviceConfig) => entityIds(d.entity).join(',') || `group:${d.name ?? ''}`;
+  const known = new Set(existing.map(key));
+  next.devices = [...existing, ...(imported.devices ?? []).filter((d) => !known.has(key(d)))];
   return next;
 }
 

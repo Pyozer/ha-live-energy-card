@@ -63,7 +63,7 @@ export function validateConfig(input: unknown): LiveEnergyCardConfig {
     has(config.grid?.entity, config.grid?.import_entity, config.grid?.export_entity) ||
     has(config.battery?.entity, config.battery?.charge_entity, config.battery?.discharge_entity) ||
     has(config.home?.entity) ||
-    config.devices.some((d) => has(d.entity));
+    config.devices.some((d) => has(d.entity) || !!d.devices?.some((c) => has(c?.entity)));
   if (!hasEntity) throw new Error(localize(l, 'error.no_entity'));
 
   return config;
@@ -73,7 +73,8 @@ export function validateConfig(input: unknown): LiveEnergyCardConfig {
 export function watchedEntities(config: LiveEnergyCardConfig): string[] {
   const ids = new Set<string>();
   const add = (ref: EntityRef | undefined) => entityIds(ref).forEach((id) => ids.add(id));
-  for (const node of [config.solar, config.grid, config.battery, config.home, ...(config.devices ?? [])]) {
+  const devices = (config.devices ?? []).flatMap((d) => (d ? [d, ...(d.devices ?? [])] : []));
+  for (const node of [config.solar, config.grid, config.battery, config.home, ...devices]) {
     if (!node) continue;
     add(node.entity);
     add(node.secondary_entity);

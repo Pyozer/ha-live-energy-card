@@ -64,13 +64,28 @@ const ENERGY_PREFS: EnergyPrefs = {
   })),
 };
 
+/** Mini PC, media server and internet box, shown as a group. */
+const IT_GROUP = [5, 11, 12];
+
 const DEFAULT_CONFIG: LiveEnergyCardConfig = {
   type: 'custom:live-energy-card',
   max_power: 4000,
   solar: { entity: ENT.solar, secondary_entity: ENT.solarDay },
   grid: { entity: ENT.grid },
   battery: { entity: ENT.battery, soc_entity: ENT.soc },
-  devices: DEVICES.map(({ entity, name, icon }) => ({ entity, name, icon })),
+  devices: [
+    ...DEVICES.filter((_, i) => !IT_GROUP.includes(i)).map(({ entity, name, icon }) => ({
+      entity,
+      name,
+      icon,
+    })),
+    // Device group: tap it to show its members.
+    {
+      name: 'Network & IT',
+      icon: 'mdi:lan',
+      devices: IT_GROUP.map((i) => DEVICES[i]).map(({ entity, name, icon }) => ({ entity, name, icon })),
+    },
+  ],
 };
 
 const state = {

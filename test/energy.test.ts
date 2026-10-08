@@ -50,8 +50,7 @@ describe('Energy dashboard import', () => {
     expect(imported.battery).toBeUndefined();
     expect(imported.devices).toEqual([
       { entity: 'sensor.fridge_power', name: 'Fridge' },
-      { entity: 'sensor.office_power' },
-      { entity: 'sensor.pc_power', exclude_from_untracked: true },
+      { entity: 'sensor.office_power', devices: [{ entity: 'sensor.pc_power' }] },
     ]);
     expect(importedCount(imported)).toBe(5);
   });
@@ -87,6 +86,19 @@ describe('Energy dashboard import', () => {
     });
   });
 
+  it('nested sub-meters join the top-level group, even without its own power sensor', () => {
+    const imported = configFromEnergyPrefs({
+      device_consumption: [
+        { stat_consumption: 'e.kitchen', name: 'Kitchen' },
+        { stat_consumption: 'e.oven', stat_rate: 'p.oven', included_in_stat: 'e.kitchen' },
+        { stat_consumption: 'e.light', stat_rate: 'p.light', included_in_stat: 'e.oven' },
+      ],
+    });
+    expect(imported.devices).toEqual([
+      { name: 'Kitchen', devices: [{ entity: 'p.oven' }, { entity: 'p.light' }] },
+    ]);
+  });
+
   it('empty dashboard: nothing imported', () => {
     expect(importedCount(configFromEnergyPrefs({}))).toBe(0);
   });
@@ -103,12 +115,20 @@ describe('Energy dashboard import', () => {
     );
     expect(merged.title).toBe('Energy');
     expect(merged.grid).toEqual({ entity: 'sensor.grid_power', name: 'Linky', color: 'blue' });
-    expect(merged.devices?.map((d) => d.entity)).toEqual([
-      'sensor.fridge_power',
-      'sensor.office_power',
-      'sensor.pc_power',
-    ]);
+    expect(merged.devices?.map((d) => d.entity)).toEqual(['sensor.fridge_power', 'sensor.office_power']);
     expect(merged.devices?.[0].name).toBe('My fridge');
+  });
+
+  it('importing twice does not duplicate devices or groups', () => {
+    const imported = configFromEnergyPrefs({
+      device_consumption: [
+        { stat_consumption: 'e.kitchen', name: 'Kitchen' },
+        { stat_consumption: 'e.oven', stat_rate: 'p.oven', included_in_stat: 'e.kitchen' },
+        { stat_consumption: 'e.tv', stat_rate: 'p.tv' },
+      ],
+    });
+    const once = mergeEnergyImport({ type: 'x' }, imported);
+    expect(mergeEnergyImport(once, imported).devices).toEqual(once.devices);
   });
 
   it('fetch: null without websocket access or on error', async () => {

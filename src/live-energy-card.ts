@@ -14,6 +14,7 @@ import {
   type CardModel,
   type FlowModel,
   type NodeModel,
+  TOGGLE_GROUP,
 } from './model';
 import { cardStyles } from './styles';
 import type { HomeAssistant, LiveEnergyCardConfig } from './types';
@@ -36,11 +37,14 @@ export class LiveEnergyCard extends LitElement {
     hass: { attribute: false },
     _config: { state: true },
     _width: { state: true },
+    _expanded: { state: true },
   };
 
   declare hass?: HomeAssistant;
   declare _config?: LiveEnergyCardConfig;
   declare _width: number;
+  /** Expanded device groups. */
+  declare _expanded: ReadonlySet<string>;
 
   private _uid = `lec${++instances}`;
   private _model?: CardModel;
@@ -55,6 +59,7 @@ export class LiveEnergyCard extends LitElement {
   constructor() {
     super();
     this._width = 0;
+    this._expanded = new Set();
   }
 
   static getConfigElement(): HTMLElement {
@@ -76,6 +81,11 @@ export class LiveEnergyCard extends LitElement {
     this._config = validateConfig(config);
     this._watched = watchedEntities(this._config);
     this._handlers.clear();
+    this._expanded = new Set(
+      (this._config.devices ?? []).flatMap((d, i) =>
+        d?.devices?.length && d.expanded ? [`device:${i}`] : [],
+      ),
+    );
   }
 
   getCardSize(): number {
@@ -124,7 +134,7 @@ export class LiveEnergyCard extends LitElement {
 
   protected override willUpdate(): void {
     if (!this._config || !this.hass) return;
-    this._model = buildModel(this._config, this.hass, this._order);
+    this._model = buildModel(this._config, this.hass, this._order, this._expanded);
     this._order = this._model.devicesOrder;
     const visible = new Set(this._model.nodes.filter((n) => n.visible).map((n) => n.id));
     this._layout = computeLayout({
@@ -224,7 +234,17 @@ export class LiveEnergyCard extends LitElement {
   private _handlersFor(id: string): Handlers {
     let h = this._handlers.get(id);
     if (!h) {
-      h = actionHandlers(this, () => this._model?.nodes.find((n) => n.id === id)?.actions ?? {});
+      h = actionHandlers(
+        this,
+        () => this._model?.nodes.find((n) => n.id === id)?.actions ?? {},
+        (name) => {
+          if (name !== TOGGLE_GROUP) return false;
+          const next = new Set(this._expanded);
+          if (!next.delete(id)) next.add(id);
+          this._expanded = next;
+          return true;
+        },
+      );
       this._handlers.set(id, h);
     }
     return h;
@@ -248,6 +268,9 @@ export class LiveEnergyCard extends LitElement {
       interactive ? 'interactive' : '',
       n.secondary ? 'has-secondary' : '',
       n.kind === 'battery' && n.soc !== undefined ? 'has-ring' : '',
+      n.group ? 'is-group' : '',
+      n.group?.expanded ? 'is-expanded' : '',
+      n.parent ? 'is-member' : '',
     ].join(' ');
     return html`
       <div
@@ -258,6 +281,7 @@ export class LiveEnergyCard extends LitElement {
         tabindex=${interactive && n.visible ? 0 : -1}
         aria-label=${label}
         aria-hidden=${n.visible ? 'false' : 'true'}
+        aria-expanded=${n.group ? String(n.group.expanded) : nothing}
         title=${n.status ? `${n.name} · ${n.status}` : n.name}
         @pointerdown=${h.pointerdown}
         @pointermove=${h.pointermove}
@@ -344,7 +368,13 @@ export class LiveEnergyCard extends LitElement {
       <div class="node-inner">
         <div class="chip"><ha-icon .icon=${n.icon}></ha-icon></div>
         <div class="text">
-          <div class="name">${n.name}</div>
+          ${
+            n.group
+              ? html`<div class="name">
+                  <span>${n.name}</span><ha-icon class="chevron" icon="mdi:chevron-down"></ha-icon>
+                </div>`
+              : html`<div class="name">${n.name}</div>`
+          }
           ${n.secondary ? html`<div class="secondary">${n.secondary}</div>` : nothing}
         </div>
         ${this._renderValue(n)}

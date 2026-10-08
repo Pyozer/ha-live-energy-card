@@ -15,6 +15,7 @@ colors reserved for icons and flows. Each flow's animation follows its power.
 - **Animated flows** whose speed, thickness, particle density and glow depend on the power. Each
   of these four effects can be toggled separately (globally or per node).
 - **Several entities per node**: inverters, grid phases or batteries added up.
+- **Device groups** that expand with a tap.
 - **Every source is optional**: without solar, battery or grid, the layout rearranges itself with
   no gaps.
 - **Hide when zero**, configurable globally or per node, with a fade.
@@ -68,8 +69,8 @@ solar, grid, battery and individual devices), the card configures itself:
   and color; devices already in the card are kept.
 
 Sources and devices without a power sensor are skipped (the dashboard's energy statistics in kWh
-cannot show live flows). A device "included in" another listed device is imported with
-`exclude_from_untracked: true`. Without an Energy dashboard, the card guesses power sensors from
+cannot show live flows). A device "included in" another listed device becomes a member of
+that device's group. Without an Energy dashboard, the card guesses power sensors from
 their names.
 
 ### Full example
@@ -118,6 +119,28 @@ grid:
   export_entity: sensor.linky_export_power
 home:
   entity: sensor.home_consumption_power
+```
+
+### Device groups
+
+A group is shown as a single device with the total power of its members. Tap it to expand it: the
+group stays as a header and its members appear after it, each with its own flow. Tap again to
+collapse it.
+
+```yaml
+type: custom:live-energy-card
+grid:
+  entity: sensor.grid_power
+devices:
+  - entity: sensor.fridge_power
+  - name: Kitchen
+    icon: mdi:stove
+    # Optional: a meter for the whole circuit. Without it, the members are added up.
+    entity: sensor.kitchen_circuit_power
+    expanded: false
+    devices:
+      - entity: sensor.oven_power
+      - entity: sensor.hob_power
 ```
 
 ### Several inverters, three-phase grid, two batteries
@@ -207,6 +230,8 @@ Specific options:
 - `grid`: `import_entity` / `export_entity` (alternative to a signed entity), `export_color`.
 - `battery`: `charge_entity` / `discharge_entity`, `soc_entity` (charge level in %; a list is averaged), `charge_color`.
 - `home`: `entity` is optional. Without it, consumption is computed from the sources.
+- `devices` groups: `devices` (members, same options as a device), `expanded` (initially
+  expanded), `entity` optional. A group's default tap action expands or collapses it.
 - `devices`: `exclude_from_untracked: true` for a device that is not part of the home consumption
   (separate circuit, or a sub-meter of another device already listed). Its power is not
   subtracted when computing "Other".

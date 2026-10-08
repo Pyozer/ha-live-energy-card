@@ -55,6 +55,7 @@ hass + config ─► model.ts ─► layout.ts ─► tree.ts ─► live-energy
 | `src/styles.ts` | Styles and palette (`--lec-*` variables, light / dark). |
 | `src/actions.ts` | `tap_action`, `hold_action`, `double_tap_action` (`hass-action` event). |
 | `src/editor/editor.ts` | Visual editor. Only writes values that differ from the defaults. |
+| `src/editor/device-list.ts` | Immutable operations on the two-level device list (devices and group members). |
 | `src/localize/` | `en.ts` is the reference; `fr.ts` is typed against it (a missing key fails to compile). `resolveLanguage` picks the card `language` option, then the HA user language. |
 | `demo/` | Demo page: simulated `hass`, scenarios, sliders, YAML editor. Stubs for `ha-card` and `ha-icon`. |
 | `test/` | Vitest tests, running in Node (no DOM). |
@@ -79,7 +80,7 @@ Design rules:
 Every change or new feature must be **testable and tested**:
 
 - Add or extend tests in `test/` (`*.test.ts`), one file per area: `compute`, `units-intensity`,
-  `layout-model`, `localize`, `entities`, `energy`. Create a new file when a new module appears.
+  `layout-model`, `localize`, `entities`, `energy`, `device-list`. Create a new file when a new module appears.
 - Design for testing: extract logic into an exported pure function instead of leaving it in the
   component or the animator.
 - A bug fix starts with a test that reproduces the bug.
@@ -119,5 +120,7 @@ Conventional Commits, in English, concise, no `Co-authored-by`. Details in
 - SVG filters: use `filterUnits="userSpaceOnUse"`, otherwise a perfectly horizontal path (zero-height
   bounding box) disappears.
 - Available width: measure `.stage` (no padding), not `.content`.
+- Device groups: an expanded group's flow carries 0 W (its members carry the power), so the bus
+  sums flows, not node values.
 - Editor: an option whose default is `false` (e.g. `animation.glow`) must be written when it is
   `true`. Compare with the default value, not with `false`.

@@ -333,6 +333,33 @@ export const cardStyles = css`
     white-space: nowrap;
   }
 
+  /* Device groups: a chevron after the name; members are slightly recessed. */
+  .pill.is-group .name {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .pill.is-group .name span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .pill .chevron {
+    --mdc-icon-size: 16px;
+    flex: none;
+    color: var(--lec-muted);
+    transition: transform 0.3s var(--lec-ease);
+  }
+
+  .pill.is-expanded .chevron {
+    transform: rotate(180deg);
+  }
+
+  .pill.is-member .node-inner {
+    background: color-mix(in srgb, var(--lec-fill) 55%, transparent);
+  }
+
   .pill .secondary {
     font-size: 11.5px;
     color: var(--lec-muted);
