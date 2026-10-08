@@ -337,12 +337,59 @@ export const SOURCE_FLOWS: Record<SourceFlowId, [string, number, string, number]
   battery_grid: ['battery', 180, 'grid', 90],
 };
 
+/**
+ * Right-angle path with a rounded corner, in the same style as the distribution bus. Used when the
+ * two ends are perpendicular (horizontal exit, vertical entry or the opposite). Parallel ends are
+ * joined by a straight line.
+ */
+export function elbowBetween(
+  from: Point,
+  fromAngle: number,
+  to: Point,
+  toAngle: number,
+  radius: number,
+): PathGeometry {
+  const d0 = dir(fromAngle);
+  const d1 = dir(toAngle);
+  const horizontalExit = Math.abs(d0.x) > 0.5;
+  const verticalEntry = Math.abs(d1.y) > 0.5;
+  if (horizontalExit !== verticalEntry) {
+    return { d: `M${f(from.x)},${f(from.y)} L${f(to.x)},${f(to.y)}`, from, to };
+  }
+  const corner = horizontalExit ? { x: to.x, y: from.y } : { x: from.x, y: to.y };
+  const inLen = Math.hypot(corner.x - from.x, corner.y - from.y);
+  const outLen = Math.hypot(to.x - corner.x, to.y - corner.y);
+  const r = Math.max(0, Math.min(radius, inLen, outLen));
+  // Unit vectors along the incoming and outgoing segments.
+  const ui = inLen > 0 ? { x: (corner.x - from.x) / inLen, y: (corner.y - from.y) / inLen } : d0;
+  const uo =
+    outLen > 0 ? { x: (to.x - corner.x) / outLen, y: (to.y - corner.y) / outLen } : { x: -d1.x, y: -d1.y };
+  const a = { x: corner.x - ui.x * r, y: corner.y - ui.y * r };
+  const b = { x: corner.x + uo.x * r, y: corner.y + uo.y * r };
+  return {
+    d:
+      `M${f(from.x)},${f(from.y)} L${f(a.x)},${f(a.y)} ` +
+      `Q${f(corner.x)},${f(corner.y)} ${f(b.x)},${f(b.y)} L${f(to.x)},${f(to.y)}`,
+    from,
+    to,
+  };
+}
+
+/** Corner radius of the source flows, proportional to the node size. */
+export const sourceCornerRadius = (size: number): number => clamp(size * 0.3, 12, 26);
+
 export function sourceFlowPath(id: SourceFlowId, nodes: Record<string, Rect>): PathGeometry | null {
   const [a, aAngle, b, bAngle] = SOURCE_FLOWS[id];
   const ra = nodes[a];
   const rb = nodes[b];
   if (!ra || !rb) return null;
-  return curveBetween(edgePoint(ra, aAngle, 'circle'), aAngle, edgePoint(rb, bAngle, 'circle'), bAngle);
+  return elbowBetween(
+    edgePoint(ra, aAngle, 'circle'),
+    aAngle,
+    edgePoint(rb, bAngle, 'circle'),
+    bAngle,
+    sourceCornerRadius(ra.w),
+  );
 }
 
 /** Home → device flow: starts on the home circle, pointing toward the device. */

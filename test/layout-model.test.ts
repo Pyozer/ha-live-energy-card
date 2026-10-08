@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeLayout, type Layout, type Rect } from '../src/layout';
+import { computeLayout, elbowBetween, sourceFlowPath, type Layout, type Rect } from '../src/layout';
 import { applyDeviceTree, buildModel, cleanName, sortWithHysteresis, UNTRACKED_ID } from '../src/model';
 import { buildDeviceTree } from '../src/tree';
 import { validateConfig } from '../src/config';
@@ -125,6 +125,34 @@ const hassWith = (states: HassEntity[]): HomeAssistant => ({
   states: Object.fromEntries(states.map((s) => [s.entity_id, s])),
   language: 'fr',
   locale: { language: 'fr' },
+});
+
+describe('source flow paths', () => {
+  const layout = computeLayout({ width: 900, solar: true, grid: true, battery: true, devices: [] });
+
+  it('solar → home is a right angle with a rounded corner', () => {
+    const geom = sourceFlowPath('solar_home', layout.nodes)!;
+    expect(geom.d).toMatch(/^M[\d.,]+ L[\d.,]+ Q[\d.,]+ [\d.,]+ L[\d.,]+$/);
+    // Leaves the solar node horizontally and enters the home vertically.
+    expect(geom.from.y).toBeCloseTo(layout.nodes.solar.y);
+    expect(geom.to.x).toBeCloseTo(layout.nodes.home.x);
+  });
+
+  it('every perpendicular source flow uses the same elbow shape', () => {
+    for (const id of ['solar_grid', 'battery_home', 'battery_grid', 'grid_battery'] as const) {
+      expect(sourceFlowPath(id, layout.nodes)!.d, id).toContain('Q');
+    }
+  });
+
+  it('aligned nodes are joined by a straight line', () => {
+    expect(sourceFlowPath('grid_home', layout.nodes)!.d).not.toMatch(/[QC]/);
+    expect(sourceFlowPath('solar_battery', layout.nodes)!.d).not.toMatch(/[QC]/);
+  });
+
+  it('the corner radius never exceeds the segments', () => {
+    const geom = elbowBetween({ x: 0, y: 0 }, 0, { x: 5, y: 40 }, -90, 20);
+    expect(geom.d).toBe('M0,0 L0,0 Q5,0 5,5 L5,40');
+  });
 });
 
 describe('buildModel', () => {
