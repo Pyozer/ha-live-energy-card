@@ -49,6 +49,7 @@ hass + config ─► model.ts ─► layout.ts ─► tree.ts ─► live-energy
 | `src/model.ts` | Builds displayable nodes and flows (`buildModel`), defaults (`DEFAULTS`), device sorting, "untracked" node. |
 | `src/layout.ts` | Node positions for a given width and source flow paths (right angles with rounded corners, like the bus). Device modes: `column`, `grid`, `stack` (narrow screens). |
 | `src/tree.ts` | Paths of the distribution bus feeding devices in grid / stack modes (and column mode with the `rounded` / `square` line styles). |
+| `src/cost.ts` | Live cost, solar savings and grid CO₂ from the flows, price reading and formatting. |
 | `src/intensity.ts` | Power → visual parameters (speed, thickness, density, glow). |
 | `src/animator.ts` | `requestAnimationFrame` loop: SVG particles, transitions, animated counters. |
 | `src/live-energy-card.ts` | Lit element: Lovelace lifecycle, rendering, width measurement, registration. |
@@ -80,7 +81,7 @@ Design rules:
 Every change or new feature must be **testable and tested**:
 
 - Add or extend tests in `test/` (`*.test.ts`), one file per area: `compute`, `units-intensity`,
-  `layout-model`, `localize`, `entities`, `energy`, `device-list`. Create a new file when a new module appears.
+  `layout-model`, `localize`, `entities`, `energy`, `device-list`, `cost`. Create a new file when a new module appears.
 - Design for testing: extract logic into an exported pure function instead of leaving it in the
   component or the animator.
 - A bug fix starts with a test that reproduces the bug.

@@ -272,6 +272,40 @@ export class LiveEnergyCardEditor extends LitElement {
       },
       {
         type: 'expandable',
+        name: 'cost',
+        title: this._t('editor.cost'),
+        icon: 'mdi:cash',
+        schema: [
+          {
+            type: 'grid',
+            name: '',
+            schema: [
+              { name: 'price', selector: { number: { min: 0, step: 0.0001, mode: 'box' } } },
+              { name: 'price_entity', selector: this._entity('price', this._config?.cost?.price_entity) },
+              { name: 'export_price', selector: { number: { min: 0, step: 0.0001, mode: 'box' } } },
+              {
+                name: 'export_price_entity',
+                selector: this._entity('price', this._config?.cost?.export_price_entity),
+              },
+            ],
+          },
+          { name: 'currency', selector: { text: {} } },
+        ],
+      },
+      {
+        type: 'expandable',
+        name: 'carbon',
+        title: this._t('editor.carbon'),
+        icon: 'mdi:molecule-co2',
+        schema: [
+          {
+            name: 'intensity_entity',
+            selector: this._entity('carbon', this._config?.carbon?.intensity_entity),
+          },
+        ],
+      },
+      {
+        type: 'expandable',
         name: 'animation',
         title: this._t('editor.animation'),
         icon: 'mdi:animation-play-outline',
@@ -381,6 +415,12 @@ export class LiveEnergyCardEditor extends LitElement {
     }
     if (Object.keys(animOut).length) next.animation = animOut;
     else delete next.animation;
+
+    for (const key of ['cost', 'carbon'] as const) {
+      const cleaned = clean((data[key] ?? {}) as Record<string, unknown>);
+      if (Object.keys(cleaned).length) next[key] = cleaned;
+      else delete next[key];
+    }
 
     next.devices = this._config?.devices ?? [];
     this._emit(clean(next) as unknown as LiveEnergyCardConfig);

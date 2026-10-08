@@ -3,6 +3,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { actionHandlers, isInteractive } from './actions';
 import { FlowAnimator } from './animator';
 import { DEFAULT_COLORS } from './colors';
+import { formatCarbonRate, formatMoneyRate } from './cost';
 import { configFromEnergyPrefs, fetchEnergyPrefs, guessConfig, importedCount } from './energy';
 import { validateConfig, watchedEntities } from './config';
 import { computeLayout, type Layout } from './layout';
@@ -221,7 +222,7 @@ export class LiveEnergyCard extends LitElement {
               (n) => this._renderNode(n),
             )}
           </div>
-          ${model.ratios ? this._renderRatios(model) : nothing}
+          ${model.ratios || model.stats ? this._renderFooter(model) : nothing}
         </div>
       </ha-card>
     `;
@@ -383,9 +384,10 @@ export class LiveEnergyCard extends LitElement {
     `;
   }
 
-  private _renderRatios(model: CardModel): TemplateResult {
-    const r = model.ratios!;
-    const item = (label: string, value: number | null, color: string) => html`
+  /** Footer: self-consumption ratios, live cost and carbon. */
+  private _renderFooter(model: CardModel): TemplateResult {
+    const lang = this._labelLang;
+    const ring = (label: string, value: number | null, color: string) => html`
       <div class="ratio">
         <svg viewBox="0 0 36 36">
           <circle class="ratio-track" cx="18" cy="18" r="15"></circle>
@@ -402,9 +404,62 @@ export class LiveEnergyCard extends LitElement {
         </div>
       </div>
     `;
+    const stat = (label: string, value: string, icon: string, color: string) => html`
+      <div class="ratio stat" style="--c: ${color}">
+        <div class="stat-icon"><ha-icon .icon=${icon}></ha-icon></div>
+        <div>
+          <div class="label">${label}</div>
+          <div class="pct">${value}</div>
+        </div>
+      </div>
+    `;
+    const r = model.ratios;
+    const st = model.stats;
     return html`<div class="ratios">
-      ${item(localize(this._labelLang, 'ratio.self_consumption'), r.selfConsumption, DEFAULT_COLORS.solar)}
-      ${item(localize(this._labelLang, 'ratio.autarky'), r.autarky, DEFAULT_COLORS.battery)}
+      ${
+        r
+          ? html`${ring(localize(lang, 'ratio.self_consumption'), r.selfConsumption, DEFAULT_COLORS.solar)}
+            ${ring(localize(lang, 'ratio.autarky'), r.autarky, DEFAULT_COLORS.battery)}`
+          : nothing
+      }
+      ${
+        st?.cost != null
+          ? // A negative cost means the export earns more than the import costs.
+            st.cost < 0
+            ? stat(
+                localize(lang, 'stat.earnings'),
+                formatMoneyRate(-st.cost, st.currency, this._lang),
+                'mdi:cash-plus',
+                DEFAULT_COLORS.gridExport,
+              )
+            : stat(
+                localize(lang, 'stat.cost'),
+                formatMoneyRate(st.cost, st.currency, this._lang),
+                'mdi:cash',
+                DEFAULT_COLORS.gridImport,
+              )
+          : nothing
+      }
+      ${
+        st?.savings != null && model.nodes.some((n) => n.kind === 'solar')
+          ? stat(
+              localize(lang, 'stat.savings'),
+              formatMoneyRate(st.savings, st.currency, this._lang),
+              'mdi:piggy-bank-outline',
+              DEFAULT_COLORS.solar,
+            )
+          : nothing
+      }
+      ${
+        st?.carbon != null
+          ? stat(
+              localize(lang, 'stat.carbon'),
+              formatCarbonRate(st.carbon, this._lang),
+              'mdi:molecule-co2',
+              DEFAULT_COLORS.device,
+            )
+          : nothing
+      }
     </div>`;
   }
 

@@ -7,6 +7,7 @@ import {
   type FlowResult,
   type Ratios,
 } from './compute';
+import { computeStats, type Stats } from './cost';
 import { normalizePower, resolveToggles } from './intensity';
 import {
   busCornerRadius,
@@ -94,6 +95,8 @@ export interface CardModel {
   nodes: NodeModel[];
   flows: FlowModel[];
   ratios: Ratios | null;
+  /** Live cost and carbon, `null` when not configured. */
+  stats: Stats | null;
   result: FlowResult;
   devicesOrder: string[];
 }
@@ -574,6 +577,7 @@ export function buildModel(
     nodes,
     flows,
     ratios: config.show_ratios ? computeRatios(result) : null,
+    stats: computeStats(result, hass, config.cost, config.carbon?.intensity_entity),
     result,
     devicesOrder,
   };

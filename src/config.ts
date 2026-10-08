@@ -48,6 +48,17 @@ export function validateConfig(input: unknown): LiveEnergyCardConfig {
     throw new Error(localize(l, 'error.invalid_range'));
   }
 
+  if (config.cost) {
+    config.cost = { ...config.cost };
+    for (const field of ['price', 'export_price'] as const) {
+      const value = config.cost[field];
+      if (value === undefined || value === null || (value as unknown) === '') delete config.cost[field];
+      else if (!Number.isFinite(Number(value)))
+        throw new Error(localize(l, 'error.invalid_power', { field }));
+      else config.cost[field] = Number(value);
+    }
+  }
+
   // An unknown line style falls back to the default instead of breaking the card.
   if (config.line_style !== undefined && !LINE_STYLES.includes(config.line_style)) delete config.line_style;
 
@@ -84,5 +95,8 @@ export function watchedEntities(config: LiveEnergyCardConfig): string[] {
   add(config.battery?.charge_entity);
   add(config.battery?.discharge_entity);
   add(config.battery?.soc_entity);
+  add(config.cost?.price_entity);
+  add(config.cost?.export_price_entity);
+  add(config.carbon?.intensity_entity);
   return [...ids];
 }

@@ -16,6 +16,8 @@ const ENT = {
   grid: 'sensor.shelly_pro_3em_energy_meter_1_puissance',
   battery: 'sensor.batterie_puissance',
   soc: 'sensor.batterie_niveau',
+  price: 'sensor.electricity_price',
+  co2: 'sensor.co2_intensity',
 };
 
 // Devices from the "Foyer" dashboard, with typical consumption when running.
@@ -139,6 +141,8 @@ function buildHass(): HomeAssistant {
     [ENT.grid]: entity(ENT.grid, grid, 'W', 'Grid power'),
     [ENT.battery]: entity(ENT.battery, state.battery, 'W', 'Battery power'),
     [ENT.soc]: entity(ENT.soc, state.soc, '%', 'Battery level'),
+    [ENT.price]: entity(ENT.price, 0.2516, 'EUR/kWh', 'Electricity price'),
+    [ENT.co2]: entity(ENT.co2, 56, 'gCO2eq/kWh', 'Grid CO2 intensity'),
   };
   for (const d of DEVICES)
     fresh[d.entity] = entity(d.entity, state.devices[d.entity], 'W', `${d.name} Power`);
@@ -155,6 +159,7 @@ function buildHass(): HomeAssistant {
     language: state.lang,
     locale: { language: state.lang, number_format: 'language' },
     themes: { darkMode: state.dark },
+    config: { currency: 'EUR' },
     callWS: <T>(msg: Record<string, unknown>) =>
       msg.type === 'energy/get_prefs'
         ? Promise.resolve(ENERGY_PREFS as T)
@@ -402,6 +407,20 @@ toggle(
   'Ratios',
   () => !!config.show_ratios,
   (v) => withConfig((c) => (c.show_ratios = v)),
+);
+toggle(
+  'Cost & CO₂',
+  () => !!config.cost,
+  (v) =>
+    withConfig((c) => {
+      if (v) {
+        c.cost = { price_entity: ENT.price, export_price: 0.13 };
+        c.carbon = { intensity_entity: ENT.co2 };
+      } else {
+        delete c.cost;
+        delete c.carbon;
+      }
+    }),
 );
 toggle(
   'Title',

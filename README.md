@@ -24,6 +24,7 @@ colors reserved for icons and flows. Each flow's animation follows its power.
   below the diagram.
 - **Line styles**: rounded corners, square corners, curves or direct lines, applied to every line
   of the card.
+- **Live cost, solar savings and grid CO₂**.
 - **Home ring**: share of solar, battery and grid in the consumption.
 - **Battery ring**: state of charge.
 - Automatic unit conversion (W, kW, MW), animated counters, tabular figures.
@@ -207,6 +208,8 @@ devices:
 | `sort_devices` | `false` | Sorts devices by power (with hysteresis so the list does not keep moving). |
 | `show_untracked` | `false` | Adds an "Other" node: home consumption not covered by the devices. |
 | `show_ratios` | `false` | Shows self-consumption (share of solar used on site) and self-sufficiency (share of consumption covered without the grid). |
+| `cost` | — | Prices for the live cost and solar savings (see [Cost and carbon](#cost-and-carbon)). |
+| `carbon` | — | `intensity_entity`: grid carbon intensity for the live CO₂ (see [Cost and carbon](#cost-and-carbon)). |
 | `kilo_threshold` | `1000` | Switch from W to kW. |
 | `decimals` / `kilo_decimals` | `0` / `1` | Decimals in W and in kW. |
 
@@ -235,6 +238,29 @@ Specific options:
 - `devices`: `exclude_from_untracked: true` for a device that is not part of the home consumption
   (separate circuit, or a sub-meter of another device already listed). Its power is not
   subtracted when computing "Other".
+
+### Cost and carbon
+
+Live indicators shown under the diagram, computed from the current flows:
+
+- **Cost**: grid import × import price − grid export × export price, per hour. When the export
+  earns more than the import costs, it is shown as **Export earnings**.
+- **Solar savings**: solar consumed on site (home and battery charge) × import price, per hour.
+- **Grid CO₂**: grid import × carbon intensity of the grid (for example from the
+  [Electricity Maps](https://www.home-assistant.io/integrations/co2signal/) integration), per hour.
+
+```yaml
+cost:
+  price_entity: sensor.electricity_price # or a fixed value: price: 0.2516
+  export_price: 0.13 # or export_price_entity
+  currency: EUR # optional: price entity unit (EUR/kWh), then the Home Assistant currency
+carbon:
+  intensity_entity: sensor.electricity_maps_co2_intensity # gCO2eq/kWh
+```
+
+Prices are per kWh; price entities in €/MWh or €/Wh are converted. Without an export price, the
+exported energy is not counted. The Energy dashboard import fills in the prices when the grid has
+a single tariff.
 
 ### Language
 
@@ -286,6 +312,7 @@ The demo page works **without Home Assistant**. It simulates `hass` and provides
 
 - scenarios (night, surplus, solar water heater, peak, off-peak battery charge, battery → grid);
 - a slider per source and per device, the grid being computed automatically from the balance;
+- cost and CO₂ indicators;
 - unavailable entity simulation and a random "live" simulation;
 - light/dark modes, FR/EN and card width;
 - a YAML configuration editor and a simulated Energy dashboard import.

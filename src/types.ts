@@ -64,6 +64,21 @@ export interface DeviceConfig extends BaseNodeConfig {
   exclude_from_untracked?: boolean;
 }
 
+/** Electricity prices, per kWh: a fixed value or an entity. */
+export interface CostConfig {
+  price?: number;
+  price_entity?: string;
+  export_price?: number;
+  export_price_entity?: string;
+  /** ISO code (EUR) or symbol. Defaults to the price entity's unit, then the Home Assistant currency. */
+  currency?: string;
+}
+
+export interface CarbonConfig {
+  /** Carbon intensity of the grid (gCO2eq/kWh), e.g. from the Electricity Maps integration. */
+  intensity_entity?: string;
+}
+
 export type PowerCurve = 'linear' | 'sqrt' | 'log';
 export type InactiveFlows = 'hide' | 'dim';
 export type LineStyle = 'rounded' | 'square' | 'curved' | 'straight';
@@ -87,6 +102,10 @@ export interface LiveEnergyCardConfig {
   devices_columns?: number;
   show_untracked?: boolean;
   show_ratios?: boolean;
+  /** Live cost and solar savings, shown under the diagram. */
+  cost?: CostConfig;
+  /** Live grid emissions, shown under the diagram. */
+  carbon?: CarbonConfig;
   /** Label language: `auto` (Home Assistant user language, default) or a language code. */
   language?: string;
   kilo_threshold?: number;
@@ -116,6 +135,7 @@ export interface HomeAssistant {
   language?: string;
   locale?: { language: string; number_format?: string };
   themes?: { darkMode?: boolean };
+  config?: { currency?: string };
   callService?: (...args: unknown[]) => unknown;
   callWS?: <T>(msg: Record<string, unknown>) => Promise<T>;
 }

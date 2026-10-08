@@ -2,6 +2,7 @@ import { entitiesOfKind } from './entities';
 import { entityIds } from './units';
 import type {
   BatteryConfig,
+  CostConfig,
   DeviceConfig,
   GridConfig,
   HomeAssistant,
@@ -32,6 +33,10 @@ export interface EnergySource {
   stat_rate?: string | null;
   stat_soc?: string | null;
   power_config?: EnergyPowerConfig | null;
+  entity_energy_price?: string | null;
+  number_energy_price?: number | null;
+  entity_energy_price_export?: string | null;
+  number_energy_price_export?: number | null;
 }
 
 export interface EnergyDevice {
@@ -46,7 +51,7 @@ export interface EnergyPrefs {
   device_consumption?: EnergyDevice[];
 }
 
-export type EnergyImport = Pick<LiveEnergyCardConfig, 'solar' | 'grid' | 'battery' | 'devices'>;
+export type EnergyImport = Pick<LiveEnergyCardConfig, 'solar' | 'grid' | 'battery' | 'devices' | 'cost'>;
 
 const str = (v: string | null | undefined): string | undefined => (v ? v : undefined);
 
@@ -129,6 +134,9 @@ export function configFromEnergyPrefs(prefs: EnergyPrefs): EnergyImport {
     out.battery = cfg;
   }
 
+  const cost = costFromSources(sources);
+  if (cost) out.cost = cost;
+
   const devices = prefs.device_consumption ?? [];
   // A device "included in" another listed device (a sub-meter) becomes a member of that device's
   // group, so its consumption is not counted twice. Deeper levels join the top-level ancestor.
@@ -164,6 +172,34 @@ export function configFromEnergyPrefs(prefs: EnergyPrefs): EnergyImport {
   return out;
 }
 
+/**
+ * Grid prices. Only imported when unambiguous: with several tariffs (peak / off-peak entries with
+ * different prices), the current price cannot be known, so it is left to the user.
+ */
+function costFromSources(sources: EnergySource[]): CostConfig | undefined {
+  const grids = sources.filter((s) => s.type === 'grid');
+  const unique = (values: (string | number | undefined)[]) => {
+    const set = [...new Set(values.filter((v) => v !== undefined))];
+    return set.length === 1 ? set[0] : undefined;
+  };
+  const importPrice = unique(
+    grids
+      .filter((g) => g.stat_energy_from)
+      .map((g) => str(g.entity_energy_price) ?? g.number_energy_price ?? undefined),
+  );
+  const exportPrice = unique(
+    grids
+      .filter((g) => g.stat_energy_to)
+      .map((g) => str(g.entity_energy_price_export) ?? g.number_energy_price_export ?? undefined),
+  );
+  const cost: CostConfig = {};
+  if (typeof importPrice === 'string') cost.price_entity = importPrice;
+  else if (typeof importPrice === 'number') cost.price = importPrice;
+  if (typeof exportPrice === 'string') cost.export_price_entity = exportPrice;
+  else if (typeof exportPrice === 'number') cost.export_price = exportPrice;
+  return Object.keys(cost).length ? cost : undefined;
+}
+
 /** Number of nodes found by an import, to report it to the user. */
 export function importedCount(imported: EnergyImport): number {
   return (
@@ -186,6 +222,8 @@ export function mergeEnergyImport(
   for (const key of ['solar', 'grid', 'battery'] as const) {
     if (imported[key]) next[key] = { ...stripEntities(config[key]), ...imported[key] } as never;
   }
+  // Prices configured by the user are kept.
+  if (imported.cost && !config.cost) next.cost = imported.cost;
   const existing = config.devices ?? [];
   // Same entities (or, for a group without its own entity, same name) = same device.
   const key = (d: DeviceConfig) => entityIds(d.entity).join(',') || `group:${d.name ?? ''}`;

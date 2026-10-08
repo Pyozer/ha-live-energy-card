@@ -454,6 +454,20 @@ export const cardStyles = css`
     stroke: var(--lec-fill-strong);
   }
 
+  .stat-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: color-mix(in srgb, var(--c) 16%, transparent);
+  }
+
+  .stat-icon ha-icon {
+    --mdc-icon-size: 17px;
+    color: color-mix(in srgb, var(--c) 75%, var(--lec-text));
+  }
+
   .ratio .label {
     font-size: 12px;
     color: var(--lec-muted);
