@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PowerFlow Card · Démo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: light;
+        --primary-background-color: #f4f5f7;
+        --secondary-background-color: #eceef1;
+        --card-background-color: #ffffff;
+        --primary-text-color: #1f2328;
+        --secondary-text-color: #6b7280;
+        --divider-color: rgba(0, 0, 0, 0.1);
+        --primary-color: #03a9f4;
+        --ha-card-border-radius: 16px;
+        --ha-card-border-color: rgba(0, 0, 0, 0.06);
+        --ha-card-box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px -12px rgba(16, 24, 40, 0.12);
+        --panel-bg: rgba(255, 255, 255, 0.86);
+      }
+      :root[data-theme='dark'] {
+        color-scheme: dark;
+        --primary-background-color: #111318;
+        --secondary-background-color: #1b1e24;
+        --card-background-color: #1c1f26;
+        --primary-text-color: #e6e8eb;
+        --secondary-text-color: #9aa1ab;
+        --divider-color: rgba(255, 255, 255, 0.1);
+        --ha-card-border-color: rgba(255, 255, 255, 0.06);
+        --ha-card-box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -16px rgba(0, 0, 0, 0.6);
+        --panel-bg: rgba(28, 31, 38, 0.9);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family:
+          Roboto,
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          sans-serif;
+        color: var(--primary-text-color);
+        /* Même fond que la vue « Énergie » du dashboard Foyer. */
+        background:
+          radial-gradient(900px 600px at 0% 0%, rgba(255, 196, 0, 0.2), transparent 65%),
+          radial-gradient(800px 600px at 100% 15%, rgba(120, 220, 90, 0.16), transparent 65%),
+          radial-gradient(900px 700px at 40% 120%, rgba(255, 130, 40, 0.12), transparent 70%),
+          var(--primary-background-color);
+        background-attachment: fixed;
+        transition: background-color 0.3s ease;
+      }
+      .page {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 380px;
+        gap: 24px;
+        padding: 24px;
+        align-items: start;
+      }
+      @media (max-width: 900px) {
+        .page {
+          grid-template-columns: 1fr;
+          padding: 16px;
+        }
+      }
+      .preview {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        align-items: center;
+        position: sticky;
+        top: 24px;
+      }
+      @media (max-width: 900px) {
+        .preview {
+          position: static;
+        }
+      }
+      .preview-head {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 20px;
+        font-weight: 500;
+      }
+      .preview-head small {
+        font-size: 13px;
+        color: var(--secondary-text-color);
+        font-weight: 400;
+      }
+      .frame {
+        width: 100%;
+        transition: max-width 0.2s ease;
+      }
+      .panel {
+        background: var(--panel-bg);
+        backdrop-filter: blur(12px);
+        border: 1px solid var(--divider-color);
+        border-radius: 16px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+      .panel h2 {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--secondary-text-color);
+        margin: 0 0 8px;
+        font-weight: 600;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 112px 1fr 64px;
+        gap: 8px;
+        align-items: center;
+        font-size: 13px;
+        margin-bottom: 4px;
+      }
+      .row output {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        color: var(--secondary-text-color);
+      }
+      .row label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      input[type='range'] {
+        width: 100%;
+        accent-color: var(--primary-color);
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      button,
+      .chip {
+        font: inherit;
+        font-size: 13px;
+        border-radius: 999px;
+        border: 1px solid var(--divider-color);
+        background: var(--card-background-color);
+        color: var(--primary-text-color);
+        padding: 6px 12px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        user-select: none;
+      }
+      button:hover,
+      .chip:hover {
+        border-color: var(--primary-color);
+      }
+      .chip select {
+        font: inherit;
+        border: none;
+        background: transparent;
+        color: inherit;
+      }
+      .chip input {
+        margin: 0;
+        accent-color: var(--primary-color);
+      }
+      button.active {
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+        color: #fff;
+      }
+      textarea {
+        width: 100%;
+        min-height: 260px;
+        font:
+          12px/1.5 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+        border-radius: 10px;
+        border: 1px solid var(--divider-color);
+        background: var(--secondary-background-color);
+        color: var(--primary-text-color);
+        padding: 10px;
+        resize: vertical;
+      }
+      .error {
+        color: #e5484d;
+        font-size: 12px;
+        white-space: pre-wrap;
+      }
+      .log {
+        font:
+          12px ui-monospace,
+          Menlo,
+          monospace;
+        color: var(--secondary-text-color);
+        max-height: 90px;
+        overflow: auto;
+      }
+      .unavailable {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <section class="preview">
+        <div class="preview-head">PowerFlow Card <small id="size"></small></div>
+        <div class="frame" id="frame"></div>
+      </section>
+
+      <aside class="panel">
+        <div>
+          <h2>Scénarios</h2>
+          <div class="chips" id="presets"></div>
+        </div>
+        <div>
+          <h2>Affichage</h2>
+          <div class="row">
+            <label for="width">Largeur</label
+            ><input id="width" type="range" min="300" max="1200" step="10" /><output id="width-out"></output>
+          </div>
+          <div class="chips" id="display"></div>
+        </div>
+        <div>
+          <h2>Sources</h2>
+          <div id="sources"></div>
+        </div>
+        <div>
+          <h2>Appareils</h2>
+          <div id="devices"></div>
+        </div>
+        <div>
+          <h2>Capteurs indisponibles</h2>
+          <div class="unavailable" id="unavailable"></div>
+        </div>
+        <div>
+          <h2>Configuration YAML</h2>
+          <textarea id="yaml" spellcheck="false"></textarea>
+          <div class="chips" style="margin-top: 8px">
+            <button id="apply">Appliquer</button>
+            <button id="reset">Réinitialiser</button>
+          </div>
+          <div class="error" id="error"></div>
+        </div>
+        <div>
+          <h2>Actions déclenchées</h2>
+          <div class="log" id="log">—</div>
+        </div>
+      </aside>
+    </div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
