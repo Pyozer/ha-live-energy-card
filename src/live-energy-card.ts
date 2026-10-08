@@ -3,6 +3,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { actionHandlers, isInteractive } from './actions';
 import { FlowAnimator } from './animator';
 import { DEFAULT_COLORS } from './colors';
+import { entitiesOfKind } from './entities';
 import { validateConfig, watchedEntities } from './config';
 import { computeLayout, type Layout } from './layout';
 import { localize, resolveLanguage } from './localize/localize';
@@ -62,12 +63,9 @@ export class LiveEnergyCard extends LitElement {
 
   /** Configuration suggested when adding the card, based on existing power sensors. */
   static getStubConfig(hass?: HomeAssistant): Partial<LiveEnergyCardConfig> {
-    const power = Object.values(hass?.states ?? {}).filter(
-      (s) =>
-        s.entity_id.startsWith('sensor.') &&
-        (s.attributes.device_class === 'power' ||
-          ['W', 'kW'].includes(String(s.attributes.unit_of_measurement))),
-    );
+    const power = entitiesOfKind(hass, 'power')
+      .filter((id) => id.startsWith('sensor.'))
+      .map((id) => hass!.states[id]);
     const find = (re: RegExp) =>
       power.find((s) => re.test(`${s.entity_id} ${s.attributes.friendly_name ?? ''}`));
     const solar = find(/solar|solaire|pv|photovolta/i);

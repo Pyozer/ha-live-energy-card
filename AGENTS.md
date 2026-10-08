@@ -42,6 +42,7 @@ hass + config ─► model.ts ─► layout.ts ─► tree.ts ─► live-energy
 | --- | --- |
 | `src/types.ts` | Configuration types (`LiveEnergyCardConfig`, nodes, animation) and minimal HA types. |
 | `src/config.ts` | `validateConfig` (coercion, readable errors) and watched entities. |
+| `src/entities.ts` | Entity kinds (power, %, energy, price, CO2) used to filter the editor's entity pickers. |
 | `src/units.ts` | Entity reading (W, kW, mW, MW…), unavailable states, localized formatting. |
 | `src/compute.ts` | Energy balance and flow allocation (solar → home → battery → grid…), ratios. |
 | `src/model.ts` | Builds displayable nodes and flows (`buildModel`), defaults (`DEFAULTS`), device sorting, "untracked" node. |
@@ -77,7 +78,7 @@ Design rules:
 Every change or new feature must be **testable and tested**:
 
 - Add or extend tests in `test/` (`*.test.ts`), one file per area: `compute`, `units-intensity`,
-  `layout-model`, `localize`. Create a new file when a new module appears.
+  `layout-model`, `localize`, `entities`. Create a new file when a new module appears.
 - Design for testing: extract logic into an exported pure function instead of leaving it in the
   component or the animator.
 - A bug fix starts with a test that reproduces the bug.

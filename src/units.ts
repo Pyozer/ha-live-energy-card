@@ -1,6 +1,6 @@
 import type { HassEntity } from './types';
 
-const UNIT_FACTORS: Record<string, number> = {
+export const POWER_UNITS: Record<string, number> = {
   mW: 0.001,
   W: 1,
   kW: 1_000,
@@ -12,7 +12,7 @@ const UNIT_FACTORS: Record<string, number> = {
 export function unitFactor(unit: string | undefined): number {
   if (!unit) return 1;
   const trimmed = unit.trim();
-  if (trimmed in UNIT_FACTORS) return UNIT_FACTORS[trimmed];
+  if (trimmed in POWER_UNITS) return POWER_UNITS[trimmed];
   const lower = trimmed.toLowerCase();
   if (lower === 'kw') return 1_000;
   if (lower === 'w') return 1;

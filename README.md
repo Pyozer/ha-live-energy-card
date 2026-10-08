@@ -26,7 +26,8 @@ colors reserved for icons and flows. Each flow's animation follows its power.
 - `unavailable` / `unknown` entities are reported cleanly: never `NaN`.
 - `tap_action`, `hold_action`, `double_tap_action` on every node (more-info by default).
 - Automatic light and dark themes, `prefers-reduced-motion` support, animation paused off-screen.
-- Full visual editor, English and French translations (following the Home Assistant user's
+- Full visual editor whose entity pickers only offer matching entities (power sensors for flows,
+  percentages for the charge level), English and French translations (following the Home Assistant user's
   language, or set per card).
 
 ## Installation

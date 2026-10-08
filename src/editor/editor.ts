@@ -1,6 +1,7 @@
 import { mdiArrowDown, mdiArrowUp, mdiChevronDown, mdiChevronUp, mdiDeleteOutline, mdiPlus } from '@mdi/js';
 import { LitElement, css, html, nothing, type TemplateResult } from 'lit';
 import { fireEvent } from '../actions';
+import { entitySelector, type EntityKind } from '../entities';
 import { DEFAULT_TOGGLES } from '../intensity';
 import { LANGUAGE_NAMES, localize, SUPPORTED_LANGUAGES, type LocalizeKey } from '../localize/localize';
 import { DEFAULTS } from '../model';
@@ -15,7 +16,6 @@ import type {
 type Schema = Record<string, unknown>;
 type NodeKey = 'solar' | 'grid' | 'battery' | 'home';
 
-const POWER_ENTITY = { entity: { filter: [{ domain: ['sensor', 'input_number', 'number'] }] } };
 const ANY_ENTITY = { entity: {} };
 
 const actionsSchema = (title: string): Schema => ({
@@ -73,7 +73,14 @@ export class LiveEnergyCardEditor extends LitElement {
 
   // --- Schemas -----------------------------------------------------------------------------------
 
+  /** Entity selector listing only entities of the expected kind (power, %…). */
+  private _entity(kind: EntityKind, current: unknown): Schema {
+    return entitySelector(this.hass, kind, typeof current === 'string' ? current : undefined);
+  }
+
   private _nodeSchema(kind: NodeKey): Schema[] {
+    const cfg = (this._config?.[kind] ?? {}) as Record<string, unknown>;
+    const power = (name: string): Schema => ({ name, selector: this._entity('power', cfg[name]) });
     const appearance: Schema = {
       type: 'grid',
       name: '',
@@ -85,31 +92,14 @@ export class LiveEnergyCardEditor extends LitElement {
         ...(kind === 'battery' ? [{ name: 'charge_color', selector: { ui_color: {} } }] : []),
       ],
     };
-    const entities: Schema[] = [{ name: 'entity', selector: POWER_ENTITY }];
+    const entities: Schema[] = [power('entity')];
     if (kind === 'grid') {
-      entities.push({
-        type: 'grid',
-        name: '',
-        schema: [
-          { name: 'import_entity', selector: POWER_ENTITY },
-          { name: 'export_entity', selector: POWER_ENTITY },
-        ],
-      });
+      entities.push({ type: 'grid', name: '', schema: [power('import_entity'), power('export_entity')] });
     }
     if (kind === 'battery') {
       entities.push(
-        {
-          name: 'soc_entity',
-          selector: { entity: { filter: [{ domain: ['sensor', 'input_number', 'number'] }] } },
-        },
-        {
-          type: 'grid',
-          name: '',
-          schema: [
-            { name: 'charge_entity', selector: POWER_ENTITY },
-            { name: 'discharge_entity', selector: POWER_ENTITY },
-          ],
-        },
+        { name: 'soc_entity', selector: this._entity('percent', cfg.soc_entity) },
+        { type: 'grid', name: '', schema: [power('charge_entity'), power('discharge_entity')] },
       );
     }
     const options: Schema = {
@@ -260,9 +250,9 @@ export class LiveEnergyCardEditor extends LitElement {
     ];
   }
 
-  private _deviceSchema(): Schema[] {
+  private _deviceSchema(dev: DeviceConfig): Schema[] {
     return [
-      { name: 'entity', selector: POWER_ENTITY },
+      { name: 'entity', selector: this._entity('power', dev.entity) },
       {
         type: 'grid',
         name: '',
@@ -465,7 +455,7 @@ export class LiveEnergyCardEditor extends LitElement {
                 <ha-form
                   .hass=${this.hass}
                   .data=${data}
-                  .schema=${this._deviceSchema()}
+                  .schema=${this._deviceSchema(dev)}
                   .computeLabel=${this._label}
                   @value-changed=${(ev: CustomEvent) => this._deviceChanged(index, ev)}
                 ></ha-form>
