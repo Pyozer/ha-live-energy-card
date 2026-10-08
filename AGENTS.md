@@ -63,6 +63,7 @@ hass + config ─► model/   ─► layout.ts ─► tree.ts ─► live-energy
 | `src/editor/editor.ts` | Visual editor element: renders the forms and the device list, emits `config-changed`. |
 | `src/editor/schema.ts` | `ha-form` schemas (card, nodes, devices) and field labels. |
 | `src/editor/form.ts` | Config ↔ form data. Only writes values that differ from the defaults. |
+| `src/editor/validation.ts` | Entity checks shown by the editor: missing entities and entities of the wrong kind. |
 | `src/editor/styles.ts` | Editor styles. |
 | `src/editor/device-list.ts` | Immutable operations on the two-level device list (devices and group members). |
 | `src/localize/` | `en.ts` is the reference; `fr.ts` is typed against it (a missing key fails to compile). `resolveLanguage` picks the card `language` option, then the HA user language. |

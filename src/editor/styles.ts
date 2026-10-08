@@ -120,6 +120,42 @@ export const editorStyles = css`
     padding: 8px 8px 10px 20px;
     border-top: 1px solid var(--divider-color);
   }
+  .issues {
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--warning-color, #ff9500) 12%, transparent);
+    font-size: 13px;
+  }
+  .issues-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+  }
+  .issues ha-svg-icon,
+  .device-head .warning {
+    color: var(--warning-color, #ff9500);
+    flex: none;
+  }
+  .issues ul {
+    margin: 6px 0 0;
+    padding: 0 0 0 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .issues li {
+    display: flex;
+    flex-direction: column;
+  }
+  .issues .where {
+    color: var(--secondary-text-color);
+  }
+  .issues code {
+    font-size: 12px;
+    word-break: break-all;
+  }
   .add:hover {
     background: color-mix(in srgb, var(--primary-color) 8%, transparent);
   }

@@ -34,8 +34,9 @@ colors reserved for icons and flows. Each flow's animation follows its power.
   **eco mode** for low-power devices.
 - **Import from the Energy dashboard**: solar, grid, battery and devices in one click.
 - Full visual editor whose entity pickers only offer matching entities (power sensors for flows,
-  percentages for the charge level), English and French translations (following the Home Assistant user's
-  language, or set per card).
+  percentages for the charge level) and that flags entities to check: not found (renamed or removed)
+  or not matching their field (an energy counter in a power field…). English and French translations
+  (following the Home Assistant user's language, or set per card).
 
 ## Installation
 

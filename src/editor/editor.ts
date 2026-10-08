@@ -1,4 +1,5 @@
 import {
+  mdiAlertOutline,
   mdiArrowDown,
   mdiArrowUp,
   mdiChevronDown,
@@ -27,6 +28,7 @@ import {
 import { deviceFormData, deviceFromForm, fromFormData, toFormData } from './form';
 import { EditorSchema, fieldLabel } from './schema';
 import { editorStyles } from './styles';
+import { describeIssue, deviceIssues, entityIssues, type EntityIssue } from './validation';
 
 export class LiveEnergyCardEditor extends LitElement {
   static override properties = {
@@ -132,6 +134,7 @@ export class LiveEnergyCardEditor extends LitElement {
   protected override render(): TemplateResult | typeof nothing {
     if (!this.hass || !this._config) return nothing;
     const devices = this._config.devices ?? [];
+    const issues = entityIssues(this._config, this.hass);
     return html`
       <div class="import">
         <button class="add" @click=${this._importEnergy}>
@@ -145,6 +148,7 @@ export class LiveEnergyCardEditor extends LitElement {
             : nothing
         }
       </div>
+      ${issues.length ? this._renderIssues(issues) : nothing}
       <ha-form
         .hass=${this.hass}
         .data=${toFormData(this._config)}
@@ -160,7 +164,7 @@ export class LiveEnergyCardEditor extends LitElement {
           <span class="count">${devices.length}</span>
         </div>
         ${devices.length === 0 ? html`<div class="empty">${this._t('editor.no_devices')}</div>` : nothing}
-        ${devices.map((dev, i) => this._renderDevice(dev, [i], devices.length))}
+        ${devices.map((dev, i) => this._renderDevice(dev, [i], devices.length, issues))}
         <div class="actions">
           <button class="add" @click=${() => this._addDevice()}>
             <ha-svg-icon .path=${mdiPlus}></ha-svg-icon>${this._t('editor.add_device')}
@@ -173,7 +177,33 @@ export class LiveEnergyCardEditor extends LitElement {
     `;
   }
 
-  private _renderDevice(dev: DeviceConfig, path: DevicePath, total: number): TemplateResult {
+  private _renderIssues(issues: EntityIssue[]): TemplateResult {
+    const t = (key: LocalizeKey, vars?: Record<string, string>) => this._t(key, vars);
+    return html`
+      <div class="issues" role="status">
+        <div class="issues-title">
+          <ha-svg-icon .path=${mdiAlertOutline}></ha-svg-icon>
+          ${this._t('editor.issues', { count: String(issues.length) })}
+        </div>
+        <ul>
+          ${issues.map((issue) => {
+            const d = describeIssue(issue, this._config!, this.hass, t);
+            return html`<li>
+              <span class="where">${d.where} · ${d.field}</span>
+              <span><code>${issue.entity}</code> ${d.problem}</span>
+            </li>`;
+          })}
+        </ul>
+      </div>
+    `;
+  }
+
+  private _renderDevice(
+    dev: DeviceConfig,
+    path: DevicePath,
+    total: number,
+    issues: EntityIssue[],
+  ): TemplateResult {
     const key = pathKey(path);
     const index = path[path.length - 1];
     const expanded = this._expanded === key;
@@ -186,6 +216,7 @@ export class LiveEnergyCardEditor extends LitElement {
     const subtitle = group ? this._t('node.group_count', { count: String(members.length) }) : ids.join(', ');
     const icon =
       dev.icon ?? state?.attributes.icon ?? (group ? 'mdi:folder-outline' : 'mdi:power-plug-outline');
+    const warning = deviceIssues(issues, path).length > 0;
     return html`
       <div class="device ${expanded ? 'expanded' : ''} ${group ? 'group' : ''}">
         <div class="device-head">
@@ -194,6 +225,7 @@ export class LiveEnergyCardEditor extends LitElement {
             <span>${title}</span>
             <small>${subtitle}</small>
           </button>
+          ${warning ? html`<ha-svg-icon class="warning" .path=${mdiAlertOutline}></ha-svg-icon>` : nothing}
           <ha-icon-button
             .label=${this._t('editor.move_up')}
             .path=${mdiArrowUp}
@@ -233,7 +265,7 @@ export class LiveEnergyCardEditor extends LitElement {
         ${
           group
             ? html`<div class="members">
-                ${members.map((m, j) => this._renderDevice(m, [path[0], j], members.length))}
+                ${members.map((m, j) => this._renderDevice(m, [path[0], j], members.length, issues))}
                 <button class="add" @click=${() => this._addDevice(path[0])}>
                   <ha-svg-icon .path=${mdiPlus}></ha-svg-icon>${this._t('editor.add_member')}
                 </button>

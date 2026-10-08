@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { deviceFormData, deviceFromForm, fromFormData, toFormData } from '../src/editor/form';
 import { EditorSchema, fieldLabel, type Schema } from '../src/editor/schema';
 import { localize, SUPPORTED_LANGUAGES } from '../src/localize/localize';
-import type { LiveEnergyCardConfig } from '../src/types';
+import type { HassEntity, HomeAssistant, LiveEnergyCardConfig } from '../src/types';
+import { describeIssue, deviceIssues, entityIssues } from '../src/editor/validation';
 
 const base: LiveEnergyCardConfig = { type: 'custom:live-energy-card' };
 
@@ -111,4 +112,94 @@ describe('editor schema', () => {
       expect(missing).toEqual([]);
     });
   }
+});
+
+describe('entity issues', () => {
+  const st = (id: string, unit: string, extra: Record<string, unknown> = {}): HassEntity => ({
+    entity_id: id,
+    state: '1',
+    attributes: { unit_of_measurement: unit, ...extra },
+  });
+  const hass: HomeAssistant = {
+    language: 'en',
+    states: Object.fromEntries(
+      [
+        st('sensor.solar', 'W'),
+        st('sensor.solar_day', 'kWh'),
+        st('sensor.soc', '%'),
+        st('sensor.price', 'EUR/kWh'),
+        st('sensor.tv', 'W', { friendly_name: 'TV' }),
+      ].map((s) => [s.entity_id, s]),
+    ),
+  };
+  const t = (key: Parameters<typeof localize>[1], vars?: Record<string, string>) => localize('en', key, vars);
+
+  it('accepts a valid configuration', () => {
+    const config: LiveEnergyCardConfig = {
+      ...base,
+      solar: { entity: 'sensor.solar', secondary_entity: 'sensor.solar_day' },
+      battery: { entity: 'sensor.solar', soc_entity: 'sensor.soc' },
+      cost: { price_entity: 'sensor.price' },
+      devices: [{ entity: 'sensor.tv' }],
+    };
+    expect(entityIssues(config, hass)).toEqual([]);
+  });
+
+  it('flags missing entities and entities of the wrong kind', () => {
+    const config: LiveEnergyCardConfig = {
+      ...base,
+      solar: { entity: ['sensor.solar', 'sensor.solar_day'] },
+      battery: { entity: 'sensor.solar', soc_entity: 'sensor.solar' },
+      devices: [{ name: 'IT', devices: [{ entity: 'sensor.gone' }] }],
+    };
+    expect(entityIssues(config, hass)).toEqual([
+      { where: 'solar', field: 'entity', entity: 'sensor.solar_day', problem: 'kind', expected: 'power' },
+      { where: 'battery', field: 'soc_entity', entity: 'sensor.solar', problem: 'kind', expected: 'percent' },
+      { where: [0, 0], field: 'entity', entity: 'sensor.gone', problem: 'missing' },
+    ]);
+  });
+
+  it('only checks that a secondary entity exists', () => {
+    const config: LiveEnergyCardConfig = { ...base, home: { secondary_entity: 'sensor.price' } };
+    expect(entityIssues(config, hass)).toEqual([]);
+  });
+
+  it('names an unnamed device by its position', () => {
+    const config: LiveEnergyCardConfig = {
+      ...base,
+      devices: [{ entity: 'sensor.tv' }, { entity: 'sensor.gone' }],
+    };
+    const [issue] = entityIssues(config, hass);
+    expect(describeIssue(issue, config, hass, t).where).toBe('Device 2');
+  });
+
+  it('matches device issues by exact path', () => {
+    const issues = entityIssues(
+      { ...base, devices: [{ name: 'G', devices: [{ entity: 'sensor.x' }] }] },
+      hass,
+    );
+    expect(deviceIssues(issues, [0])).toEqual([]);
+    expect(deviceIssues(issues, [0, 0])).toHaveLength(1);
+  });
+
+  it('describes where an issue is, in readable terms', () => {
+    const config: LiveEnergyCardConfig = {
+      ...base,
+      devices: [{ name: 'IT', entity: 'sensor.gone', devices: [{ entity: 'sensor.tv' }] }],
+    };
+    const [issue] = entityIssues(config, hass);
+    expect(describeIssue(issue, config, hass, t)).toEqual({
+      where: 'IT',
+      field: t('editor.field.group_entity'),
+      problem: 'not found',
+    });
+    const member = {
+      where: [0, 0],
+      field: 'entity',
+      entity: 'sensor.tv',
+      problem: 'kind',
+      expected: 'power',
+    } as const;
+    expect(describeIssue({ ...member, where: [0, 0] }, config, hass, t).where).toBe('IT › TV');
+  });
 });
