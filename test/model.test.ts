@@ -3,7 +3,7 @@ import { computeFlows } from '../src/compute';
 import { modelContext } from '../src/model/context';
 import { buildDevices } from '../src/model/devices';
 import { sourceFlows } from '../src/model/flows';
-import { readSources, sourceColors } from '../src/model/sources';
+import { readSources, sourceColors, sourceNodes } from '../src/model/sources';
 import { UNTRACKED_ID } from '../src/model/types';
 import type { HassEntity, HomeAssistant, LiveEnergyCardConfig } from '../src/types';
 
@@ -83,5 +83,30 @@ describe('sourceFlows', () => {
     const flows = sourceFlows(config, src, result.flows, sourceColors(src), new Set(['solar', 'home']));
     expect(flows.map((f) => f.id)).toEqual(['solar_home']);
     expect(flows[0].active).toBe(true);
+  });
+});
+
+describe('grid import alert', () => {
+  const grid = (watts: number | string, max_import?: number) => {
+    const config = cfg({ grid: { entity: 'sensor.g', max_import } });
+    const hass = hassWith(state('sensor.g', watts));
+    const src = readSources(config, hass);
+    const result = computeFlows(src.inputs);
+    return sourceNodes(modelContext(config, hass), src, result, sourceColors(src)).find(
+      (n) => n.id === 'grid',
+    )!;
+  };
+
+  it('turns on at the import limit, with its own status', () => {
+    expect(grid(2999, 3000).alert).toBe(false);
+    const over = grid(3000, 3000);
+    expect(over.alert).toBe(true);
+    expect(over.status).toBe('Over limit');
+  });
+
+  it('stays off without a limit, when exporting or when unavailable', () => {
+    expect(grid(9000).alert).toBe(false);
+    expect(grid(-5000, 3000).alert).toBe(false);
+    expect(grid('unavailable', 3000).alert).toBe(false);
   });
 });

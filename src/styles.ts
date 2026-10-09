@@ -13,6 +13,7 @@ export const cardStyles = css`
     --lec-battery: #34c759;
     --lec-home: #8e8e93;
     --lec-device: #8e8e93;
+    --lec-alert: #ff3b30;
 
     --lec-surface: var(--ha-card-background, var(--card-background-color, #fff));
     --lec-text: var(--primary-text-color, #1c1c1e);
@@ -32,6 +33,7 @@ export const cardStyles = css`
     --lec-battery: #30d158;
     --lec-home: #98989d;
     --lec-device: #98989d;
+    --lec-alert: #ff453a;
     --lec-fill: color-mix(in srgb, var(--lec-text) 7%, var(--lec-surface));
     --lec-fill-strong: color-mix(in srgb, var(--lec-text) 12%, transparent);
   }
@@ -182,6 +184,17 @@ export const cardStyles = css`
   .circle.has-secondary ha-icon {
     --mdc-icon-size: calc(var(--s) * 0.22);
     margin-bottom: 0;
+  }
+
+  /* Over a configured limit: tinted fill and outline, icon and value in the alert color. */
+  .circle.is-alert .node-inner {
+    background: color-mix(in srgb, var(--lec-alert) 12%, var(--lec-fill));
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--lec-alert) 55%, transparent);
+  }
+
+  .circle.is-alert ha-icon,
+  .circle.is-alert .value {
+    color: var(--lec-alert);
   }
 
   .home ha-icon {

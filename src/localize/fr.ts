@@ -22,6 +22,7 @@ export const fr: DeepStrings<typeof en> = {
     charging: 'En charge',
     discharging: 'Décharge',
     idle: 'Au repos',
+    over_limit: 'Dépassement',
     unavailable: 'Indisponible',
   },
   ratio: {
@@ -78,6 +79,7 @@ export const fr: DeepStrings<typeof en> = {
       icon: 'Icône',
       color: 'Couleur',
       export_color: "Couleur d'injection",
+      max_import: 'Limite de soutirage (W), ex. la puissance souscrite',
       charge_color: 'Couleur de charge',
       invert: 'Inverser le signe',
       exclude_from_untracked: 'Hors consommation de la maison (non déduit de Autres)',

@@ -48,16 +48,21 @@ export function validateConfig(input: unknown): LiveEnergyCardConfig {
     throw new Error(localize(l, 'error.invalid_range'));
   }
 
-  if (config.cost) {
-    config.cost = { ...config.cost };
-    for (const field of ['price', 'export_price'] as const) {
-      const value = config.cost[field];
-      if (value === undefined || value === null || (value as unknown) === '') delete config.cost[field];
+  // Numbers nested in a section: coerced (YAML or the editor may give strings), empty ones removed.
+  const numbers = <K extends 'cost' | 'grid'>(section: K, fields: string[]) => {
+    if (!config[section]) return;
+    const copy = { ...config[section] } as Record<string, unknown>;
+    for (const field of fields) {
+      const value = copy[field];
+      if (value === undefined || value === null || value === '') delete copy[field];
       else if (!Number.isFinite(Number(value)))
         throw new Error(localize(l, 'error.invalid_power', { field }));
-      else config.cost[field] = Number(value);
+      else copy[field] = Number(value);
     }
-  }
+    (config as Record<string, unknown>)[section] = copy;
+  };
+  numbers('cost', ['price', 'export_price']);
+  numbers('grid', ['max_import']);
 
   // An unknown line style falls back to the default instead of breaking the card.
   if (config.line_style !== undefined && !LINE_STYLES.includes(config.line_style)) delete config.line_style;

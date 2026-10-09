@@ -235,7 +235,9 @@ Available for `solar`, `grid`, `battery`, `home` and each item of `devices`:
 
 Specific options:
 
-- `grid`: `import_entity` / `export_entity` (alternative to a signed entity), `export_color`.
+- `grid`: `import_entity` / `export_entity` (alternative to a signed entity), `export_color`,
+  `max_import` (import limit in W, e.g. the subscribed power: above it, the grid node turns red and
+  shows *Over limit*).
 - `battery`: `charge_entity` / `discharge_entity`, `soc_entity` (charge level in %; a list is averaged), `charge_color`.
 - `home`: `entity` is optional. Without it, consumption is computed from the sources.
 - `devices` groups: `devices` (members, same options as a device), `expanded` (initially
@@ -277,7 +279,7 @@ number format.
 ### Colors
 
 Default colors are the iOS system colors, with their dark variants. Themes can override them with
-the `--lec-solar`, `--lec-grid`, `--lec-export`, `--lec-battery`, `--lec-home` and `--lec-device`
+the `--lec-solar`, `--lec-grid`, `--lec-export`, `--lec-battery`, `--lec-home`, `--lec-device` and `--lec-alert`
 variables.
 
 ## Flow computation

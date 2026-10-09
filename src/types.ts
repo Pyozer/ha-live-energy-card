@@ -38,6 +38,8 @@ export interface GridConfig extends BaseNodeConfig {
   import_entity?: EntityRef;
   export_entity?: EntityRef;
   export_color?: string;
+  /** Import limit in W (e.g. the subscribed power): above it, the grid node turns to the alert color. */
+  max_import?: number;
 }
 
 export interface BatteryConfig extends BaseNodeConfig {

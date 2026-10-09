@@ -37,6 +37,8 @@ export interface NodeModel {
   status?: string;
   secondary?: string;
   soc?: number | null;
+  /** Above a configured limit (grid import over `max_import`). */
+  alert?: boolean;
   /** Home source mix, for the ring. */
   mix?: MixSegment[];
   /** Device group: expanded state and number of members. */

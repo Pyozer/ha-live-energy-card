@@ -67,7 +67,9 @@ export class EditorSchema {
     const power = (name: string): Schema => ({ name, selector: this.entity('power', cfg[name]) });
     // The main entity accepts several sensors, added up (several inverters, phases…).
     const entities: Schema[] = [{ name: 'entity', selector: this.entity('power', cfg.entity, true) }];
-    if (kind === 'grid') entities.push(grid([power('import_entity'), power('export_entity')]));
+    if (kind === 'grid') {
+      entities.push(grid([power('import_entity'), power('export_entity')]), watts('max_import', 0));
+    }
     if (kind === 'battery') {
       entities.push(
         { name: 'soc_entity', selector: this.entity('percent', cfg.soc_entity) },

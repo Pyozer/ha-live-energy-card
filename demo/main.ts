@@ -409,6 +409,16 @@ toggle(
   (v) => withConfig((c) => (c.show_ratios = v)),
 );
 toggle(
+  'Import alert (3 kW)',
+  () => !!config.grid?.max_import,
+  (v) =>
+    withConfig((c) => {
+      c.grid = { ...c.grid };
+      if (v) c.grid.max_import = 3000;
+      else delete c.grid.max_import;
+    }),
+);
+toggle(
   'Transparent',
   () => !!config.transparent,
   (v) => withConfig((c) => (v ? (c.transparent = true) : delete c.transparent)),

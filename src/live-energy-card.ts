@@ -272,6 +272,7 @@ export class LiveEnergyCard extends LitElement {
       n.group ? 'is-group' : '',
       n.group?.expanded ? 'is-expanded' : '',
       n.parent ? 'is-member' : '',
+      n.alert ? 'is-alert' : '',
     ].join(' ');
     return html`
       <div

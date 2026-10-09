@@ -96,7 +96,7 @@ Design rules:
 Every change or new feature must be **testable and tested**:
 
 - Add or extend tests in `test/` (`*.test.ts`), one file per area: `compute`, `units-intensity`,
-  `layout-model`, `model`, `colors-format`, `actions`, `localize`, `entities`, `energy`,
+  `layout-model`, `model`, `config`, `colors-format`, `actions`, `localize`, `entities`, `energy`,
   `device-list`, `editor`, `cost`. Create a new file when a new module appears.
 - Design for testing: extract logic into an exported pure function instead of leaving it in the
   component or the animator.

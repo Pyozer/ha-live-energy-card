@@ -144,6 +144,7 @@ export function sourceNodes(
     const importing = result.gridImport > 0;
     const net = result.gridImport - result.gridExport;
     const active = net !== 0;
+    const alert = available && !!cfg.max_import && result.gridImport >= cfg.max_import;
     nodes.push({
       id: 'grid',
       kind: 'grid',
@@ -161,7 +162,14 @@ export function sourceNodes(
       active,
       // The grid stays visible at zero unless explicitly hidden.
       visible: !(available && !active && (cfg.hide_when_zero ?? false)),
-      status: exporting ? t('state.exporting') : importing ? t('state.importing') : undefined,
+      alert,
+      status: alert
+        ? t('state.over_limit')
+        : exporting
+          ? t('state.exporting')
+          : importing
+            ? t('state.importing')
+            : undefined,
       secondary: formatSecondary(hass, cfg.secondary_entity),
       actions: actionsFor(cfg, cfg.entity ?? cfg.import_entity ?? cfg.export_entity),
     });
