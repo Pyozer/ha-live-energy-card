@@ -3,7 +3,7 @@
 ## Before committing
 
 ```bash
-npm run check   # lint, formatting, tests and build
+npm run check   # lint, formatting, tests with coverage and build
 ```
 
 Every commit must leave the project building with all tests passing. Changed code comes with its

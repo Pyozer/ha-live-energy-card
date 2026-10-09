@@ -304,9 +304,10 @@ In grid mode, each bus segment carries the sum of the devices downstream.
 npm install
 npm run dev        # demo page at http://localhost:5173/demo/
 npm test           # unit tests (Vitest)
+npm run coverage   # tests with coverage thresholds
 npm run lint
 npm run build      # produces dist/live-energy-card.js
-npm run check      # lint, formatting, tests and build (before every commit)
+npm run check      # lint, formatting, tests with coverage and build (before every commit)
 ```
 
 Contribution and commit rules are in [CONTRIBUTING.md](CONTRIBUTING.md). The project's technical

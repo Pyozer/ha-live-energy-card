@@ -23,10 +23,11 @@ power.
 npm install
 npm run dev           # demo outside Home Assistant: http://localhost:5173/demo/
 npm test              # unit tests (Vitest)
+npm run coverage      # tests + coverage thresholds (report in coverage/index.html)
 npm run lint          # ESLint
 npm run format        # Prettier (src, demo, test)
 npm run build         # type check + dist/live-energy-card.js
-npm run check         # lint + format:check + tests + build: run before every commit
+npm run check         # lint + format:check + coverage + build: run before every commit
 ```
 
 ## Architecture
@@ -98,6 +99,10 @@ Every change or new feature must be **testable and tested**:
 - Design for testing: extract logic into an exported pure function instead of leaving it in the
   component or the animator.
 - A bug fix starts with a test that reproduces the bug.
+- Coverage has floors (`vite.config.ts`): a global one, and a higher one for the pure modules. Raise
+  them when coverage improves; never lower them to make a change pass. The DOM code
+  (`live-energy-card.ts`, `animator.ts`, `editor.ts`) is not unit tested, which is one more reason to
+  keep it thin.
 - Key invariants have tests: energy conservation, no `NaN`, no overlapping nodes across several
   widths and device counts.
 - For visual changes, check the demo (`npm run dev`). If a case cannot be reproduced there, add a
