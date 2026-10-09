@@ -3,7 +3,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { actionHandlers, isInteractive } from './actions';
 import { ECO_FPS, FlowAnimator } from './animator';
 import { DEFAULT_COLORS } from './colors';
-import { formatCarbonRate, formatMoneyRate } from './cost';
+import { formatCarbonRate, formatMoney, formatMoneyRate } from './cost';
 import { configFromEnergyPrefs, fetchEnergyPrefs, guessConfig, importedCount } from './energy';
 import { energyStatistics, fetchToday, TODAY_REFRESH_MS, todayByNode } from './energy-today';
 import { validateConfig, watchedEntities } from './config';
@@ -453,6 +453,8 @@ export class LiveEnergyCard extends LitElement {
     `;
     const r = model.ratios;
     const st = model.stats;
+    const day = st?.period === 'day';
+    const money = day ? formatMoney : formatMoneyRate;
     return html`<div class="ratios">
       ${
         r
@@ -465,14 +467,14 @@ export class LiveEnergyCard extends LitElement {
           ? // A negative cost means the export earns more than the import costs.
             st.cost < 0
             ? stat(
-                localize(lang, 'stat.earnings'),
-                formatMoneyRate(-st.cost, st.currency, this._lang),
+                localize(lang, day ? 'stat.earnings_day' : 'stat.earnings'),
+                money(-st.cost, st.currency, this._lang),
                 'mdi:cash-plus',
                 DEFAULT_COLORS.gridExport,
               )
             : stat(
-                localize(lang, 'stat.cost'),
-                formatMoneyRate(st.cost, st.currency, this._lang),
+                localize(lang, day ? 'stat.cost_day' : 'stat.cost'),
+                money(st.cost, st.currency, this._lang),
                 'mdi:cash',
                 DEFAULT_COLORS.gridImport,
               )
@@ -481,8 +483,8 @@ export class LiveEnergyCard extends LitElement {
       ${
         st?.savings != null && model.nodes.some((n) => n.kind === 'solar')
           ? stat(
-              localize(lang, 'stat.savings'),
-              formatMoneyRate(st.savings, st.currency, this._lang),
+              localize(lang, day ? 'stat.savings_day' : 'stat.savings'),
+              money(st.savings, st.currency, this._lang),
               'mdi:piggy-bank-outline',
               DEFAULT_COLORS.solar,
             )

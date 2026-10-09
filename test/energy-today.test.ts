@@ -27,6 +27,16 @@ describe('energyStatistics', () => {
   });
 });
 
+describe('grid export statistic', () => {
+  it('is fetched for the daily cost', () => {
+    const stats = energyStatistics({
+      type: 'x',
+      grid: { entity: 'sensor.g', export_energy_entity: ['sensor.out1', 'sensor.out2'] },
+    });
+    expect(stats.get('grid_export')).toEqual(['sensor.out1', 'sensor.out2']);
+  });
+});
+
 describe('todayByNode', () => {
   it('adds up the counters of a node, and marks it unavailable when one is missing', () => {
     const stats = energyStatistics(config);

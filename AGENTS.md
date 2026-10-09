@@ -59,7 +59,7 @@ hass + config ─► model/   ─► layout.ts ─► tree.ts ─► live-energy
 | `src/tree.ts` | Paths of the distribution bus feeding devices in grid / stack modes (and column mode with the `rounded` / `square` line styles). |
 | `src/energy-today.ts` | Today's energy per node from the statistics (`recorder/statistic_during_period`), refreshed by the card every 5 minutes. |
 | `src/battery.ts` | Battery time estimate (to full or to the reserve) and duration formatting. |
-| `src/cost.ts` | Live cost, solar savings and grid CO₂ from the flows, price reading and formatting. |
+| `src/cost.ts` | Cost, solar savings and grid CO₂: live rate per hour from the flows, or total of the day (`cost.period: day`) from today's energy; price reading and formatting. |
 | `src/intensity.ts` | Power → visual parameters (speed, thickness, density, glow). |
 | `src/animator.ts` | `requestAnimationFrame` loop: SVG particles, transitions, animated counters. |
 | `src/live-energy-card.ts` | Lit element: Lovelace lifecycle, rendering, width measurement, registration. |

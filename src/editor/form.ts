@@ -6,6 +6,7 @@ import type {
   BaseNodeConfig,
   CostConfig,
   DeviceConfig,
+  GridConfig,
   LiveEnergyCardConfig,
 } from '../types';
 import { entityIds } from '../units';
@@ -30,19 +31,31 @@ export function clean<T extends object>(obj: T): T {
   return out as T;
 }
 
-/** Where a price comes from. Not stored in the config: it is derived from which field is set. */
-export type PriceMode = 'none' | 'fixed' | 'entity';
+/**
+ * Where a price comes from. Not stored in the config: it is derived from which field is set.
+ * `cost` / `earnings` is a ready-made amount (entity of the import cost, or of the export earnings).
+ */
+export type PriceMode = 'none' | 'fixed' | 'entity' | 'cost' | 'earnings';
 export const PRICE_KEYS = ['price', 'export_price'] as const;
 export type PriceKey = (typeof PRICE_KEYS)[number];
+
+/** Config fields of each price, by source. */
+export const PRICE_FIELDS = {
+  price: { entity: 'price_entity', ready: 'cost_entity', readyMode: 'cost' },
+  export_price: { entity: 'export_price_entity', ready: 'earnings_entity', readyMode: 'earnings' },
+} as const;
 /** Source chosen in the editor for prices that have no value yet. */
 export type PriceModes = Partial<Record<PriceKey, PriceMode>>;
 
 /**
- * Source of a price. A set field wins (the entity first, like the card); `chosen` only applies while
- * the price has no value yet, so the matching field can be shown empty.
+ * Source of a price. A set field wins, ready-made amount first, then the price entity, like the
+ * card; `chosen` only applies while the price has no value yet, so the matching field can be shown
+ * empty.
  */
 export function priceMode(cost: CostConfig | undefined, key: PriceKey, chosen?: PriceMode): PriceMode {
-  if (cost?.[`${key}_entity`]) return 'entity';
+  const fields = PRICE_FIELDS[key];
+  if (cost?.[fields.ready]) return fields.readyMode;
+  if (cost?.[fields.entity]) return 'entity';
   if (typeof cost?.[key] === 'number') return 'fixed';
   return chosen ?? 'none';
 }
@@ -60,6 +73,9 @@ export function toFormData(config: LiveEnergyCardConfig, modes: PriceModes = {})
       ...cfg,
       entity: entityIds(cfg.entity),
       energy_entity: entityIds(cfg.energy_entity),
+      ...(kind === 'grid'
+        ? { export_energy_entity: entityIds((cfg as GridConfig).export_energy_entity) }
+        : {}),
       hide_when_zero: cfg.hide_when_zero ?? hideDefault(kind, config.hide_when_zero),
     };
   };
@@ -73,6 +89,7 @@ export function toFormData(config: LiveEnergyCardConfig, modes: PriceModes = {})
     animation: { ...DEFAULT_TOGGLES, ...(config.animation ?? {}) },
     cost: {
       ...config.cost,
+      period: config.cost?.period ?? 'hour',
       price_mode: priceMode(config.cost, 'price', modes.price),
       export_price_mode: priceMode(config.cost, 'export_price', modes.export_price),
     },
@@ -84,8 +101,8 @@ export function priceModesOf(data: Record<string, unknown>): PriceModes {
   const cost = (data.cost ?? {}) as Record<string, unknown>;
   const out: PriceModes = {};
   for (const key of PRICE_KEYS) {
-    const mode = cost[`${key}_mode`];
-    if (mode === 'none' || mode === 'fixed' || mode === 'entity') out[key] = mode;
+    const mode = cost[`${key}_mode`] as PriceMode;
+    if (['none', 'fixed', 'entity', PRICE_FIELDS[key].readyMode].includes(mode)) out[key] = mode;
   }
   return out;
 }
@@ -107,6 +124,10 @@ export function fromFormData(
     const cfg = { ...((data[kind] as BaseNodeConfig) ?? {}) };
     cfg.entity = compactRef(cfg.entity);
     cfg.energy_entity = compactRef(cfg.energy_entity);
+    if (kind === 'grid') {
+      const grid = cfg as GridConfig;
+      grid.export_energy_entity = compactRef(grid.export_energy_entity);
+    }
     // A value equal to the default is dropped, unless it was written explicitly before.
     const explicit = (previous[kind] as BaseNodeConfig | undefined)?.hide_when_zero !== undefined;
     if (cfg.hide_when_zero === hideDefault(kind, globalHide) && !explicit) delete cfg.hide_when_zero;
@@ -132,9 +153,12 @@ export function fromFormData(
     const mode = cost[`${key}_mode`];
     delete cost[`${key}_mode`];
     if (mode === undefined) continue;
+    const fields = PRICE_FIELDS[key];
     if (mode !== 'fixed') delete cost[key];
-    if (mode !== 'entity') delete cost[`${key}_entity`];
+    if (mode !== 'entity') delete cost[fields.entity];
+    if (mode !== fields.readyMode) delete cost[fields.ready];
   }
+  if (cost.period === 'hour') delete cost.period;
   next.cost = cost;
 
   for (const key of ['cost', 'carbon'] as const) {

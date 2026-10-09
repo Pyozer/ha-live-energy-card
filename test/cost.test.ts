@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { computeFlows } from '../src/compute';
-import { computeStats, formatCarbonRate, formatMoneyRate, readPrice } from '../src/cost';
+import {
+  computeStats,
+  dailyAmounts,
+  formatCarbonRate,
+  formatMoney,
+  formatMoneyRate,
+  readMoney,
+  readPrice,
+} from '../src/cost';
 import { configFromEnergyPrefs } from '../src/energy';
+import { energyStatistics } from '../src/energy-today';
 import { buildModel } from '../src/model';
 import { validateConfig, watchedEntities } from '../src/config';
 import type { HassEntity, HomeAssistant } from '../src/types';
@@ -44,6 +53,138 @@ describe('computeStats', () => {
     );
   });
 
+  describe('total of the day', () => {
+    const day = { price: 0.2, export_price: 0.1, period: 'day' as const };
+    const today = new Map<string, number | null>([
+      ['grid', 6],
+      ['grid_export', 4],
+      ['solar', 14],
+    ]);
+
+    it('prices the energy of the day, ignoring the current power', () => {
+      const stats = computeStats(importing, hass(), day, undefined, today)!;
+      expect(stats.period).toBe('day');
+      // 6 kWh × 0.2 − 4 kWh × 0.1
+      expect(stats.cost).toBeCloseTo(0.8);
+      // (14 − 4) kWh of solar used on site × 0.2
+      expect(stats.savings).toBeCloseTo(2);
+    });
+
+    it('does not count the export without an export price', () => {
+      const stats = computeStats(importing, hass(), { price: 0.2, period: 'day' }, undefined, today)!;
+      expect(stats.cost).toBeCloseTo(1.2);
+    });
+
+    it('is empty while a counter is missing, instead of being wrong', () => {
+      const prices = { value: 0.2 };
+      const noExport = new Map<string, number | null>([
+        ['grid', 6],
+        ['solar', 14],
+      ]);
+      const partial = dailyAmounts(noExport, prices, null);
+      expect(partial.importCost).toBeCloseTo(1.2);
+      expect(partial.earnings).toBe(0);
+      expect(partial.savings).toBeNull();
+      // An export price needs the exported energy.
+      expect(dailyAmounts(noExport, prices, { value: 0.1 }).earnings).toBeNull();
+      expect(dailyAmounts(new Map([['grid', null]]), prices, null).importCost).toBeNull();
+      expect(dailyAmounts(new Map(), prices, null)).toEqual({ importCost: null, earnings: 0, savings: null });
+      expect(dailyAmounts(today, null, null).importCost).toBeNull();
+    });
+
+    it('never gives negative savings', () => {
+      const odd = new Map([
+        ['solar', 2],
+        ['grid_export', 5],
+      ]);
+      expect(dailyAmounts(odd, { value: 0.2 }, null).savings).toBe(0);
+    });
+
+    it('an unknown period falls back to the hourly rate', () => {
+      const config = validateConfig({
+        type: 'x',
+        grid: { entity: 'g' },
+        cost: { price: 0.2, period: 'week' },
+      } as never);
+      expect(config.cost?.period).toBeUndefined();
+    });
+  });
+
+  describe('ready-made cost entities', () => {
+    const states = [ent('sensor.cost_rate', 0.5, '€/h'), ent('sensor.earn_rate', 0.1, '€/h')];
+
+    it('hourly: the state of the entity replaces the price', () => {
+      const stats = computeStats(
+        importing,
+        hass(...states),
+        { cost_entity: 'sensor.cost_rate', earnings_entity: 'sensor.earn_rate' },
+        undefined,
+      )!;
+      expect(stats.period).toBe('hour');
+      expect(stats.cost).toBeCloseTo(0.4);
+      expect(stats.currency).toBe('€');
+      // Savings need a price, not a ready-made cost.
+      expect(stats.savings).toBeNull();
+    });
+
+    it('can be mixed with a price on the other side', () => {
+      // Import priced from the power, earnings from an entity.
+      const stats = computeStats(
+        importing,
+        hass(...states),
+        { price: 0.2, earnings_entity: 'sensor.earn_rate' },
+        undefined,
+      )!;
+      expect(stats.cost).toBeCloseTo(0.4 - 0.1);
+      expect(stats.savings).toBeCloseTo(0.2);
+    });
+
+    it('is empty when the entity is unavailable', () => {
+      const stats = computeStats(
+        importing,
+        hass(ent('sensor.cost_rate', 'unavailable', '€/h')),
+        { cost_entity: 'sensor.cost_rate' },
+        undefined,
+      )!;
+      expect(stats.cost).toBeNull();
+    });
+
+    it("daily: today's change from the statistics, the state when there are none", () => {
+      const cost = { cost_entity: 'sensor.cost_day', period: 'day' as const };
+      const day = hass(ent('sensor.cost_day', 120, 'EUR'));
+      // A cumulative counter: only today's change counts.
+      expect(computeStats(importing, day, cost, undefined, new Map([['cost', 1.3]]))!.cost).toBeCloseTo(1.3);
+      // No statistics: the entity is already a total of the day.
+      expect(computeStats(importing, day, cost, undefined, new Map([['cost', null]]))!.cost).toBe(120);
+      // Not loaded yet: nothing, rather than a cumulative total.
+      expect(computeStats(importing, day, cost, undefined, new Map())!.cost).toBeNull();
+      expect(computeStats(importing, day, cost, undefined)!.currency).toBe('EUR');
+    });
+
+    it('reads a monetary entity, its currency being the unit before the slash', () => {
+      expect(readMoney(ent('sensor.a', 1.5, '€/h'))).toEqual({ value: 1.5, currency: '€' });
+      expect(readMoney(ent('sensor.a', 2, 'EUR'))).toEqual({ value: 2, currency: 'EUR' });
+      expect(readMoney(ent('sensor.a', 'unknown'))).toBeNull();
+      expect(readMoney(undefined)).toBeNull();
+    });
+
+    it('the entities are watched, and statistics are fetched only in daily mode', () => {
+      const cost = { cost_entity: 'sensor.cost_rate', earnings_entity: 'sensor.earn_rate' };
+      const cfg = validateConfig({ type: 'x', grid: { entity: 'g' }, cost } as never);
+      expect(watchedEntities(cfg)).toEqual(expect.arrayContaining(['sensor.cost_rate', 'sensor.earn_rate']));
+      expect(energyStatistics(cfg).has('cost')).toBe(false);
+      const day = validateConfig({
+        type: 'x',
+        grid: { entity: 'g' },
+        cost: { ...cost, period: 'day' },
+      } as never);
+      expect([...energyStatistics(day)]).toEqual([
+        ['cost', ['sensor.cost_rate']],
+        ['earnings', ['sensor.earn_rate']],
+      ]);
+    });
+  });
+
   it('price entity and currency from its unit', () => {
     const stats = computeStats(
       importing,
@@ -71,6 +212,13 @@ describe('computeStats', () => {
 });
 
 describe('formatting', () => {
+  it('formats a total without the per hour suffix', () => {
+    expect(formatMoney(1.84, 'EUR', 'en')).toBe('€1.84');
+    expect(formatMoney(1.84, undefined, 'en')).toBe('1.84');
+    expect(formatMoney(1.84, '$$', 'en')).toBe('1.84 $$');
+    expect(formatMoneyRate(1.84, 'EUR', 'en')).toBe('€1.84/h');
+  });
+
   it('money and carbon rates', () => {
     expect(formatMoneyRate(0.4, 'EUR', 'en')).toBe('€0.40/h');
     expect(formatMoneyRate(0.4, '€', 'en')).toBe('0.40 €/h');

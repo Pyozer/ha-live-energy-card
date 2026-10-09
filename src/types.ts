@@ -43,6 +43,8 @@ export interface GridConfig extends BaseNodeConfig {
   import_entity?: EntityRef;
   export_entity?: EntityRef;
   export_color?: string;
+  /** Energy counter(s) in kWh of the energy sent to the grid, for the daily cost (`cost.period: day`). */
+  export_energy_entity?: EntityRef;
   /** Import limit in W (e.g. the subscribed power): above it, the grid node turns to the alert color. */
   max_import?: number;
 }
@@ -81,6 +83,18 @@ export interface CostConfig {
   price_entity?: string;
   export_price?: number;
   export_price_entity?: string;
+  /**
+   * Ready-made cost of the grid import (replaces the price): a rate (€/h) in `hour` mode, a cost in
+   * € for the day in `day` mode (cumulative or reset daily). For tariffs computed elsewhere.
+   */
+  cost_entity?: string;
+  /** Ready-made earnings of the grid export, same units as `cost_entity`. */
+  earnings_entity?: string;
+  /**
+   * `hour` (default): live rate per hour from the current power. `day`: total of the day from
+   * today's energy counters (grid import and export, solar production).
+   */
+  period?: 'hour' | 'day';
   /** ISO code (EUR) or symbol. Defaults to the price entity's unit, then the Home Assistant currency. */
   currency?: string;
 }

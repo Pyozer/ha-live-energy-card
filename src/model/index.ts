@@ -47,7 +47,7 @@ export function buildModel(
       ...deviceFlows(config, devices, colors.home),
     ],
     ratios: config.show_ratios ? computeRatios(result) : null,
-    stats: computeStats(result, hass, config.cost, config.carbon?.intensity_entity),
+    stats: computeStats(result, hass, config.cost, config.carbon?.intensity_entity, ctx.todayEnergy),
     result,
     devicesOrder: devices.order,
   };

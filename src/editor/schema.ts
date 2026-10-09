@@ -2,7 +2,7 @@ import { entitySelector, type EntityKind } from '../entities';
 import { LANGUAGE_NAMES, SUPPORTED_LANGUAGES, type LocalizeKey } from '../localize/localize';
 import type { DeviceConfig, EntityRef, HomeAssistant, LiveEnergyCardConfig } from '../types';
 import { isGroup } from './device-list';
-import { priceMode, type NodeKey, type PriceKey, type PriceModes } from './form';
+import { PRICE_FIELDS, priceMode, type NodeKey, type PriceKey, type PriceModes } from './form';
 
 /** `ha-form` schemas of the visual editor. */
 
@@ -69,6 +69,13 @@ export class EditorSchema {
     const entities: Schema[] = [{ name: 'entity', selector: this.entity('power', cfg.entity, true) }];
     if (kind === 'grid') {
       entities.push(grid([power('import_entity'), power('export_entity')]), watts('max_import', 0));
+      // Only needed by the daily cost.
+      if (config.cost?.period === 'day') {
+        entities.push({
+          name: 'export_energy_entity',
+          selector: this.entity('energy', cfg.export_energy_entity, true),
+        });
+      }
     }
     if (kind === 'battery') {
       entities.push(
@@ -105,14 +112,16 @@ export class EditorSchema {
   /** A price: its source, then only the matching field (fixed value or entity). */
   private price(config: LiveEnergyCardConfig, key: PriceKey, modes: PriceModes): Schema {
     const mode = priceMode(config.cost, key, modes[key]);
-    const entityKey = `${key}_entity` as const;
+    const fields = PRICE_FIELDS[key];
     return grid([
-      select(this.t, `${key}_mode`, ['none', 'fixed', 'entity']),
+      select(this.t, `${key}_mode`, ['none', 'fixed', 'entity', fields.readyMode]),
       ...(mode === 'fixed'
         ? [{ name: key, selector: { number: { min: 0, step: 0.0001, mode: 'box' } } }]
         : mode === 'entity'
-          ? [{ name: entityKey, selector: this.entity('price', config.cost?.[entityKey]) }]
-          : []),
+          ? [{ name: fields.entity, selector: this.entity('price', config.cost?.[fields.entity]) }]
+          : mode === fields.readyMode
+            ? [{ name: fields.ready, selector: this.entity('money', config.cost?.[fields.ready]) }]
+            : []),
     ]);
   }
 
@@ -185,6 +194,7 @@ export class EditorSchema {
         title: t('editor.cost'),
         icon: 'mdi:cash',
         schema: [
+          select(t, 'period', ['hour', 'day']),
           this.price(config, 'price', modes),
           this.price(config, 'export_price', modes),
           { name: 'currency', selector: { text: {} } },
@@ -225,6 +235,29 @@ export class EditorSchema {
       actionsSchema(this.t),
     ];
   }
+}
+
+/**
+ * Fields shown without a label in the form. The entity pickers next to a source selector already
+ * say what they are; their own label would sit above the field and misalign it with the selector.
+ */
+const UNLABELED_FIELDS: ReadonlySet<string> = new Set([
+  'price_entity',
+  'export_price_entity',
+  'cost_entity',
+  'earnings_entity',
+]);
+
+/** Label shown by the form: none for the entity pickers of a price source. */
+export function formLabel(t: Translate, name: string): string {
+  return UNLABELED_FIELDS.has(name) ? '' : fieldLabel(t, name);
+}
+
+/** Help text under a field: `editor.helper.<name>`, empty when there is none. */
+export function fieldHelper(t: Translate, name: string): string {
+  const key = `editor.helper.${name}` as LocalizeKey;
+  const text = t(key);
+  return text === key ? '' : text;
 }
 
 /** Field label: `editor.field.<name>`, or the raw name when there is no translation. */

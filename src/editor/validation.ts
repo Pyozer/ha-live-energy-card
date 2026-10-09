@@ -2,7 +2,7 @@ import { matchesKind, type EntityKind } from '../entities';
 import type { BaseNodeConfig, DeviceConfig, EntityRef, HomeAssistant, LiveEnergyCardConfig } from '../types';
 import { entityIds } from '../units';
 import { isGroup, type DevicePath } from './device-list';
-import { NODE_KEYS, type NodeKey } from './form';
+import { NODE_KEYS, PRICE_FIELDS, PRICE_KEYS, type NodeKey } from './form';
 import { fieldLabel, type Translate } from './schema';
 
 /**
@@ -33,6 +33,7 @@ const NODE_FIELDS: [string, EntityKind | undefined][] = [
   ['discharge_entity', 'power'],
   ['soc_entity', 'percent'],
   ['energy_entity', 'energy'],
+  ['export_energy_entity', 'energy'],
   ['secondary_entity', undefined],
 ];
 
@@ -66,11 +67,20 @@ export function entityIssues(config: LiveEnergyCardConfig, hass: HomeAssistant |
     checkNode([i], dev);
     (dev?.devices ?? []).forEach((member, j) => checkNode([i, j], member));
   });
-  for (const key of ['price', 'export_price'] as const) {
-    const fixed = config.cost?.[key];
-    if (typeof fixed === 'number' && config.cost?.[`${key}_entity`])
-      issues.push({ where: 'cost', field: key, entity: String(fixed), problem: 'ignored_price' });
+  // A price source is ignored when a stronger one is set: ready-made amount, then price entity.
+  for (const key of PRICE_KEYS) {
+    const fields = PRICE_FIELDS[key];
+    const cost = config.cost;
+    const sources = [
+      { field: fields.ready as string, value: cost?.[fields.ready] },
+      { field: fields.entity as string, value: cost?.[fields.entity] },
+      { field: key as string, value: typeof cost?.[key] === 'number' ? String(cost[key]) : undefined },
+    ].filter((s) => s.value);
+    for (const ignored of sources.slice(1))
+      issues.push({ where: 'cost', field: ignored.field, entity: ignored.value!, problem: 'ignored_price' });
   }
+  check('cost', 'cost_entity', config.cost?.cost_entity, 'money');
+  check('cost', 'earnings_entity', config.cost?.earnings_entity, 'money');
   check('cost', 'price_entity', config.cost?.price_entity, 'price');
   check('cost', 'export_price_entity', config.cost?.export_price_entity, 'price');
   check('carbon', 'intensity_entity', config.carbon?.intensity_entity, 'carbon');

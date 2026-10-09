@@ -74,9 +74,13 @@ function powerOf(source: EnergySource): {
 
 const hasPower = (p: ReturnType<typeof powerOf>): boolean => !!(p.entity || p.from || p.to);
 
-/** Energy counters (`stat_energy_from`) of the sources of a type: one id, a list, or none. */
-function energyOf(sources: EnergySource[], type: string): EntityRef | undefined {
-  const ids = [...new Set(sources.filter((s) => s.type === type).map((s) => str(s.stat_energy_from)))].filter(
+/** Energy counters (`stat_energy_from`, or `stat_energy_to` for the grid export) of a type: one id, a list, or none. */
+function energyOf(
+  sources: EnergySource[],
+  type: string,
+  field: 'stat_energy_from' | 'stat_energy_to' = 'stat_energy_from',
+): EntityRef | undefined {
+  const ids = [...new Set(sources.filter((s) => s.type === type).map((s) => str(s[field])))].filter(
     (id): id is string => !!id,
   );
   return ids.length > 1 ? ids : ids[0];
@@ -126,6 +130,9 @@ export function configFromEnergyPrefs(prefs: EnergyPrefs): EnergyImport {
     // Today's energy of the grid node: the import.
     const energy = energyOf(sources, 'grid');
     if (energy) cfg.energy_entity = energy;
+    // Energy sent to the grid, for the daily cost.
+    const exported = energyOf(sources, 'grid', 'stat_energy_to');
+    if (exported) cfg.export_energy_entity = exported;
     out.grid = cfg;
   }
 
@@ -267,6 +274,7 @@ function stripEntities<T extends object>(node: T | undefined): Partial<T> {
     'charge_entity',
     'discharge_entity',
     'energy_entity',
+    'export_energy_entity',
     'invert',
   ])
     delete out[key];

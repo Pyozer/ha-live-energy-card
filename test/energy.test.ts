@@ -45,8 +45,12 @@ describe('Energy dashboard import', () => {
   it('maps sources and devices to their power sensors', () => {
     const imported = configFromEnergyPrefs(prefs);
     expect(imported.solar).toEqual({ entity: 'sensor.solar_power', energy_entity: 'sensor.solar_energy' });
-    // Today's energy of the grid is its import counter.
-    expect(imported.grid).toEqual({ entity: 'sensor.grid_power', energy_entity: 'sensor.peak_index' });
+    // Today's energy of the grid is its import counter; the returned energy serves the daily cost.
+    expect(imported.grid).toEqual({
+      entity: 'sensor.grid_power',
+      energy_entity: 'sensor.peak_index',
+      export_energy_entity: 'sensor.returned',
+    });
     // No power sensor for the battery: skipped.
     expect(imported.battery).toBeUndefined();
     expect(imported.devices).toEqual([
@@ -129,6 +133,7 @@ describe('Energy dashboard import', () => {
     expect(merged.grid).toEqual({
       entity: 'sensor.grid_power',
       energy_entity: 'sensor.peak_index',
+      export_energy_entity: 'sensor.returned',
       name: 'Linky',
       color: 'blue',
     });

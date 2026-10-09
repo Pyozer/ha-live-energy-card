@@ -17,6 +17,9 @@ const states: Record<string, HassEntity> = Object.fromEntries(
     ent('sensor.battery_level', '%', 'battery'),
     ent('sensor.temperature', '°C', 'temperature'),
     ent('sensor.price', 'EUR/kWh'),
+    ent('sensor.cost_rate', '€/h'),
+    ent('sensor.cost_day', 'EUR'),
+    ent('sensor.bill', 'USD', 'monetary'),
     ent('sensor.grid_co2', 'gCO2eq/kWh'),
     ent('input_number.fake_power', 'W'),
     ent('light.kitchen', 'W'),
@@ -36,7 +39,14 @@ describe('entity kinds', () => {
   it('energy, percent, price and carbon kinds', () => {
     expect(entitiesOfKind({ states }, 'energy')).toEqual(['sensor.solar_energy']);
     expect(entitiesOfKind({ states }, 'percent')).toEqual(['sensor.battery_level']);
-    expect(entitiesOfKind({ states }, 'price')).toEqual(['sensor.price']);
+    // A monetary value also counts as a price.
+    expect(entitiesOfKind({ states }, 'price')).toEqual(['sensor.bill', 'sensor.price']);
+    // A ready-made cost: a currency, possibly per hour (not a price per kWh).
+    expect(entitiesOfKind({ states }, 'money')).toEqual([
+      'sensor.bill',
+      'sensor.cost_day',
+      'sensor.cost_rate',
+    ]);
     expect(entitiesOfKind({ states }, 'carbon')).toEqual(['sensor.grid_co2']);
   });
 

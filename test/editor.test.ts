@@ -7,7 +7,7 @@ import {
   priceModesOf,
   toFormData,
 } from '../src/editor/form';
-import { EditorSchema, fieldLabel, type Schema } from '../src/editor/schema';
+import { EditorSchema, fieldHelper, fieldLabel, formLabel, type Schema } from '../src/editor/schema';
 import { localize, SUPPORTED_LANGUAGES } from '../src/localize/localize';
 import type { HassEntity, HomeAssistant, LiveEnergyCardConfig } from '../src/types';
 import { describeIssue, deviceIssues, entityIssues } from '../src/editor/validation';
@@ -134,6 +134,117 @@ describe('editor price source', () => {
   });
 });
 
+describe('editor ready-made cost', () => {
+  const t = (key: Parameters<typeof localize>[1]) => localize('en', key);
+  const schema = new EditorSchema(t, undefined);
+  const names = (config: LiveEnergyCardConfig, modes = {}) =>
+    fieldNames(schema.card(config, modes)).filter((n) => /price|cost|earnings/.test(n));
+
+  it('derives the source, the ready-made amount winning', () => {
+    expect(priceMode({ cost_entity: 'sensor.c', price_entity: 'sensor.p' }, 'price')).toBe('cost');
+    expect(priceMode({ earnings_entity: 'sensor.e' }, 'export_price')).toBe('earnings');
+    // The earnings entity is the export side's: it does not change the import source.
+    expect(priceMode({ earnings_entity: 'sensor.e' }, 'price')).toBe('none');
+  });
+
+  it('shows the entity field of the chosen source only', () => {
+    expect(names({ ...base, cost: { cost_entity: 'sensor.c' } })).toEqual([
+      'price_mode',
+      'cost_entity',
+      'export_price_mode',
+    ]);
+    expect(names(base, { export_price: 'earnings' })).toEqual([
+      'price_mode',
+      'export_price_mode',
+      'earnings_entity',
+    ]);
+  });
+
+  it('keeps only the field of the chosen source', () => {
+    const config: LiveEnergyCardConfig = {
+      ...base,
+      cost: { price: 0.2, price_entity: 'sensor.p', cost_entity: 'sensor.c' },
+    };
+    expect(roundTrip(config).cost).toEqual({ cost_entity: 'sensor.c' });
+    expect(
+      roundTrip(config, (d) => ((d.cost as Record<string, unknown>).price_mode = 'entity')).cost,
+    ).toEqual({
+      price_entity: 'sensor.p',
+    });
+    const earnings = roundTrip(base, (d) =>
+      Object.assign(d.cost as object, {
+        export_price_mode: 'earnings',
+        earnings_entity: 'sensor.e',
+        price_entity: 'sensor.p',
+      }),
+    );
+    expect(earnings.cost).toEqual({ earnings_entity: 'sensor.e' });
+  });
+
+  it('reads the ready-made sources picked in the form', () => {
+    expect(priceModesOf({ cost: { price_mode: 'cost', export_price_mode: 'earnings' } })).toEqual({
+      price: 'cost',
+      export_price: 'earnings',
+    });
+    // `earnings` is not a source of the import price.
+    expect(priceModesOf({ cost: { price_mode: 'earnings' } })).toEqual({});
+  });
+
+  it('shows no label above the entity pickers of a price source, but keeps it elsewhere', () => {
+    expect(formLabel(t, 'price_entity')).toBe('');
+    expect(formLabel(t, 'cost_entity')).toBe('');
+    expect(formLabel(t, 'price_mode')).toBe('Import price');
+    expect(formLabel(t, 'export_price_mode')).toBe('Export price');
+    // The issue list still names the field.
+    expect(fieldLabel(t, 'price_entity')).toBe('Import price entity');
+  });
+
+  it('explains the ready-made fields, and only them', () => {
+    expect(fieldHelper(t, 'cost_entity')).toContain('€/h');
+    expect(fieldHelper(t, 'earnings_entity')).toContain('€/h');
+    expect(fieldHelper(t, 'price_entity')).toBe('');
+  });
+});
+
+describe('editor cost period', () => {
+  const t = (key: Parameters<typeof localize>[1]) => localize('en', key);
+  const schema = new EditorSchema(t, undefined);
+
+  it('only writes the daily period, the hourly rate being the default', () => {
+    expect(toFormData(base).cost).toMatchObject({ period: 'hour' });
+    expect('cost' in roundTrip(base)).toBe(false);
+    expect(roundTrip(base, (d) => ((d.cost as Record<string, unknown>).period = 'day')).cost).toEqual({
+      period: 'day',
+    });
+    const day: LiveEnergyCardConfig = { ...base, cost: { period: 'day', price: 0.2 } };
+    expect(roundTrip(day).cost).toEqual({ period: 'day', price: 0.2 });
+  });
+
+  it('asks for the exported energy of the grid only in daily mode', () => {
+    const grid = (config: LiveEnergyCardConfig) =>
+      fieldNames(schema.node('grid', config)).includes('export_energy_entity');
+    expect(grid(base)).toBe(false);
+    expect(grid({ ...base, cost: { period: 'day' } })).toBe(true);
+    expect(grid({ ...base, cost: { period: 'hour' } })).toBe(false);
+    const solar = fieldNames(schema.node('solar', { ...base, cost: { period: 'day' } }));
+    expect(solar).not.toContain('export_energy_entity');
+  });
+
+  it('keeps the exported energy counters when the mode is switched back', () => {
+    const config: LiveEnergyCardConfig = {
+      ...base,
+      grid: { entity: 'sensor.g', export_energy_entity: ['sensor.a', 'sensor.b'] },
+    };
+    expect(roundTrip(config).grid?.export_energy_entity).toEqual(['sensor.a', 'sensor.b']);
+    expect(
+      roundTrip({ ...config, grid: { entity: 'sensor.g', export_energy_entity: 'sensor.a' } }).grid,
+    ).toEqual({
+      entity: 'sensor.g',
+      export_energy_entity: 'sensor.a',
+    });
+  });
+});
+
 describe('editor device form', () => {
   const group = { name: 'IT', entity: 'sensor.circuit', devices: [{ entity: 'sensor.nas' }] };
 
@@ -168,6 +279,8 @@ describe('editor schema', () => {
       const schema = new EditorSchema(t, undefined);
       const names = [
         ...fieldNames(schema.card(base)),
+        ...fieldNames(schema.card({ ...base, cost: { period: 'day' } })),
+        ...fieldNames(schema.card(base, { price: 'cost', export_price: 'earnings' })),
         ...fieldNames(schema.card(base, { price: 'fixed', export_price: 'entity' })),
         ...fieldNames(schema.card(base, { price: 'entity', export_price: 'fixed' })),
         ...fieldNames(schema.device({ entity: 'sensor.x' })),
@@ -245,6 +358,18 @@ describe('entity issues', () => {
     expect(describeIssue(issues[0], config, hass, t).problem).toContain('replaces');
   });
 
+  it('flags the weaker price sources, ready-made amount first', () => {
+    const config: LiveEnergyCardConfig = {
+      ...base,
+      cost: { price: 0.25, price_entity: 'sensor.price', cost_entity: 'sensor.gone' },
+    };
+    expect(entityIssues(config, hass)).toEqual([
+      { where: 'cost', field: 'price_entity', entity: 'sensor.price', problem: 'ignored_price' },
+      { where: 'cost', field: 'price', entity: '0.25', problem: 'ignored_price' },
+      { where: 'cost', field: 'cost_entity', entity: 'sensor.gone', problem: 'missing' },
+    ]);
+  });
+
   it('warns when a price entity hides the fixed price', () => {
     const config: LiveEnergyCardConfig = {
       ...base,
@@ -252,7 +377,7 @@ describe('entity issues', () => {
     };
     const issues = entityIssues(config, hass);
     expect(issues).toEqual([{ where: 'cost', field: 'price', entity: '0.25', problem: 'ignored_price' }]);
-    expect(describeIssue(issues[0], config, hass, t).problem).toContain('price entity');
+    expect(describeIssue(issues[0], config, hass, t).problem).toContain('another price source');
   });
 
   it('names an unnamed device by its position', () => {

@@ -56,7 +56,12 @@ const DEVICES = [
 const ENERGY_PREFS: EnergyPrefs = {
   energy_sources: [
     { type: 'solar', stat_energy_from: ENT.solarDay, stat_rate: ENT.solar },
-    { type: 'grid', stat_energy_from: 'sensor.grid_energy', power_config: { stat_rate: ENT.grid } },
+    {
+      type: 'grid',
+      stat_energy_from: 'sensor.grid_energy',
+      stat_energy_to: 'sensor.grid_export_energy',
+      power_config: { stat_rate: ENT.grid },
+    },
     { type: 'battery', stat_energy_from: 'sensor.battery_out', stat_rate: ENT.battery, stat_soc: ENT.soc },
   ],
   device_consumption: DEVICES.slice(0, 8).map((d) => ({
@@ -69,6 +74,9 @@ const ENERGY_PREFS: EnergyPrefs = {
 /** Simulated statistics (`recorder/statistic_during_period`): today's energy in kWh. */
 const TODAY_KWH: Record<string, number> = {
   'sensor.grid_energy': 6.42,
+  'sensor.grid_export_energy': 4.1,
+  'sensor.grid_cost_today': 1.31,
+  [ENT.solarDay]: 14.2,
   ...Object.fromEntries(DEVICES.map((d) => [`${d.entity}_energy`, (d.typical * 9) / 1000])),
 };
 
@@ -150,6 +158,14 @@ function buildHass(): HomeAssistant {
     [ENT.soc]: entity(ENT.soc, state.soc, '%', 'Battery level'),
     [ENT.price]: entity(ENT.price, 0.2516, 'EUR/kWh', 'Electricity price'),
     [ENT.co2]: entity(ENT.co2, 56, 'gCO2eq/kWh', 'Grid CO2 intensity'),
+    // Ready-made cost entities: a rate, and a cumulative cost counter (change of the day: 1.31).
+    'sensor.grid_cost_rate': entity(
+      'sensor.grid_cost_rate',
+      (Math.max(0, grid) * 0.2516) / 1000,
+      'EUR/h',
+      'Grid cost rate',
+    ),
+    'sensor.grid_cost_today': entity('sensor.grid_cost_today', 412.5, 'EUR', 'Grid cost (total)'),
   };
   for (const d of DEVICES)
     fresh[d.entity] = entity(d.entity, state.devices[d.entity], 'W', `${d.name} Power`);
@@ -452,6 +468,41 @@ toggle(
       } else {
         delete c.cost;
         delete c.carbon;
+      }
+    }),
+);
+toggle(
+  'Daily cost',
+  () => config.cost?.period === 'day',
+  (v) =>
+    withConfig((c) => {
+      c.cost = { ...(c.cost ?? { price_entity: ENT.price, export_price: 0.13 }) };
+      if (v) {
+        c.cost.period = 'day';
+        if (c.cost.cost_entity) c.cost.cost_entity = 'sensor.grid_cost_today';
+        c.solar = { ...c.solar, energy_entity: ENT.solarDay };
+        c.grid = { ...c.grid, export_energy_entity: 'sensor.grid_export_energy' };
+      } else {
+        delete c.cost.period;
+        if (c.cost.cost_entity) c.cost.cost_entity = 'sensor.grid_cost_rate';
+        if (c.solar) delete c.solar.energy_entity;
+        if (c.grid) delete c.grid.export_energy_entity;
+      }
+    }),
+);
+toggle(
+  'Cost entity',
+  () => !!config.cost?.cost_entity,
+  (v) =>
+    withConfig((c) => {
+      c.cost = { ...(c.cost ?? { export_price: 0.13 }) };
+      delete c.cost.price;
+      delete c.cost.price_entity;
+      if (v)
+        c.cost.cost_entity = c.cost.period === 'day' ? 'sensor.grid_cost_today' : 'sensor.grid_cost_rate';
+      else {
+        delete c.cost.cost_entity;
+        c.cost.price_entity = ENT.price;
       }
     }),
 );

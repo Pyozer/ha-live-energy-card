@@ -240,7 +240,8 @@ Available for `solar`, `grid`, `battery`, `home` and each item of `devices`:
 Specific options:
 
 - `grid`: `import_entity` / `export_entity` (alternative to a signed entity; both report positive
-  values), `export_color`,
+  values), `export_energy_entity` (energy counter(s) in kWh of the energy sent to the grid, for the
+  daily cost), `export_color`,
   `max_import` (import limit in W, e.g. the subscribed power: above it, the grid node turns red and
   shows *Over limit*). The grid node shows a signed value: positive when importing, **negative when
   exporting** (a signed entity keeps its sign, an export entity is shown as negative).
@@ -257,16 +258,28 @@ Specific options:
 
 ### Cost and carbon
 
-Live indicators shown under the diagram, computed from the current flows:
+Live indicators shown under the diagram. `cost.period` picks how cost and savings are expressed:
 
-- **Cost**: grid import × import price − grid export × export price, per hour. When the export
-  earns more than the import costs, it is shown as **Export earnings**.
-- **Solar savings**: solar consumed on site (home and battery charge) × import price, per hour.
+- `hour` (default): a **rate per hour** (€/h) from the current flows.
+  - **Cost**: grid import × import price − grid export × export price. When the export earns more
+    than the import costs, it is shown as **Export earnings**.
+  - **Solar savings**: solar consumed on site (home and battery charge) × import price.
+- `day`: a **total for the day** (€), from today's energy counters (kWh), like the Energy dashboard.
+  - **Cost today** = grid import × import price − grid export × export price.
+  - **Solar savings today** = (solar production − energy sent to the grid) × import price.
+  - Needs `energy_entity` on `solar` and on `grid` (the import), plus `grid.export_energy_entity`
+    (the energy sent to the grid). The editor only shows the export field in this mode; the Energy
+    dashboard import fills the three in. While a counter is missing, the indicator is hidden
+    rather than wrong.
+  - Today's energy is priced at the **current** price: with a tariff that changes during the day
+    (peak / off-peak, dynamic prices), the total is an approximation. A *cost entity* (below) gives
+    an exact total.
 - **Grid CO₂**: grid import × carbon intensity of the grid (for example from the
   [Electricity Maps](https://www.home-assistant.io/integrations/co2signal/) integration), per hour.
 
 ```yaml
 cost:
+  period: day # hour (default): €/h from the current power; day: total of the day
   price_entity: sensor.electricity_price # or a fixed value: price: 0.2516
   export_price: 0.13 # or export_price_entity
   currency: EUR # optional: price entity unit (EUR/kWh), then the Home Assistant currency
@@ -274,13 +287,27 @@ carbon:
   intensity_entity: sensor.electricity_maps_co2_intensity # gCO2eq/kWh
 ```
 
-Each price (import, export) comes from **one** source: a fixed value (`price`, `export_price`) or an
-entity (`price_entity`, `export_price_entity`). If both are set in YAML, the entity wins and the
-fixed value is ignored (the editor flags it). In the visual editor, pick the source (*None*,
-*Fixed value* or *Entity*) and only the matching field is shown; switching source drops the other
-field.
+Each price (import, export) comes from **one** source:
 
-Prices are per kWh; price entities in €/MWh or €/Wh are converted. Without an export price, the
+| Source | Import | Export | Value |
+| --- | --- | --- | --- |
+| Fixed value | `price` | `export_price` | A price per kWh. |
+| Price entity | `price_entity` | `export_price_entity` | A price per kWh, read live (dynamic tariff). |
+| Cost entity | `cost_entity` | `earnings_entity` | An amount **already computed**, shown as is. |
+
+A *cost entity* is for people who already have the cost computed (dynamic tariffs, tariff
+calculators…). Its unit is a currency: `€/h` with `period: hour`; a cost in `€` with `period: day`,
+either cumulative (like the Energy dashboard's cost sensors: today's change is taken from the
+statistics) or reset every day (without statistics, the state is used as is). No price is involved,
+so **Solar savings** are not shown with a cost entity for the import (they need a price); a cost
+entity can be mixed with a price on the other side.
+
+If several sources are set in YAML, the strongest wins and the others are ignored (the editor flags
+it): cost entity, then price entity, then fixed value. In the visual editor, pick the source
+(*None*, *Fixed value*, *Price entity* or *Cost entity*) and only the matching field is shown;
+switching source drops the other fields.
+
+Prices are per kWh; price entities in €/MWh or €/Wh are converted. Without an export price (*None*), the
 exported energy is not counted. The Energy dashboard import fills in the prices when the grid has
 a single tariff.
 

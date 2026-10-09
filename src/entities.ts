@@ -5,7 +5,7 @@ import { entityIds, POWER_UNITS } from './units';
  * Entity kinds offered by the visual editor. Each field only lists entities of the matching kind,
  * so a power field cannot point to an energy counter (kWh) or a temperature.
  */
-export type EntityKind = 'power' | 'percent' | 'energy' | 'price' | 'carbon';
+export type EntityKind = 'power' | 'percent' | 'energy' | 'price' | 'money' | 'carbon';
 
 const DOMAINS = ['sensor', 'input_number', 'number'];
 const ENERGY_UNITS = ['Wh', 'kWh', 'MWh', 'GWh'];
@@ -20,6 +20,8 @@ const MATCHERS: Record<EntityKind, (s: HassEntity) => boolean> = {
   // Electricity price: a currency per kWh (€/kWh, EUR/kWh…) or a monetary value.
   price: (s) =>
     (/\/\s*(k|M)?Wh$/i.test(unitOf(s)) && !/co2/i.test(unitOf(s))) || deviceClassOf(s) === 'monetary',
+  // Ready-made cost: a currency (EUR, €, $…), possibly per hour, or a monetary value.
+  money: (s) => /^([A-Z]{3}|[€$£¥])(\s*\/\s*h)?$/.test(unitOf(s)) || deviceClassOf(s) === 'monetary',
   // Grid carbon intensity (gCO2eq/kWh) or fossil fuel share (%).
   carbon: (s) => /co2/i.test(unitOf(s)) || /co2|carbon|fossil/i.test(s.entity_id),
 };

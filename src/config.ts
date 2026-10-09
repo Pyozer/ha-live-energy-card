@@ -62,6 +62,9 @@ export function validateConfig(input: unknown): LiveEnergyCardConfig {
     (config as Record<string, unknown>)[section] = copy;
   };
   numbers('cost', ['price', 'export_price']);
+  // An unknown period falls back to the default instead of breaking the card.
+  if (config.cost && config.cost.period !== undefined && !['hour', 'day'].includes(config.cost.period))
+    config.cost = { ...config.cost, period: undefined };
   numbers('grid', ['max_import']);
   numbers('battery', ['capacity', 'min_soc']);
 
@@ -103,6 +106,8 @@ export function watchedEntities(config: LiveEnergyCardConfig): string[] {
   add(config.battery?.soc_entity);
   add(config.cost?.price_entity);
   add(config.cost?.export_price_entity);
+  add(config.cost?.cost_entity);
+  add(config.cost?.earnings_entity);
   add(config.carbon?.intensity_entity);
   return [...ids];
 }

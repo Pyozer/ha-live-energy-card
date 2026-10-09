@@ -33,7 +33,7 @@ import {
   toFormData,
   type PriceModes,
 } from './form';
-import { EditorSchema, fieldLabel } from './schema';
+import { EditorSchema, fieldHelper, formLabel } from './schema';
 import { editorStyles } from './styles';
 import { describeIssue, deviceIssues, entityIssues, type EntityIssue } from './validation';
 
@@ -73,7 +73,9 @@ export class LiveEnergyCardEditor extends LitElement {
     return new EditorSchema((key, vars) => this._t(key, vars), this.hass);
   }
 
-  private _label = (schema: { name: string }): string => fieldLabel((key) => this._t(key), schema.name);
+  private _label = (schema: { name: string }): string => formLabel((key) => this._t(key), schema.name);
+
+  private _helper = (schema: { name: string }): string => fieldHelper((key) => this._t(key), schema.name);
 
   // --- Data -------------------------------------------------------------------------------------
 
@@ -167,6 +169,7 @@ export class LiveEnergyCardEditor extends LitElement {
         .data=${toFormData(this._config, this._priceModes)}
         .schema=${this._schema().card(this._config, this._priceModes)}
         .computeLabel=${this._label}
+        .computeHelper=${this._helper}
         @value-changed=${this._valueChanged}
       ></ha-form>
 
