@@ -2,7 +2,7 @@ import { entitySelector, type EntityKind } from '../entities';
 import { LANGUAGE_NAMES, SUPPORTED_LANGUAGES, type LocalizeKey } from '../localize/localize';
 import type { DeviceConfig, EntityRef, HomeAssistant, LiveEnergyCardConfig } from '../types';
 import { isGroup } from './device-list';
-import type { NodeKey } from './form';
+import { priceMode, type NodeKey, type PriceKey, type PriceModes } from './form';
 
 /** `ha-form` schemas of the visual editor. */
 
@@ -102,7 +102,21 @@ export class EditorSchema {
     ];
   }
 
-  card(config: LiveEnergyCardConfig): Schema[] {
+  /** A price: its source, then only the matching field (fixed value or entity). */
+  private price(config: LiveEnergyCardConfig, key: PriceKey, modes: PriceModes): Schema {
+    const mode = priceMode(config.cost, key, modes[key]);
+    const entityKey = `${key}_entity` as const;
+    return grid([
+      select(this.t, `${key}_mode`, ['none', 'fixed', 'entity']),
+      ...(mode === 'fixed'
+        ? [{ name: key, selector: { number: { min: 0, step: 0.0001, mode: 'box' } } }]
+        : mode === 'entity'
+          ? [{ name: entityKey, selector: this.entity('price', config.cost?.[entityKey]) }]
+          : []),
+    ]);
+  }
+
+  card(config: LiveEnergyCardConfig, modes: PriceModes = {}): Schema[] {
     const t = this.t;
     const node = (kind: NodeKey): Schema => ({
       type: 'expandable',
@@ -171,12 +185,8 @@ export class EditorSchema {
         title: t('editor.cost'),
         icon: 'mdi:cash',
         schema: [
-          grid([
-            { name: 'price', selector: { number: { min: 0, step: 0.0001, mode: 'box' } } },
-            { name: 'price_entity', selector: this.entity('price', config.cost?.price_entity) },
-            { name: 'export_price', selector: { number: { min: 0, step: 0.0001, mode: 'box' } } },
-            { name: 'export_price_entity', selector: this.entity('price', config.cost?.export_price_entity) },
-          ]),
+          this.price(config, 'price', modes),
+          this.price(config, 'export_price', modes),
           { name: 'currency', selector: { text: {} } },
         ],
       },

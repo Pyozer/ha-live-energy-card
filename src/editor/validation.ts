@@ -11,7 +11,7 @@ import { fieldLabel, type Translate } from './schema';
  * not an issue: it is usually temporary, and the card already flags it.
  */
 
-export type IssueProblem = 'missing' | 'kind';
+export type IssueProblem = 'missing' | 'kind' | 'ignored' | 'ignored_price';
 
 export interface EntityIssue {
   /** Where the entity is configured: a node, a section, or a device (path in the device list). */
@@ -20,7 +20,7 @@ export interface EntityIssue {
   field: string;
   entity: string;
   problem: IssueProblem;
-  /** Expected kind, for a `kind` problem. */
+  /** Expected kind, for a `kind` problem. `ignored`: the energy counter, overridden by `secondary_entity`. */
   expected?: EntityKind;
 }
 
@@ -55,6 +55,10 @@ export function entityIssues(config: LiveEnergyCardConfig, hass: HomeAssistant |
   const checkNode = (where: EntityIssue['where'], cfg: BaseNodeConfig | undefined) => {
     const fields = cfg as Record<string, EntityRef | undefined> | undefined;
     for (const [field, kind] of NODE_FIELDS) check(where, field, fields?.[field], kind);
+    // The secondary entity replaces today's energy: the counters would never be shown.
+    const counters = entityIds(cfg?.energy_entity);
+    if (counters.length && cfg?.secondary_entity)
+      issues.push({ where, field: 'energy_entity', entity: counters.join(', '), problem: 'ignored' });
   };
 
   for (const key of NODE_KEYS) checkNode(key, config[key]);
@@ -62,6 +66,11 @@ export function entityIssues(config: LiveEnergyCardConfig, hass: HomeAssistant |
     checkNode([i], dev);
     (dev?.devices ?? []).forEach((member, j) => checkNode([i, j], member));
   });
+  for (const key of ['price', 'export_price'] as const) {
+    const fixed = config.cost?.[key];
+    if (typeof fixed === 'number' && config.cost?.[`${key}_entity`])
+      issues.push({ where: 'cost', field: key, entity: String(fixed), problem: 'ignored_price' });
+  }
   check('cost', 'price_entity', config.cost?.price_entity, 'price');
   check('cost', 'export_price_entity', config.cost?.export_price_entity, 'price');
   check('carbon', 'intensity_entity', config.carbon?.intensity_entity, 'carbon');
@@ -103,6 +112,6 @@ export function describeIssue(
   }
   const field = fieldLabel(t, group && issue.field === 'entity' ? 'group_entity' : issue.field);
   const problem =
-    issue.problem === 'missing' ? t('editor.issue.missing') : t(`editor.issue.${issue.expected!}`);
+    issue.problem === 'kind' ? t(`editor.issue.${issue.expected!}`) : t(`editor.issue.${issue.problem}`);
   return { where, field, problem };
 }

@@ -1,7 +1,13 @@
 import { compactRef } from '../entities';
 import { DEFAULT_TOGGLES } from '../intensity';
 import { DEFAULTS } from '../model';
-import type { AnimationToggles, BaseNodeConfig, DeviceConfig, LiveEnergyCardConfig } from '../types';
+import type {
+  AnimationToggles,
+  BaseNodeConfig,
+  CostConfig,
+  DeviceConfig,
+  LiveEnergyCardConfig,
+} from '../types';
 import { entityIds } from '../units';
 import { isGroup } from './device-list';
 
@@ -24,13 +30,30 @@ export function clean<T extends object>(obj: T): T {
   return out as T;
 }
 
+/** Where a price comes from. Not stored in the config: it is derived from which field is set. */
+export type PriceMode = 'none' | 'fixed' | 'entity';
+export const PRICE_KEYS = ['price', 'export_price'] as const;
+export type PriceKey = (typeof PRICE_KEYS)[number];
+/** Source chosen in the editor for prices that have no value yet. */
+export type PriceModes = Partial<Record<PriceKey, PriceMode>>;
+
+/**
+ * Source of a price. A set field wins (the entity first, like the card); `chosen` only applies while
+ * the price has no value yet, so the matching field can be shown empty.
+ */
+export function priceMode(cost: CostConfig | undefined, key: PriceKey, chosen?: PriceMode): PriceMode {
+  if (cost?.[`${key}_entity`]) return 'entity';
+  if (typeof cost?.[key] === 'number') return 'fixed';
+  return chosen ?? 'none';
+}
+
 /** Default of `hide_when_zero` for a node: the grid and the home stay visible at zero. */
 export function hideDefault(kind: NodeKey | 'device', globalHide: boolean | undefined): boolean {
   if (kind === 'grid' || kind === 'home') return false;
   return globalHide ?? DEFAULTS.hide_when_zero;
 }
 
-export function toFormData(config: LiveEnergyCardConfig): Record<string, unknown> {
+export function toFormData(config: LiveEnergyCardConfig, modes: PriceModes = {}): Record<string, unknown> {
   const node = (kind: NodeKey) => {
     const cfg = (config[kind] ?? {}) as BaseNodeConfig;
     return {
@@ -48,7 +71,23 @@ export function toFormData(config: LiveEnergyCardConfig): Record<string, unknown
     battery: node('battery'),
     home: node('home'),
     animation: { ...DEFAULT_TOGGLES, ...(config.animation ?? {}) },
+    cost: {
+      ...config.cost,
+      price_mode: priceMode(config.cost, 'price', modes.price),
+      export_price_mode: priceMode(config.cost, 'export_price', modes.export_price),
+    },
   };
+}
+
+/** Price sources chosen in the form data. */
+export function priceModesOf(data: Record<string, unknown>): PriceModes {
+  const cost = (data.cost ?? {}) as Record<string, unknown>;
+  const out: PriceModes = {};
+  for (const key of PRICE_KEYS) {
+    const mode = cost[`${key}_mode`];
+    if (mode === 'none' || mode === 'fixed' || mode === 'entity') out[key] = mode;
+  }
+  return out;
 }
 
 /** Config from the form data. Devices are edited separately and kept from `previous`. */
@@ -87,8 +126,19 @@ export function fromFormData(
   if (Object.keys(animOut).length) next.animation = animOut;
   else delete next.animation;
 
+  // A price keeps only the field of its chosen source (the other one would be ignored).
+  const cost = { ...((data.cost ?? {}) as Record<string, unknown>) };
+  for (const key of PRICE_KEYS) {
+    const mode = cost[`${key}_mode`];
+    delete cost[`${key}_mode`];
+    if (mode === undefined) continue;
+    if (mode !== 'fixed') delete cost[key];
+    if (mode !== 'entity') delete cost[`${key}_entity`];
+  }
+  next.cost = cost;
+
   for (const key of ['cost', 'carbon'] as const) {
-    const cleaned = clean((data[key] ?? {}) as Record<string, unknown>);
+    const cleaned = clean((next[key] ?? {}) as Record<string, unknown>);
     if (Object.keys(cleaned).length) next[key] = cleaned;
     else delete next[key];
   }

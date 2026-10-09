@@ -24,18 +24,17 @@ export function energyStatistics(config: LiveEnergyCardConfig): Map<string, stri
   return out;
 }
 
-/** Sum per node; a node is left out when one of its statistics is missing. */
+/** Sum per node; `null` when one of its statistics is missing (shown as `—`). */
 export function todayByNode(
   statistics: Map<string, string[]>,
   values: ReadonlyMap<string, number>,
-): Map<string, number> {
-  const out = new Map<string, number>();
+): Map<string, number | null> {
+  const out = new Map<string, number | null>();
   for (const [node, ids] of statistics) {
-    if (ids.every((id) => values.has(id)))
-      out.set(
-        node,
-        ids.reduce((acc, id) => acc + values.get(id)!, 0),
-      );
+    out.set(
+      node,
+      ids.every((id) => values.has(id)) ? ids.reduce((acc, id) => acc + values.get(id)!, 0) : null,
+    );
   }
   return out;
 }

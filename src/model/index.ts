@@ -18,8 +18,8 @@ export interface BuildOptions {
   previousOrder?: string[];
   /** Ids of the expanded device groups. */
   expanded?: ReadonlySet<string>;
-  /** Today's energy (kWh) by node id, from the statistics. */
-  todayEnergy?: ReadonlyMap<string, number>;
+  /** Today's energy (kWh) by node id, from the statistics (`null`: statistics unavailable). */
+  todayEnergy?: ReadonlyMap<string, number | null>;
 }
 
 /**

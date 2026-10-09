@@ -28,7 +28,7 @@ describe('energyStatistics', () => {
 });
 
 describe('todayByNode', () => {
-  it('adds up the counters of a node, and leaves it out when one is missing', () => {
+  it('adds up the counters of a node, and marks it unavailable when one is missing', () => {
     const stats = energyStatistics(config);
     const values = new Map([
       ['sensor.pv1_kwh', 3],
@@ -37,7 +37,9 @@ describe('todayByNode', () => {
     ]);
     expect([...todayByNode(stats, values)]).toEqual([
       ['solar', 4.5],
+      ['grid', null],
       ['device:1', 0.4],
+      ['device:1:0', null],
     ]);
   });
 });

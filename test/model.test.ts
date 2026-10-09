@@ -111,6 +111,34 @@ describe('grid import alert', () => {
   });
 });
 
+describe('grid displayed value', () => {
+  const gridNode = (config: LiveEnergyCardConfig, ...states: ReturnType<typeof state>[]) => {
+    const hass = hassWith(...states);
+    const src = readSources(config, hass);
+    const result = computeFlows(src.inputs);
+    return sourceNodes(modelContext(config, hass), src, result, sourceColors(src)).find(
+      (n) => n.id === 'grid',
+    )!;
+  };
+
+  it('keeps the sign of a single signed entity', () => {
+    const config = cfg({ grid: { entity: 'sensor.g' } });
+    expect(gridNode(config, state('sensor.g', 800)).watts).toBe(800);
+    expect(gridNode(config, state('sensor.g', -1200)).watts).toBe(-1200);
+  });
+
+  it('shows the export of a positive export entity as negative', () => {
+    const config = cfg({ grid: { import_entity: 'sensor.i', export_entity: 'sensor.e' } });
+    expect(gridNode(config, state('sensor.i', 0), state('sensor.e', 1500)).watts).toBe(-1500);
+    expect(gridNode(config, state('sensor.i', 600), state('sensor.e', 0)).watts).toBe(600);
+  });
+
+  it('stays null when unavailable', () => {
+    const config = cfg({ grid: { entity: 'sensor.g' } });
+    expect(gridNode(config, state('sensor.g', 'unavailable')).watts).toBeNull();
+  });
+});
+
 describe('battery estimate', () => {
   it('replaces the battery status when capacity and charge level are known', () => {
     const config = cfg({ battery: { entity: 'sensor.b', soc_entity: 'sensor.soc', capacity: 10 } });
@@ -141,5 +169,17 @@ describe("today's energy", () => {
     );
     expect(nodes.find((n) => n.id === 'grid')?.secondary).toBe('6.42 kWh');
     expect(nodes.find((n) => n.id === 'solar')?.secondary).toBe('3 kWh');
+  });
+
+  it('shows a dash when the statistics of the counter are unavailable, nothing before they load', () => {
+    const config = cfg({ grid: { entity: 'sensor.g', energy_entity: 'sensor.grid_kwh' } });
+    const hass = hassWith(state('sensor.g', 100));
+    const src = readSources(config, hass);
+    const secondary = (today: Map<string, number | null>) =>
+      sourceNodes(modelContext(config, hass, today), src, computeFlows(src.inputs), sourceColors(src)).find(
+        (n) => n.id === 'grid',
+      )?.secondary;
+    expect(secondary(new Map([['grid', null]]))).toBe('—');
+    expect(secondary(new Map())).toBeUndefined();
   });
 });

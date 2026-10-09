@@ -158,7 +158,8 @@ export function sourceNodes(
             ? 'mdi:transmission-tower-import'
             : 'mdi:transmission-tower'),
       color: exporting ? colors.gridExport : colors.gridImport,
-      watts: available ? Math.abs(net) : null,
+      // Signed: positive = import, negative = export (whether one signed entity or an import / export pair).
+      watts: available ? net : null,
       available,
       active,
       // The grid stays visible at zero unless explicitly hidden.

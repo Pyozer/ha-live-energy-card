@@ -37,14 +37,19 @@ export function formatSecondary(hass: HomeAssistant, entityId: string | undefine
   return unit ? `${value} ${unit}` : value;
 }
 
-/** Secondary line of a node: its `secondary_entity`, otherwise today's energy when known. */
+/**
+ * Secondary line of a node: its `secondary_entity`, otherwise today's energy. `undefined` today's
+ * energy means nothing to show (no counter, or not loaded yet), `null` means the statistics of the
+ * counter are unavailable.
+ */
 export function nodeSecondary(
   hass: HomeAssistant,
   cfg: BaseNodeConfig | undefined,
-  todayKwh: number | undefined,
+  todayKwh: number | null | undefined,
 ): string | undefined {
   if (cfg?.secondary_entity) return formatSecondary(hass, cfg.secondary_entity);
   if (todayKwh === undefined) return undefined;
+  if (todayKwh === null) return '—';
   return formatEnergy(todayKwh, hass.locale?.language ?? hass.language);
 }
 

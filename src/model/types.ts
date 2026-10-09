@@ -28,7 +28,7 @@ export interface NodeModel {
   name: string;
   icon: string;
   color: string;
-  /** Displayed power (W, absolute value), `null` when unavailable. */
+  /** Displayed power (W), `null` when unavailable. Absolute, except the grid: negative when exporting. */
   watts: number | null;
   available: boolean;
   visible: boolean;

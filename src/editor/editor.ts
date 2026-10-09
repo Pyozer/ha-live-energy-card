@@ -25,7 +25,14 @@ import {
   updateDevice,
   type DevicePath,
 } from './device-list';
-import { deviceFormData, deviceFromForm, fromFormData, toFormData } from './form';
+import {
+  deviceFormData,
+  deviceFromForm,
+  fromFormData,
+  priceModesOf,
+  toFormData,
+  type PriceModes,
+} from './form';
 import { EditorSchema, fieldLabel } from './schema';
 import { editorStyles } from './styles';
 import { describeIssue, deviceIssues, entityIssues, type EntityIssue } from './validation';
@@ -36,6 +43,7 @@ export class LiveEnergyCardEditor extends LitElement {
     _config: { state: true },
     _expanded: { state: true },
     _importStatus: { state: true },
+    _priceModes: { state: true },
   };
 
   declare hass?: HomeAssistant;
@@ -44,10 +52,13 @@ export class LiveEnergyCardEditor extends LitElement {
   declare _expanded: string;
   /** Result of the last Energy dashboard import, shown under the button. */
   declare _importStatus?: { ok: boolean; text: string };
+  /** Price sources picked in the form, for prices that have no value yet. */
+  declare _priceModes: PriceModes;
 
   constructor() {
     super();
     this._expanded = '';
+    this._priceModes = {};
   }
 
   setConfig(config: LiveEnergyCardConfig): void {
@@ -68,7 +79,9 @@ export class LiveEnergyCardEditor extends LitElement {
 
   private _valueChanged(ev: CustomEvent): void {
     ev.stopPropagation();
-    this._emit(fromFormData(ev.detail.value as Record<string, unknown>, this._config!));
+    const data = ev.detail.value as Record<string, unknown>;
+    this._priceModes = priceModesOf(data);
+    this._emit(fromFormData(data, this._config!));
   }
 
   private _emit(config: LiveEnergyCardConfig): void {
@@ -151,8 +164,8 @@ export class LiveEnergyCardEditor extends LitElement {
       ${issues.length ? this._renderIssues(issues) : nothing}
       <ha-form
         .hass=${this.hass}
-        .data=${toFormData(this._config)}
-        .schema=${this._schema().card(this._config)}
+        .data=${toFormData(this._config, this._priceModes)}
+        .schema=${this._schema().card(this._config, this._priceModes)}
         .computeLabel=${this._label}
         @value-changed=${this._valueChanged}
       ></ha-form>

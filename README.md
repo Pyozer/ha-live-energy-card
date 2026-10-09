@@ -232,16 +232,18 @@ Available for `solar`, `grid`, `battery`, `home` and each item of `devices`:
 | `color` | HA color name (`amber`, `blue`…) or CSS color. |
 | `invert` | Inverts the entity's sign. |
 | `hide_when_zero` | Overrides the global option. |
-| `energy_entity` | Energy counter(s) in kWh, as used by the Energy dashboard (a list is added up). The node shows today's energy, read from the Home Assistant statistics and refreshed every 5 minutes. `secondary_entity` takes precedence. |
-| `secondary_entity` | Secondary value shown in the node (e.g. a daily `utility_meter`). |
+| `energy_entity` | **Energy of the day.** Cumulative energy counter(s) in kWh, as used by the Energy dashboard (a list is added up). The card shows the change since midnight, read from the Home Assistant statistics (refreshed every 5 minutes), always in kWh. The counter does not need to reset daily. Shows `—` when a counter has no statistics. |
+| `secondary_entity` | **Custom line.** Any entity (a daily `utility_meter`, a cost, a temperature…), shown as is with its own unit, live. It *replaces* the energy of the day: when both are set, `energy_entity` is ignored (the editor warns about it). |
 | `animation` | Overrides the intensity effects for this node's flows. |
 | `tap_action`, `hold_action`, `double_tap_action` | Standard Home Assistant actions. |
 
 Specific options:
 
-- `grid`: `import_entity` / `export_entity` (alternative to a signed entity), `export_color`,
+- `grid`: `import_entity` / `export_entity` (alternative to a signed entity; both report positive
+  values), `export_color`,
   `max_import` (import limit in W, e.g. the subscribed power: above it, the grid node turns red and
-  shows *Over limit*).
+  shows *Over limit*). The grid node shows a signed value: positive when importing, **negative when
+  exporting** (a signed entity keeps its sign, an export entity is shown as negative).
 - `battery`: `charge_entity` / `discharge_entity`, `soc_entity` (charge level in %; a list is averaged), `charge_color`,
   `capacity` (usable capacity in kWh) and `min_soc` (reserve in %, default 0): with a charge level,
   the caption shows the time to full or down to the reserve at the current power (*Full in 2 h 05*),
@@ -271,6 +273,12 @@ cost:
 carbon:
   intensity_entity: sensor.electricity_maps_co2_intensity # gCO2eq/kWh
 ```
+
+Each price (import, export) comes from **one** source: a fixed value (`price`, `export_price`) or an
+entity (`price_entity`, `export_price_entity`). If both are set in YAML, the entity wins and the
+fixed value is ignored (the editor flags it). In the visual editor, pick the source (*None*,
+*Fixed value* or *Entity*) and only the matching field is shown; switching source drops the other
+field.
 
 Prices are per kWh; price entities in €/MWh or €/Wh are converted. Without an export price, the
 exported energy is not counted. The Energy dashboard import fills in the prices when the grid has

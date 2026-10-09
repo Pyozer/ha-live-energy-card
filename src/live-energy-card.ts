@@ -49,7 +49,7 @@ export class LiveEnergyCard extends LitElement {
   /** Expanded device groups. */
   declare _expanded: ReadonlySet<string>;
   /** Today's energy (kWh) by node id, refreshed from the statistics. */
-  declare _today: ReadonlyMap<string, number>;
+  declare _today: ReadonlyMap<string, number | null>;
 
   private _uid = `lec${++instances}`;
   private _model?: CardModel;

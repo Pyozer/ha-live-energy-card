@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { deviceFormData, deviceFromForm, fromFormData, toFormData } from '../src/editor/form';
+import {
+  deviceFormData,
+  deviceFromForm,
+  fromFormData,
+  priceMode,
+  priceModesOf,
+  toFormData,
+} from '../src/editor/form';
 import { EditorSchema, fieldLabel, type Schema } from '../src/editor/schema';
 import { localize, SUPPORTED_LANGUAGES } from '../src/localize/localize';
 import type { HassEntity, HomeAssistant, LiveEnergyCardConfig } from '../src/types';
@@ -71,6 +78,62 @@ describe('editor form', () => {
   });
 });
 
+describe('editor price source', () => {
+  const costOf = (config: LiveEnergyCardConfig) => (toFormData(config).cost ?? {}) as Record<string, unknown>;
+
+  it('derives the source from the field that is set, the entity first', () => {
+    expect(priceMode(undefined, 'price')).toBe('none');
+    expect(priceMode({ price: 0.2 }, 'price')).toBe('fixed');
+    expect(priceMode({ price_entity: 'sensor.p' }, 'price')).toBe('entity');
+    expect(priceMode({ price: 0.2, price_entity: 'sensor.p' }, 'price')).toBe('entity');
+    expect(priceMode({ export_price: 0.1 }, 'export_price')).toBe('fixed');
+    // The choice made in the editor only applies while the price has no value.
+    expect(priceMode(undefined, 'price', 'entity')).toBe('entity');
+    expect(priceMode({ price: 0.2 }, 'price', 'entity')).toBe('fixed');
+  });
+
+  it('puts the sources in the form data and keeps them out of the config', () => {
+    const config: LiveEnergyCardConfig = { ...base, cost: { price: 0.25, export_price_entity: 'sensor.e' } };
+    expect(costOf(config)).toMatchObject({ price_mode: 'fixed', export_price_mode: 'entity' });
+    expect(roundTrip(config).cost).toEqual({ price: 0.25, export_price_entity: 'sensor.e' });
+  });
+
+  it('keeps only the field of the chosen source', () => {
+    const both: LiveEnergyCardConfig = { ...base, cost: { price: 0.25, price_entity: 'sensor.p' } };
+    expect(roundTrip(both, (d) => ((d.cost as Record<string, unknown>).price_mode = 'fixed')).cost).toEqual({
+      price: 0.25,
+    });
+    expect(roundTrip(both).cost).toEqual({ price_entity: 'sensor.p' });
+    const none = roundTrip(both, (d) => ((d.cost as Record<string, unknown>).price_mode = 'none'));
+    expect('cost' in none).toBe(false);
+  });
+
+  it('reads the sources picked in the form', () => {
+    expect(priceModesOf({ cost: { price_mode: 'entity', export_price_mode: 'none', price: 1 } })).toEqual({
+      price: 'entity',
+      export_price: 'none',
+    });
+    expect(priceModesOf({})).toEqual({});
+  });
+
+  it('shows only the field of the source in the schema', () => {
+    const t = (key: Parameters<typeof localize>[1]) => localize('en', key);
+    const schema = new EditorSchema(t, undefined);
+    const names = (config: LiveEnergyCardConfig) =>
+      fieldNames(schema.card(config)).filter((n) => n.includes('price'));
+    expect(names(base)).toEqual(['price_mode', 'export_price_mode']);
+    expect(names({ ...base, cost: { price: 0.2, export_price_entity: 'sensor.e' } })).toEqual([
+      'price_mode',
+      'price',
+      'export_price_mode',
+      'export_price_entity',
+    ]);
+    expect(fieldNames(schema.card(base, { price: 'entity', export_price: 'fixed' }))).toEqual(
+      expect.arrayContaining(['price_entity', 'export_price']),
+    );
+  });
+});
+
 describe('editor device form', () => {
   const group = { name: 'IT', entity: 'sensor.circuit', devices: [{ entity: 'sensor.nas' }] };
 
@@ -105,6 +168,8 @@ describe('editor schema', () => {
       const schema = new EditorSchema(t, undefined);
       const names = [
         ...fieldNames(schema.card(base)),
+        ...fieldNames(schema.card(base, { price: 'fixed', export_price: 'entity' })),
+        ...fieldNames(schema.card(base, { price: 'entity', export_price: 'fixed' })),
         ...fieldNames(schema.device({ entity: 'sensor.x' })),
         ...fieldNames(schema.device(group)),
       ];
@@ -162,6 +227,32 @@ describe('entity issues', () => {
   it('only checks that a secondary entity exists', () => {
     const config: LiveEnergyCardConfig = { ...base, home: { secondary_entity: 'sensor.price' } };
     expect(entityIssues(config, hass)).toEqual([]);
+  });
+
+  it('warns when a secondary entity hides the energy counters', () => {
+    const config: LiveEnergyCardConfig = {
+      ...base,
+      solar: {
+        entity: 'sensor.solar',
+        energy_entity: ['sensor.solar_day'],
+        secondary_entity: 'sensor.solar_day',
+      },
+    };
+    const issues = entityIssues(config, hass);
+    expect(issues).toEqual([
+      { where: 'solar', field: 'energy_entity', entity: 'sensor.solar_day', problem: 'ignored' },
+    ]);
+    expect(describeIssue(issues[0], config, hass, t).problem).toContain('replaces');
+  });
+
+  it('warns when a price entity hides the fixed price', () => {
+    const config: LiveEnergyCardConfig = {
+      ...base,
+      cost: { price: 0.25, price_entity: 'sensor.price', export_price: 0.1 },
+    };
+    const issues = entityIssues(config, hass);
+    expect(issues).toEqual([{ where: 'cost', field: 'price', entity: '0.25', problem: 'ignored_price' }]);
+    expect(describeIssue(issues[0], config, hass, t).problem).toContain('price entity');
   });
 
   it('names an unnamed device by its position', () => {
