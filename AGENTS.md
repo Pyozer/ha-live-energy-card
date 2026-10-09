@@ -131,6 +131,17 @@ Every code change comes with the matching documentation update, in the same comm
 - Manual install: copy `dist/live-energy-card.js` to `/config/www/` and change the `?v=` parameter of
   the Lovelace resource to bust the cache.
 - `dist/` is not versioned.
+- Release: bump `package.json`, commit `chore: release x.y.z`, then push a `vx.y.z` tag. The
+  `Release` workflow checks that the tag matches `package.json`, runs `npm run check` and publishes
+  a GitHub release with `live-energy-card.js` attached (what HACS installs).
+
+## Continuous integration
+
+- `.github/workflows/ci.yml` runs `npm run check` on every push to `main` and every pull request,
+  and keeps the coverage report and the bundle as artifacts.
+- `.github/workflows/release.yml`: see above.
+- Dependabot opens monthly update PRs for npm (dev dependencies grouped) and the GitHub actions.
+- The Node version is pinned in `.nvmrc`, shared by CI and local development.
 
 ## Commits
 

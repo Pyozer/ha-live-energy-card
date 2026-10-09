@@ -6,7 +6,8 @@
 npm run check   # lint, formatting, tests with coverage and build
 ```
 
-Every commit must leave the project building with all tests passing. Changed code comes with its
+Every commit must leave the project building with all tests passing. The same check runs in CI on
+every push and pull request. Changed code comes with its
 tests and updated documentation (see [AGENTS.md](AGENTS.md)).
 
 ## Commit messages

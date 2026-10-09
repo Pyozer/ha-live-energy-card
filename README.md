@@ -55,8 +55,9 @@ caches.
 
 ### HACS (custom repository)
 
-Once the project is on GitHub: **HACS → ⋮ → Custom repositories**, type *Dashboard*.
-The `hacs.json` file is provided.
+**HACS → ⋮ → Custom repositories**: add `https://github.com/Pyozer/ha-live-energy-card` with the
+*Dashboard* type, then install **Live Energy Card**. HACS downloads `live-energy-card.js` from the
+latest GitHub release and keeps it up to date.
 
 ## Configuration
 
