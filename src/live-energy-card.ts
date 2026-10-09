@@ -5,6 +5,7 @@ import { ECO_FPS, FlowAnimator } from './animator';
 import { DEFAULT_COLORS } from './colors';
 import { formatCarbonRate, formatMoneyRate } from './cost';
 import { configFromEnergyPrefs, fetchEnergyPrefs, guessConfig, importedCount } from './energy';
+import { energyStatistics, fetchToday, TODAY_REFRESH_MS, todayByNode } from './energy-today';
 import { validateConfig, watchedEntities } from './config';
 import { computeLayout, type Layout } from './layout';
 import { localize, resolveLanguage } from './localize/localize';
@@ -39,6 +40,7 @@ export class LiveEnergyCard extends LitElement {
     _config: { state: true },
     _width: { state: true },
     _expanded: { state: true },
+    _today: { state: true },
   };
 
   declare hass?: HomeAssistant;
@@ -46,6 +48,8 @@ export class LiveEnergyCard extends LitElement {
   declare _width: number;
   /** Expanded device groups. */
   declare _expanded: ReadonlySet<string>;
+  /** Today's energy (kWh) by node id, refreshed from the statistics. */
+  declare _today: ReadonlyMap<string, number>;
 
   private _uid = `lec${++instances}`;
   private _model?: CardModel;
@@ -56,11 +60,15 @@ export class LiveEnergyCard extends LitElement {
   private _resize?: ResizeObserver;
   private _intersection?: IntersectionObserver;
   private _handlers = new Map<string, Handlers>();
+  /** Energy statistics by node, and the timer refreshing their daily totals. */
+  private _statistics = new Map<string, string[]>();
+  private _todayTimer?: number;
 
   constructor() {
     super();
     this._width = 0;
     this._expanded = new Set();
+    this._today = new Map();
   }
 
   static getConfigElement(): HTMLElement {
@@ -82,6 +90,8 @@ export class LiveEnergyCard extends LitElement {
     this._config = validateConfig(config);
     this._watched = watchedEntities(this._config);
     this._handlers.clear();
+    this._statistics = energyStatistics(this._config);
+    this._stopToday();
     this._expanded = new Set(
       (this._config.devices ?? []).flatMap((d, i) =>
         d?.devices?.length && d.expanded ? [`device:${i}`] : [],
@@ -112,6 +122,29 @@ export class LiveEnergyCard extends LitElement {
     this._resize?.disconnect();
     this._intersection?.disconnect();
     this._animator.setVisible(false);
+    this._stopToday();
+  }
+
+  /** Starts refreshing today's energy (once `hass` is available), only for nodes that need it. */
+  private _startToday(): void {
+    if (this._todayTimer !== undefined || !this.hass || !this.isConnected) return;
+    if (this._statistics.size === 0) {
+      if (this._today.size) this._today = new Map();
+      return;
+    }
+    const statistics = this._statistics;
+    const refresh = async () => {
+      const values = await fetchToday(this.hass, [...statistics.values()].flat());
+      // Ignore a late answer for a configuration that has changed since.
+      if (statistics === this._statistics) this._today = todayByNode(statistics, values);
+    };
+    this._todayTimer = window.setInterval(refresh, TODAY_REFRESH_MS);
+    void refresh();
+  }
+
+  private _stopToday(): void {
+    window.clearInterval(this._todayTimer);
+    this._todayTimer = undefined;
   }
 
   private _measure(): void {
@@ -135,7 +168,11 @@ export class LiveEnergyCard extends LitElement {
 
   protected override willUpdate(): void {
     if (!this._config || !this.hass) return;
-    this._model = buildModel(this._config, this.hass, this._order, this._expanded);
+    this._model = buildModel(this._config, this.hass, {
+      previousOrder: this._order,
+      expanded: this._expanded,
+      todayEnergy: this._today,
+    });
     this._order = this._model.devicesOrder;
     const visible = new Set(this._model.nodes.filter((n) => n.visible).map((n) => n.id));
     this._layout = computeLayout({
@@ -470,6 +507,7 @@ export class LiveEnergyCard extends LitElement {
 
   protected override updated(): void {
     this.toggleAttribute('dark', !!this.hass?.themes?.darkMode);
+    this._startToday();
     if (!this._model || !this._layout) return;
     this._animator.setFormatter(this._format);
     this._animator.setMaxFps(this._config?.eco_mode ? ECO_FPS : 0);

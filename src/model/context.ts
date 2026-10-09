@@ -51,9 +51,15 @@ export interface ModelContext {
   t: (key: LocalizeKey, vars?: Record<string, string>) => string;
   threshold: number;
   globalHide: boolean;
+  /** Today's energy (kWh) by node id. */
+  todayEnergy: ReadonlyMap<string, number>;
 }
 
-export function modelContext(config: LiveEnergyCardConfig, hass: HomeAssistant): ModelContext {
+export function modelContext(
+  config: LiveEnergyCardConfig,
+  hass: HomeAssistant,
+  todayEnergy: ReadonlyMap<string, number> = new Map(),
+): ModelContext {
   const lang = resolveLanguage(config.language, hass);
   return {
     config,
@@ -61,6 +67,7 @@ export function modelContext(config: LiveEnergyCardConfig, hass: HomeAssistant):
     t: (key, vars) => localize(lang, key, vars),
     threshold: config.threshold_w ?? DEFAULTS.threshold_w,
     globalHide: config.hide_when_zero ?? DEFAULTS.hide_when_zero,
+    todayEnergy,
   };
 }
 

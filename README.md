@@ -70,7 +70,10 @@ solar, grid, battery and individual devices), the card configures itself:
   imported from the Energy dashboard;
 - in the visual editor, **Import from the Energy dashboard** adds the missing sources and devices
   to an existing card. Imported sources replace the configured entities but keep their name, icon
-  and color; devices already in the card are kept.
+  and color; devices already in the card are kept, and get their energy counter if they lacked it.
+
+The dashboard's energy counters are imported too (`energy_entity`), so solar, grid import and each
+device show **today's energy** under their power.
 
 Sources and devices without a power sensor are skipped (the dashboard's energy statistics in kWh
 cannot show live flows). A device "included in" another listed device becomes a member of
@@ -229,7 +232,8 @@ Available for `solar`, `grid`, `battery`, `home` and each item of `devices`:
 | `color` | HA color name (`amber`, `blue`…) or CSS color. |
 | `invert` | Inverts the entity's sign. |
 | `hide_when_zero` | Overrides the global option. |
-| `secondary_entity` | Secondary value shown in the node (e.g. today's energy). |
+| `energy_entity` | Energy counter(s) in kWh, as used by the Energy dashboard (a list is added up). The node shows today's energy, read from the Home Assistant statistics and refreshed every 5 minutes. `secondary_entity` takes precedence. |
+| `secondary_entity` | Secondary value shown in the node (e.g. a daily `utility_meter`). |
 | `animation` | Overrides the intensity effects for this node's flows. |
 | `tap_action`, `hold_action`, `double_tap_action` | Standard Home Assistant actions. |
 

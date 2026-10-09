@@ -98,6 +98,7 @@ export const fr: DeepStrings<typeof en> = {
       eco_mode: 'Mode éco (30 i/s, sans halo) pour les appareils peu puissants',
       transparent: 'Fond transparent (sans cadre de carte)',
       hide_when_zero: 'Masquer à zéro',
+      energy_entity: "Compteurs d'énergie (kWh) : affiche l'énergie du jour",
       secondary_entity: 'Entité secondaire (ex. énergie du jour)',
       import_entity: 'Entité de soutirage (alternative)',
       export_entity: "Entité d'injection (alternative)",

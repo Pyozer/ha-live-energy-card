@@ -12,7 +12,7 @@ import type {
 } from '../types';
 import { readPercentAverage, type Reading } from '../units';
 import { hasEntity, readRef, type ModelContext } from './context';
-import { actionsFor, batteryIcon, formatSecondary } from './format';
+import { actionsFor, batteryIcon, nodeSecondary } from './format';
 import type { NodeModel } from './types';
 
 /** Configured sources (a node without any entity is left out) and their readings. */
@@ -133,7 +133,7 @@ export function sourceNodes(
       available,
       active,
       visible: !(available && !active && (cfg.hide_when_zero ?? globalHide)),
-      secondary: formatSecondary(hass, cfg.secondary_entity),
+      secondary: nodeSecondary(hass, cfg, ctx.todayEnergy.get('solar')),
       actions: actionsFor(cfg, cfg.entity),
     });
   }
@@ -171,7 +171,7 @@ export function sourceNodes(
           : importing
             ? t('state.importing')
             : undefined,
-      secondary: formatSecondary(hass, cfg.secondary_entity),
+      secondary: nodeSecondary(hass, cfg, ctx.todayEnergy.get('grid')),
       actions: actionsFor(cfg, cfg.entity ?? cfg.import_entity ?? cfg.export_entity),
     });
   }
@@ -205,7 +205,7 @@ export function sourceNodes(
             ? t('state.discharging')
             : t('state.idle'),
       soc,
-      secondary: formatSecondary(hass, cfg.secondary_entity),
+      secondary: nodeSecondary(hass, cfg, ctx.todayEnergy.get('battery')),
       actions: actionsFor(cfg, cfg.entity ?? cfg.discharge_entity ?? cfg.charge_entity),
     });
   }
@@ -224,7 +224,7 @@ export function sourceNodes(
     available,
     active: result.home > 0,
     visible: true,
-    secondary: formatSecondary(hass, cfg?.secondary_entity),
+    secondary: nodeSecondary(hass, cfg, ctx.todayEnergy.get('home')),
     mix:
       fromSources > 0
         ? [

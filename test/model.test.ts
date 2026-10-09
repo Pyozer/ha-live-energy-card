@@ -120,3 +120,26 @@ describe('battery estimate', () => {
     expect(nodes.find((n) => n.id === 'battery')?.status).toBe('Full in 2 h 30');
   });
 });
+
+describe("today's energy", () => {
+  it('is the secondary line of a node, unless it has a secondary entity', () => {
+    const config = cfg({
+      grid: { entity: 'sensor.g', energy_entity: 'sensor.grid_kwh' },
+      solar: { entity: 'sensor.s', energy_entity: 'sensor.pv_kwh', secondary_entity: 'sensor.day' },
+    });
+    const hass = hassWith(state('sensor.g', 100), state('sensor.s', 100), state('sensor.day', 3, 'kWh'));
+    const src = readSources(config, hass);
+    const today = new Map([
+      ['grid', 6.42],
+      ['solar', 9],
+    ]);
+    const nodes = sourceNodes(
+      modelContext(config, hass, today),
+      src,
+      computeFlows(src.inputs),
+      sourceColors(src),
+    );
+    expect(nodes.find((n) => n.id === 'grid')?.secondary).toBe('6.42 kWh');
+    expect(nodes.find((n) => n.id === 'solar')?.secondary).toBe('3 kWh');
+  });
+});

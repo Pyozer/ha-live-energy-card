@@ -44,13 +44,18 @@ const prefs: EnergyPrefs = {
 describe('Energy dashboard import', () => {
   it('maps sources and devices to their power sensors', () => {
     const imported = configFromEnergyPrefs(prefs);
-    expect(imported.solar).toEqual({ entity: 'sensor.solar_power' });
-    expect(imported.grid).toEqual({ entity: 'sensor.grid_power' });
+    expect(imported.solar).toEqual({ entity: 'sensor.solar_power', energy_entity: 'sensor.solar_energy' });
+    // Today's energy of the grid is its import counter.
+    expect(imported.grid).toEqual({ entity: 'sensor.grid_power', energy_entity: 'sensor.peak_index' });
     // No power sensor for the battery: skipped.
     expect(imported.battery).toBeUndefined();
     expect(imported.devices).toEqual([
-      { entity: 'sensor.fridge_power', name: 'Fridge' },
-      { entity: 'sensor.office_power', devices: [{ entity: 'sensor.pc_power' }] },
+      { entity: 'sensor.fridge_power', name: 'Fridge', energy_entity: 'sensor.fridge_energy' },
+      {
+        entity: 'sensor.office_power',
+        energy_entity: 'sensor.office_energy',
+        devices: [{ entity: 'sensor.pc_power', energy_entity: 'sensor.pc_energy' }],
+      },
     ]);
     expect(importedCount(imported)).toBe(5);
   });
@@ -95,7 +100,14 @@ describe('Energy dashboard import', () => {
       ],
     });
     expect(imported.devices).toEqual([
-      { name: 'Kitchen', devices: [{ entity: 'p.oven' }, { entity: 'p.light' }] },
+      {
+        name: 'Kitchen',
+        energy_entity: 'e.kitchen',
+        devices: [
+          { entity: 'p.oven', energy_entity: 'e.oven' },
+          { entity: 'p.light', energy_entity: 'e.light' },
+        ],
+      },
     ]);
   });
 
@@ -114,9 +126,19 @@ describe('Energy dashboard import', () => {
       configFromEnergyPrefs(prefs),
     );
     expect(merged.title).toBe('Energy');
-    expect(merged.grid).toEqual({ entity: 'sensor.grid_power', name: 'Linky', color: 'blue' });
+    expect(merged.grid).toEqual({
+      entity: 'sensor.grid_power',
+      energy_entity: 'sensor.peak_index',
+      name: 'Linky',
+      color: 'blue',
+    });
     expect(merged.devices?.map((d) => d.entity)).toEqual(['sensor.fridge_power', 'sensor.office_power']);
-    expect(merged.devices?.[0].name).toBe('My fridge');
+    // An existing device keeps its options and gets the energy counter it lacked.
+    expect(merged.devices?.[0]).toEqual({
+      entity: 'sensor.fridge_power',
+      name: 'My fridge',
+      energy_entity: 'sensor.fridge_energy',
+    });
   });
 
   it('importing twice does not duplicate devices or groups', () => {

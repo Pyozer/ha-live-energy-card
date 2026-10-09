@@ -25,6 +25,11 @@ export interface BaseNodeConfig {
   invert?: boolean;
   /** Additional entity shown in the node (e.g. today's energy). */
   secondary_entity?: string;
+  /**
+   * Cumulative energy counter(s) in kWh, as used by the Energy dashboard: the node shows today's
+   * energy from the statistics (unless `secondary_entity` is set).
+   */
+  energy_entity?: EntityRef;
   animation?: AnimationToggles;
   tap_action?: ActionConfig;
   hold_action?: ActionConfig;

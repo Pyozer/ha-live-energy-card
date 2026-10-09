@@ -378,7 +378,7 @@ describe('buildModel', () => {
     });
 
     it('expanded: the members carry the flows, the group only heads them', () => {
-      const model = buildModel(groupConfig, groupHass, [], new Set(['device:1']));
+      const model = buildModel(groupConfig, groupHass, { expanded: new Set(['device:1']) });
       const byId = Object.fromEntries(model.nodes.map((n) => [n.id, n]));
       expect(byId['device:1:0'].visible).toBe(true);
       expect(byId['device:1:0'].parent).toBe('device:1');

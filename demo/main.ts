@@ -66,6 +66,12 @@ const ENERGY_PREFS: EnergyPrefs = {
   })),
 };
 
+/** Simulated statistics (`recorder/statistic_during_period`): today's energy in kWh. */
+const TODAY_KWH: Record<string, number> = {
+  'sensor.grid_energy': 6.42,
+  ...Object.fromEntries(DEVICES.map((d) => [`${d.entity}_energy`, (d.typical * 9) / 1000])),
+};
+
 /** Mini PC, media server and internet box, shown as a group. */
 const IT_GROUP = [5, 11, 12];
 
@@ -73,13 +79,14 @@ const DEFAULT_CONFIG: LiveEnergyCardConfig = {
   type: 'custom:live-energy-card',
   max_power: 4000,
   solar: { entity: ENT.solar, secondary_entity: ENT.solarDay },
-  grid: { entity: ENT.grid },
+  grid: { entity: ENT.grid, energy_entity: 'sensor.grid_energy' },
   battery: { entity: ENT.battery, soc_entity: ENT.soc, capacity: 10, min_soc: 10 },
   devices: [
     ...DEVICES.filter((_, i) => !IT_GROUP.includes(i)).map(({ entity, name, icon }) => ({
       entity,
       name,
       icon,
+      energy_entity: `${entity}_energy`,
     })),
     // Device group: tap it to show its members.
     {
@@ -160,10 +167,16 @@ function buildHass(): HomeAssistant {
     locale: { language: state.lang, number_format: 'language' },
     themes: { darkMode: state.dark },
     config: { currency: 'EUR' },
-    callWS: <T>(msg: Record<string, unknown>) =>
-      msg.type === 'energy/get_prefs'
-        ? Promise.resolve(ENERGY_PREFS as T)
-        : Promise.reject(new Error(`Unknown command ${String(msg.type)}`)),
+    callWS: <T>(msg: Record<string, unknown>) => {
+      if (msg.type === 'energy/get_prefs') return Promise.resolve(ENERGY_PREFS as T);
+      if (msg.type === 'recorder/statistic_during_period') {
+        const change = TODAY_KWH[String(msg.statistic_id)];
+        return change === undefined
+          ? Promise.reject(new Error('No statistics'))
+          : Promise.resolve({ change } as T);
+      }
+      return Promise.reject(new Error(`Unknown command ${String(msg.type)}`));
+    },
   };
 }
 

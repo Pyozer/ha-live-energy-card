@@ -94,6 +94,7 @@ export const en = {
       eco_mode: 'Eco mode (30 fps, no glow) for low-power devices',
       transparent: 'Transparent background (no card frame)',
       hide_when_zero: 'Hide when zero',
+      energy_entity: 'Energy counters (kWh): shows the energy of the day',
       secondary_entity: 'Secondary entity (e.g. energy today)',
       import_entity: 'Import entity (alternative)',
       export_entity: 'Export entity (alternative)',

@@ -36,6 +36,7 @@ export function toFormData(config: LiveEnergyCardConfig): Record<string, unknown
     return {
       ...cfg,
       entity: entityIds(cfg.entity),
+      energy_entity: entityIds(cfg.energy_entity),
       hide_when_zero: cfg.hide_when_zero ?? hideDefault(kind, config.hide_when_zero),
     };
   };
@@ -66,6 +67,7 @@ export function fromFormData(
   for (const kind of NODE_KEYS) {
     const cfg = { ...((data[kind] as BaseNodeConfig) ?? {}) };
     cfg.entity = compactRef(cfg.entity);
+    cfg.energy_entity = compactRef(cfg.energy_entity);
     // A value equal to the default is dropped, unless it was written explicitly before.
     const explicit = (previous[kind] as BaseNodeConfig | undefined)?.hide_when_zero !== undefined;
     if (cfg.hide_when_zero === hideDefault(kind, globalHide) && !explicit) delete cfg.hide_when_zero;
@@ -100,6 +102,7 @@ export function deviceFormData(dev: DeviceConfig, globalHide: boolean | undefine
   return {
     ...dev,
     [isGroup(dev) ? 'group_entity' : 'entity']: entityIds(dev.entity),
+    energy_entity: entityIds(dev.energy_entity),
     hide_when_zero: dev.hide_when_zero ?? hideDefault('device', globalHide),
   };
 }
@@ -114,6 +117,7 @@ export function deviceFromForm(
   const group = isGroup(previous);
   const value: DeviceConfig = { ...rest };
   value.entity = compactRef(group ? group_entity : rest.entity) ?? (group ? undefined : '');
+  value.energy_entity = compactRef(rest.energy_entity);
   if (group) value.devices = previous?.devices ?? [];
   if (value.hide_when_zero === hideDefault('device', globalHide) && previous?.hide_when_zero === undefined)
     delete value.hide_when_zero;

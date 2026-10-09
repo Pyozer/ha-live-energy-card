@@ -96,6 +96,7 @@ export class EditorSchema {
         ...(kind === 'battery' ? [{ name: 'charge_color', selector: { ui_color: {} } }] : []),
       ]),
       grid(booleans(kind === 'home' ? ['invert'] : ['hide_when_zero', 'invert'])),
+      { name: 'energy_entity', selector: this.entity('energy', cfg.energy_entity, true) },
       { name: 'secondary_entity', selector: ANY_ENTITY },
       actionsSchema(this.t),
     ];
@@ -209,6 +210,7 @@ export class EditorSchema {
         { name: 'color', selector: { ui_color: {} } },
       ]),
       grid(booleans(['hide_when_zero', 'invert', 'exclude_from_untracked', ...(group ? ['expanded'] : [])])),
+      { name: 'energy_entity', selector: this.entity('energy', dev.energy_entity, true) },
       { name: 'secondary_entity', selector: ANY_ENTITY },
       actionsSchema(this.t),
     ];

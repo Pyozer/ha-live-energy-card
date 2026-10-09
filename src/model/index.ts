@@ -13,6 +13,15 @@ export { applyDeviceTree, flowToggles } from './flows';
 export { cleanName } from './format';
 export * from './types';
 
+export interface BuildOptions {
+  /** Previous device order, for the sort hysteresis. */
+  previousOrder?: string[];
+  /** Ids of the expanded device groups. */
+  expanded?: ReadonlySet<string>;
+  /** Today's energy (kWh) by node id, from the statistics. */
+  todayEnergy?: ReadonlyMap<string, number>;
+}
+
 /**
  * Builds what the card displays from the configuration and the entity states:
  * readings → energy balance → source nodes → device nodes → flows.
@@ -20,11 +29,10 @@ export * from './types';
 export function buildModel(
   config: LiveEnergyCardConfig,
   hass: HomeAssistant,
-  previousOrder: string[] = [],
-  /** Ids of the expanded device groups. */
-  expanded: ReadonlySet<string> = new Set(),
+  options: BuildOptions = {},
 ): CardModel {
-  const ctx = modelContext(config, hass);
+  const { previousOrder = [], expanded = new Set<string>() } = options;
+  const ctx = modelContext(config, hass, options.todayEnergy);
   const src = readSources(config, hass);
   const result = computeFlows(src.inputs, ctx.threshold);
   const colors = sourceColors(src);

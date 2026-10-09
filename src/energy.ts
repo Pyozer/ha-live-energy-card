@@ -4,6 +4,7 @@ import type {
   BatteryConfig,
   CostConfig,
   DeviceConfig,
+  EntityRef,
   GridConfig,
   HomeAssistant,
   LiveEnergyCardConfig,
@@ -73,6 +74,14 @@ function powerOf(source: EnergySource): {
 
 const hasPower = (p: ReturnType<typeof powerOf>): boolean => !!(p.entity || p.from || p.to);
 
+/** Energy counters (`stat_energy_from`) of the sources of a type: one id, a list, or none. */
+function energyOf(sources: EnergySource[], type: string): EntityRef | undefined {
+  const ids = [...new Set(sources.filter((s) => s.type === type).map((s) => str(s.stat_energy_from)))].filter(
+    (id): id is string => !!id,
+  );
+  return ids.length > 1 ? ids : ids[0];
+}
+
 export function configFromEnergyPrefs(prefs: EnergyPrefs): EnergyImport {
   const sources = prefs.energy_sources ?? [];
   const out: EnergyImport = {};
@@ -95,6 +104,8 @@ export function configFromEnergyPrefs(prefs: EnergyPrefs): EnergyImport {
     const p = solars[0];
     const cfg: SolarConfig = { entity: many ?? p.entity ?? p.from };
     if (!many && p.invert) cfg.invert = true;
+    const energy = energyOf(sources, 'solar');
+    if (energy) cfg.energy_entity = energy;
     out.solar = cfg;
   }
 
@@ -112,6 +123,9 @@ export function configFromEnergyPrefs(prefs: EnergyPrefs): EnergyImport {
         ? { entity: p.entity }
         : { import_entity: p.from, export_entity: p.to };
     if (!many && p.invert) cfg.invert = true;
+    // Today's energy of the grid node: the import.
+    const energy = energyOf(sources, 'grid');
+    if (energy) cfg.energy_entity = energy;
     out.grid = cfg;
   }
 
@@ -154,6 +168,7 @@ export function configFromEnergyPrefs(prefs: EnergyPrefs): EnergyImport {
     const cfg: DeviceConfig = {};
     if (str(d.stat_rate)) cfg.entity = d.stat_rate!;
     if (str(d.name)) cfg.name = d.name!;
+    if (str(d.stat_consumption)) cfg.energy_entity = d.stat_consumption;
     return cfg;
   };
   const members = new Map<EnergyDevice, DeviceConfig[]>();
@@ -224,9 +239,18 @@ export function mergeEnergyImport(
   }
   // Prices configured by the user are kept.
   if (imported.cost && !config.cost) next.cost = imported.cost;
-  const existing = config.devices ?? [];
   // Same entities (or, for a group without its own entity, same name) = same device.
   const key = (d: DeviceConfig) => entityIds(d.entity).join(',') || `group:${d.name ?? ''}`;
+  const importedByKey = new Map(
+    (imported.devices ?? []).flatMap((d) => [d, ...(d.devices ?? [])]).map((d) => [key(d), d]),
+  );
+  // Existing devices are kept as they are, but get the energy counter they lack.
+  const complete = (d: DeviceConfig): DeviceConfig => {
+    const energy = d.energy_entity ?? importedByKey.get(key(d))?.energy_entity;
+    const out = energy ? { ...d, energy_entity: energy } : d;
+    return d.devices ? { ...out, devices: d.devices.map(complete) } : out;
+  };
+  const existing = (config.devices ?? []).map(complete);
   const known = new Set(existing.map(key));
   next.devices = [...existing, ...(imported.devices ?? []).filter((d) => !known.has(key(d)))];
   return next;
@@ -242,6 +266,7 @@ function stripEntities<T extends object>(node: T | undefined): Partial<T> {
     'export_entity',
     'charge_entity',
     'discharge_entity',
+    'energy_entity',
     'invert',
   ])
     delete out[key];

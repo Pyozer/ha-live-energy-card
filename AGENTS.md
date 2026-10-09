@@ -57,6 +57,7 @@ hass + config ─► model/   ─► layout.ts ─► tree.ts ─► live-energy
 | `src/model/format.ts` | Node helpers: entity name cleanup, secondary value, default actions, battery icon. |
 | `src/layout.ts` | Node positions for a given width and source flow paths (right angles with rounded corners, like the bus). Device modes: `column`, `grid`, `stack` (narrow screens). |
 | `src/tree.ts` | Paths of the distribution bus feeding devices in grid / stack modes (and column mode with the `rounded` / `square` line styles). |
+| `src/energy-today.ts` | Today's energy per node from the statistics (`recorder/statistic_during_period`), refreshed by the card every 5 minutes. |
 | `src/battery.ts` | Battery time estimate (to full or to the reserve) and duration formatting. |
 | `src/cost.ts` | Live cost, solar savings and grid CO₂ from the flows, price reading and formatting. |
 | `src/intensity.ts` | Power → visual parameters (speed, thickness, density, glow). |
@@ -97,7 +98,7 @@ Design rules:
 Every change or new feature must be **testable and tested**:
 
 - Add or extend tests in `test/` (`*.test.ts`), one file per area: `compute`, `units-intensity`,
-  `layout-model`, `model`, `config`, `battery`, `colors-format`, `actions`, `localize`, `entities`, `energy`,
+  `layout-model`, `model`, `config`, `battery`, `energy-today`, `colors-format`, `actions`, `localize`, `entities`, `energy`,
   `device-list`, `editor`, `cost`. Create a new file when a new module appears.
 - Design for testing: extract logic into an exported pure function instead of leaving it in the
   component or the animator.

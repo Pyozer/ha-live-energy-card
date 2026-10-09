@@ -1,3 +1,4 @@
+import { formatEnergy } from '../energy-today';
 import type { BaseNodeConfig, EntityRef, HomeAssistant } from '../types';
 import { entityIds, numberFormat } from '../units';
 import type { NodeActions } from './types';
@@ -34,6 +35,17 @@ export function formatSecondary(hass: HomeAssistant, entityId: string | undefine
       ).format(num)
     : st.state;
   return unit ? `${value} ${unit}` : value;
+}
+
+/** Secondary line of a node: its `secondary_entity`, otherwise today's energy when known. */
+export function nodeSecondary(
+  hass: HomeAssistant,
+  cfg: BaseNodeConfig | undefined,
+  todayKwh: number | undefined,
+): string | undefined {
+  if (cfg?.secondary_entity) return formatSecondary(hass, cfg.secondary_entity);
+  if (todayKwh === undefined) return undefined;
+  return formatEnergy(todayKwh, hass.locale?.language ?? hass.language);
 }
 
 /** Default action: more-info of the node's (first) entity. */

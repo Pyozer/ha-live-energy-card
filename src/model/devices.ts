@@ -3,7 +3,7 @@ import { untrackedPower } from '../compute';
 import type { DeviceConfig } from '../types';
 import { entityIds, readPowerSum, type Reading } from '../units';
 import type { ModelContext } from './context';
-import { actionsFor, cleanName, formatSecondary } from './format';
+import { actionsFor, cleanName, nodeSecondary } from './format';
 import { TOGGLE_GROUP, UNTRACKED_ID, type NodeModel } from './types';
 
 export interface DeviceNodes {
@@ -83,7 +83,7 @@ export function buildDevices(
       available: reading.available,
       active,
       visible: !(reading.available && !active && (dev.hide_when_zero ?? globalHide)),
-      secondary: formatSecondary(hass, dev.secondary_entity),
+      secondary: nodeSecondary(hass, dev, ctx.todayEnergy.get(id)),
       actions: actionsFor(dev, dev.entity),
     };
   };
