@@ -41,6 +41,12 @@ describe('localize', () => {
     expect(localize('fr', 'node.grid')).toBe('Réseau');
   });
 
+  it('replaces every occurrence of a variable', () => {
+    expect(localize('en', 'error.moved_to_units', { node: 'solar', field: 'entity' })).toBe(
+      'solar.entity is now set on each unit: move it to solar.units.',
+    );
+  });
+
   it('handles regional variants and unknown languages', () => {
     expect(localize('fr-CA', 'node.home')).toBe('Maison');
     expect(localize('xx', 'node.home')).toBe('Home');

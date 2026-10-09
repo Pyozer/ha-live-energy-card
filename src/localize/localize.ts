@@ -41,7 +41,7 @@ export function localize(
   const dict = (LANGUAGES as Record<string, Strings>)[lang];
   let text = lookup(dict, key) ?? lookup(en, key) ?? key;
   if (vars) {
-    for (const [name, value] of Object.entries(vars)) text = text.replace(`{${name}}`, value);
+    for (const [name, value] of Object.entries(vars)) text = text.replaceAll(`{${name}}`, value);
   }
   return text;
 }
