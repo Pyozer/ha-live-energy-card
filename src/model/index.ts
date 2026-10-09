@@ -47,7 +47,8 @@ export function buildModel(
       ...unitFlows(config, src, colors, visible),
       ...deviceFlows(config, devices, colors.home),
     ],
-    ratios: config.show_ratios ? computeRatios(result) : null,
+    // The ratios describe the solar production: they follow the solar bubble (or its hub).
+    ratios: config.show_ratios && visible.has('solar') ? computeRatios(result) : null,
     stats: computeStats(result, hass, config.cost, config.carbon?.intensity_entity, ctx.todayEnergy),
     result,
     devicesOrder: devices.order,
