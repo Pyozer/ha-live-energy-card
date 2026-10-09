@@ -84,6 +84,7 @@ const TODAY_KWH: Record<string, number> = {
   'sensor.grid_energy': 6.42,
   'sensor.grid_export_energy': 4.1,
   'sensor.grid_cost_today': 1.31,
+  'sensor.solar_savings_today': 2.38,
   [ENT.solarDay]: 14.2,
   ...Object.fromEntries(SOLAR_UNITS.map((_, i) => [solarUnitEnergy(i), 14.2 / SOLAR_UNITS.length])),
   ...Object.fromEntries(DEVICES.map((d) => [`${d.entity}_energy`, (d.typical * 9) / 1000])),
@@ -175,6 +176,14 @@ function buildHass(): HomeAssistant {
       'Grid cost rate',
     ),
     'sensor.grid_cost_today': entity('sensor.grid_cost_today', 412.5, 'EUR', 'Grid cost (total)'),
+    // Ready-made solar savings: a rate, and a cumulative counter (change of the day: 2.38).
+    'sensor.solar_savings_rate': entity(
+      'sensor.solar_savings_rate',
+      (Math.max(0, state.solar) * 0.2516) / 1000,
+      'EUR/h',
+      'Solar savings rate',
+    ),
+    'sensor.solar_savings_today': entity('sensor.solar_savings_today', 143.7, 'EUR', 'Solar savings (total)'),
   };
   for (const d of DEVICES)
     fresh[d.entity] = entity(d.entity, state.devices[d.entity], 'W', `${d.name} Power`);
@@ -504,11 +513,13 @@ toggle(
       if (v) {
         c.cost.period = 'day';
         if (c.cost.cost_entity) c.cost.cost_entity = 'sensor.grid_cost_today';
+        if (c.cost.savings_entity) c.cost.savings_entity = 'sensor.solar_savings_today';
         c.solar = withSolarUnits(c.solar, c.solar?.units?.length ?? 1, !!c.solar?.separate, true);
         c.grid = { ...c.grid, export_energy_entity: 'sensor.grid_export_energy' };
       } else {
         delete c.cost.period;
         if (c.cost.cost_entity) c.cost.cost_entity = 'sensor.grid_cost_rate';
+        if (c.cost.savings_entity) c.cost.savings_entity = 'sensor.solar_savings_rate';
         c.solar = withSolarUnits(c.solar, c.solar?.units?.length ?? 1, !!c.solar?.separate, false);
         if (c.grid) delete c.grid.export_energy_entity;
       }
@@ -528,6 +539,28 @@ toggle(
         delete c.cost.cost_entity;
         c.cost.price_entity = ENT.price;
       }
+    }),
+);
+toggle(
+  'Savings entity',
+  () => !!config.cost?.savings_entity,
+  (v) =>
+    withConfig((c) => {
+      c.cost = { ...(c.cost ?? { price_entity: ENT.price, export_price: 0.13 }) };
+      if (v)
+        c.cost.savings_entity =
+          c.cost.period === 'day' ? 'sensor.solar_savings_today' : 'sensor.solar_savings_rate';
+      else delete c.cost.savings_entity;
+    }),
+);
+toggle(
+  'Energy sent to the grid',
+  () => !!config.grid?.export_energy_entity,
+  (v) =>
+    withConfig((c) => {
+      c.grid = { ...c.grid };
+      if (v) c.grid.export_energy_entity = 'sensor.grid_export_energy';
+      else delete c.grid.export_energy_entity;
     }),
 );
 toggle(

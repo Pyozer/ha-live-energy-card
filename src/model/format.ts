@@ -1,5 +1,5 @@
 import { formatEnergy } from '../energy-today';
-import type { BaseNodeConfig, EntityRef, HomeAssistant } from '../types';
+import type { BaseNodeConfig, EntityRef, GridConfig, HomeAssistant } from '../types';
 import { entityIds, numberFormat } from '../units';
 import type { NodeActions } from './types';
 
@@ -51,6 +51,36 @@ export function nodeSecondary(
   if (todayKwh === undefined) return undefined;
   if (todayKwh === null) return '—';
   return formatEnergy(todayKwh, hass.locale?.language ?? hass.language);
+}
+
+/**
+ * Secondary line of the grid. With an export counter, both directions are shown, the energy bought
+ * (↓) and sent back (↑), sharing the unit: `↓6.88 ↑0.99 kWh`. Without one, it is the energy of the
+ * day alone, as for the other nodes. The custom line still replaces everything.
+ */
+export function gridSecondary(
+  hass: HomeAssistant,
+  cfg: GridConfig | undefined,
+  importedKwh: number | null | undefined,
+  exportedKwh: number | null | undefined,
+): string | undefined {
+  if (cfg?.secondary_entity || !entityIds(cfg?.export_energy_entity).length)
+    return nodeSecondary(hass, cfg, importedKwh);
+  const locale = hass.locale?.language ?? hass.language;
+  const parts: string[] = [];
+  for (const [arrow, kwh] of [
+    ['↓', entityIds(cfg?.energy_entity).length ? importedKwh : undefined],
+    ['↑', exportedKwh],
+  ] as const) {
+    if (kwh === undefined) continue;
+    parts.push(`${arrow}${kwh === null ? '—' : formatEnergy(kwh, locale)}`);
+  }
+  if (!parts.length) return undefined;
+  if (parts.length === 1) return parts[0];
+  // One unit for both values, at the end (a dash has none).
+  return parts[1].endsWith(' kWh')
+    ? `${parts[0].replace(/ kWh$/, '')} ${parts[1]}`
+    : `${parts[0]} ${parts[1]}`;
 }
 
 /** Default action: more-info of the node's (first) entity. */

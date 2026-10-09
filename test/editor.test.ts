@@ -5,6 +5,7 @@ import {
   fromFormData,
   priceMode,
   priceModesOf,
+  savingsMode,
   toFormData,
   unitFormData,
   unitFromForm,
@@ -139,6 +140,60 @@ describe('editor price source', () => {
   });
 });
 
+describe('editor solar savings source', () => {
+  const t = (key: Parameters<typeof localize>[1]) => localize('en', key);
+  const schema = new EditorSchema(t, undefined);
+  const names = (config: LiveEnergyCardConfig, modes = {}) =>
+    fieldNames(schema.card(config, modes)).filter((n) => n.startsWith('savings'));
+
+  it('derives the source from the entity, the choice only applying while it is empty', () => {
+    expect(savingsMode(undefined)).toBe('calculated');
+    expect(savingsMode({ savings_entity: 'sensor.s' })).toBe('savings');
+    expect(savingsMode(undefined, 'savings')).toBe('savings');
+    expect(savingsMode({ savings_entity: 'sensor.s' }, 'calculated')).toBe('savings');
+  });
+
+  it('is independent of the import source', () => {
+    expect(priceMode({ savings_entity: 'sensor.s' }, 'price')).toBe('none');
+    const config: LiveEnergyCardConfig = {
+      ...base,
+      cost: { cost_entity: 'sensor.c', savings_entity: 'sensor.s' },
+    };
+    expect(roundTrip(config).cost).toEqual({ cost_entity: 'sensor.c', savings_entity: 'sensor.s' });
+  });
+
+  it('shows the entity field only for the savings entity source', () => {
+    expect(names(base)).toEqual(['savings_mode']);
+    expect(names(base, { savings: 'savings' })).toEqual(['savings_mode', 'savings_entity']);
+    expect(names({ ...base, cost: { savings_entity: 'sensor.s' } })).toEqual([
+      'savings_mode',
+      'savings_entity',
+    ]);
+  });
+
+  it('keeps the entity only with its source, and keeps the mode out of the config', () => {
+    const config: LiveEnergyCardConfig = { ...base, cost: { price: 0.2, savings_entity: 'sensor.s' } };
+    const calculated = roundTrip(
+      config,
+      (d) => ((d.cost as Record<string, unknown>).savings_mode = 'calculated'),
+    );
+    expect(calculated.cost).toEqual({ price: 0.2 });
+    expect(JSON.stringify(roundTrip(config))).not.toContain('savings_mode');
+    expect(priceModesOf({ cost: { savings_mode: 'savings' } })).toEqual({ savings: 'savings' });
+    expect(priceModesOf({ cost: { savings_mode: 'entity' } })).toEqual({});
+  });
+
+  it('has no label above the entity picker, a helper and a check of its unit', () => {
+    const hass: HomeAssistant = { states: {}, language: 'en' };
+    expect(formLabel(t, 'savings_entity')).toBe('');
+    expect(formLabel(t, 'savings_mode')).toBe('Solar savings');
+    expect(fieldHelper(t, 'savings_entity')).toContain('€/h');
+    expect(entityIssues({ ...base, cost: { savings_entity: 'sensor.gone' } }, hass)).toEqual([
+      { where: 'cost', field: 'savings_entity', entity: 'sensor.gone', problem: 'missing' },
+    ]);
+  });
+});
+
 describe('editor ready-made cost', () => {
   const t = (key: Parameters<typeof localize>[1]) => localize('en', key);
   const schema = new EditorSchema(t, undefined);
@@ -225,12 +280,12 @@ describe('editor cost period', () => {
     expect(roundTrip(day).cost).toEqual({ period: 'day', price: 0.2 });
   });
 
-  it('asks for the exported energy of the grid only in daily mode', () => {
+  it('always asks for the exported energy of the grid: the bubble shows it, the daily cost needs it', () => {
     const grid = (config: LiveEnergyCardConfig) =>
       fieldNames(schema.node('grid', config)).includes('export_energy_entity');
-    expect(grid(base)).toBe(false);
+    expect(grid(base)).toBe(true);
     expect(grid({ ...base, cost: { period: 'day' } })).toBe(true);
-    expect(grid({ ...base, cost: { period: 'hour' } })).toBe(false);
+    expect(grid({ ...base, cost: { period: 'hour' } })).toBe(true);
     const solar = fieldNames(schema.node('solar', { ...base, cost: { period: 'day' } }));
     expect(solar).not.toContain('export_energy_entity');
   });
@@ -566,6 +621,23 @@ describe('entity issues', () => {
       { where: 'cost', field: 'price', entity: '0.25', problem: 'ignored_price' },
       { where: 'cost', field: 'cost_entity', entity: 'sensor.gone', problem: 'missing' },
     ]);
+  });
+
+  it('warns when a ready-made cost leaves the solar savings nothing to be calculated from', () => {
+    const solar = { units: [{ entity: 'sensor.s' }] };
+    const noPrice = (config: LiveEnergyCardConfig) =>
+      entityIssues(config, hass).filter((i) => i.problem === 'no_price');
+    const config: LiveEnergyCardConfig = { ...base, solar, cost: { cost_entity: 'sensor.gone' } };
+    expect(noPrice(config)).toEqual([
+      { where: 'cost', field: 'cost_entity', entity: 'sensor.gone', problem: 'no_price' },
+    ]);
+    expect(describeIssue(noPrice(config)[0], config, hass, t).problem).toContain('savings entity');
+    // A price, a savings entity or no solar: nothing to flag.
+    expect(noPrice({ ...config, cost: { cost_entity: 'sensor.gone', price: 0.2 } })).toEqual([]);
+    expect(noPrice({ ...config, cost: { cost_entity: 'sensor.gone', savings_entity: 'sensor.x' } })).toEqual(
+      [],
+    );
+    expect(noPrice({ ...config, solar: undefined })).toEqual([]);
   });
 
   it('warns when a price entity hides the fixed price', () => {

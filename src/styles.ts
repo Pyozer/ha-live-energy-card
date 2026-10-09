@@ -224,7 +224,7 @@ export const cardStyles = css`
     font-size: max(9.5px, calc(var(--s) * 0.105));
     color: var(--lec-muted);
     white-space: nowrap;
-    max-width: 80%;
+    max-width: 90%;
     overflow: hidden;
     text-overflow: ellipsis;
   }

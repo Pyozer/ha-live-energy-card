@@ -130,6 +130,12 @@ export interface CostConfig {
   /** Ready-made earnings of the grid export, same units as `cost_entity`. */
   earnings_entity?: string;
   /**
+   * Ready-made solar savings (the cost avoided by consuming the solar production on site), instead of
+   * computing them from the import price: a rate (€/h) in `hour` mode, an amount in € for the day in
+   * `day` mode (cumulative or reset daily). Independent of the import cost.
+   */
+  savings_entity?: string;
+  /**
    * `hour` (default): live rate per hour from the current power. `day`: total of the day from
    * today's energy counters (grid import and export, solar production).
    */

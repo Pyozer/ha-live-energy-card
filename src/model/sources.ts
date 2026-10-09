@@ -21,8 +21,9 @@ import type {
   SolarUnitConfig,
 } from '../types';
 import { readPercentAverage, type Reading } from '../units';
+import { EXPORT_STATISTIC } from '../energy-today';
 import { hasEntity, readRef, type ModelContext } from './context';
-import { actionsFor, batteryIcon, cleanName, nodeSecondary } from './format';
+import { actionsFor, batteryIcon, cleanName, gridSecondary, nodeSecondary } from './format';
 import type { NodeModel } from './types';
 
 /** Reading of one solar unit: its power in W (signed, 0 when unavailable). */
@@ -400,7 +401,7 @@ export function sourceNodes(
           : importing
             ? t('state.importing')
             : undefined,
-      secondary: nodeSecondary(hass, cfg, ctx.todayEnergy.get('grid')),
+      secondary: gridSecondary(hass, cfg, ctx.todayEnergy.get('grid'), ctx.todayEnergy.get(EXPORT_STATISTIC)),
       actions: actionsFor(cfg, cfg.entity ?? cfg.import_entity ?? cfg.export_entity),
     });
   }

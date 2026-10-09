@@ -152,6 +152,7 @@ export function watchedEntities(config: LiveEnergyCardConfig): string[] {
   add(config.cost?.export_price_entity);
   add(config.cost?.cost_entity);
   add(config.cost?.earnings_entity);
+  add(config.cost?.savings_entity);
   add(config.carbon?.intensity_entity);
   return [...ids];
 }

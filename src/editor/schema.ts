@@ -9,7 +9,15 @@ import type {
   LiveEnergyCardConfig,
 } from '../types';
 import { isGroup } from './device-list';
-import { isUnitGroup, PRICE_FIELDS, priceMode, type NodeKey, type PriceKey, type PriceModes } from './form';
+import {
+  isUnitGroup,
+  PRICE_FIELDS,
+  priceMode,
+  savingsMode,
+  type NodeKey,
+  type PriceKey,
+  type PriceModes,
+} from './form';
 
 /** `ha-form` schemas of the visual editor. */
 
@@ -74,7 +82,7 @@ export class EditorSchema {
    * with `separate`, the bubble is that of each unit. What they read is set on their units.
    */
   node(kind: NodeKey, config: LiveEnergyCardConfig): Schema[] {
-    if (!isUnitGroup(kind)) return this.fields(kind, config[kind], config);
+    if (!isUnitGroup(kind)) return this.fields(kind, config[kind]);
     const separate: Schema = { name: 'separate', selector: { boolean: {} } };
     return config[kind]?.separate ? [separate] : [separate, ...this.bubble(kind)];
   }
@@ -128,20 +136,18 @@ export class EditorSchema {
   }
 
   /** Fields of the grid and the home. */
-  private fields(kind: 'grid' | 'home', node: object | undefined, config: LiveEnergyCardConfig): Schema[] {
+  private fields(kind: 'grid' | 'home', node: object | undefined): Schema[] {
     const cfg = (node ?? {}) as Record<string, unknown>;
     const power = (name: string): Schema => ({ name, selector: this.entity('power', cfg[name]) });
     // The main entity accepts several sensors, added up (grid phases…).
     const entities: Schema[] = [{ name: 'entity', selector: this.entity('power', cfg.entity, true) }];
     if (kind === 'grid') {
       entities.push(grid([power('import_entity'), power('export_entity')]), watts('max_import', 0));
-      // Only needed by the daily cost.
-      if (config.cost?.period === 'day') {
-        entities.push({
-          name: 'export_energy_entity',
-          selector: this.entity('energy', cfg.export_energy_entity, true),
-        });
-      }
+      // Shown next to the energy bought on the bubble, and needed by the daily cost.
+      entities.push({
+        name: 'export_energy_entity',
+        selector: this.entity('energy', cfg.export_energy_entity, true),
+      });
     }
     return [
       ...entities,
@@ -171,6 +177,16 @@ export class EditorSchema {
           : mode === fields.readyMode
             ? [{ name: fields.ready, selector: this.entity('money', config.cost?.[fields.ready]) }]
             : []),
+    ]);
+  }
+
+  /** The solar savings: computed from the import price, or a ready-made entity. */
+  private savings(config: LiveEnergyCardConfig, modes: PriceModes): Schema {
+    return grid([
+      select(this.t, 'savings_mode', ['calculated', 'savings']),
+      ...(savingsMode(config.cost, modes.savings) === 'savings'
+        ? [{ name: 'savings_entity', selector: this.entity('money', config.cost?.savings_entity) }]
+        : []),
     ]);
   }
 
@@ -246,6 +262,7 @@ export class EditorSchema {
           select(t, 'period', ['hour', 'day']),
           this.price(config, 'price', modes),
           this.price(config, 'export_price', modes),
+          this.savings(config, modes),
           { name: 'currency', selector: { text: {} } },
         ],
       },
@@ -295,6 +312,7 @@ const UNLABELED_FIELDS: ReadonlySet<string> = new Set([
   'export_price_entity',
   'cost_entity',
   'earnings_entity',
+  'savings_entity',
 ]);
 
 /** Label shown by the form: none for the entity pickers of a price source. */

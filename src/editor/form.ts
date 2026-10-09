@@ -47,8 +47,10 @@ export const PRICE_FIELDS = {
   price: { entity: 'price_entity', ready: 'cost_entity', readyMode: 'cost' },
   export_price: { entity: 'export_price_entity', ready: 'earnings_entity', readyMode: 'earnings' },
 } as const;
-/** Source chosen in the editor for prices that have no value yet. */
-export type PriceModes = Partial<Record<PriceKey, PriceMode>>;
+/** Where the solar savings come from: computed from the import price, or a ready-made entity. */
+export type SavingsMode = 'calculated' | 'savings';
+/** Source chosen in the editor for prices (and savings) that have no value yet. */
+export type PriceModes = Partial<Record<PriceKey, PriceMode>> & { savings?: SavingsMode };
 
 /**
  * Source of a price. A set field wins, ready-made amount first, then the price entity, like the
@@ -61,6 +63,11 @@ export function priceMode(cost: CostConfig | undefined, key: PriceKey, chosen?: 
   if (cost?.[fields.entity]) return 'entity';
   if (typeof cost?.[key] === 'number') return 'fixed';
   return chosen ?? 'none';
+}
+
+/** Source of the solar savings: the entity when set; `chosen` only applies while it is empty. */
+export function savingsMode(cost: CostConfig | undefined, chosen?: SavingsMode): SavingsMode {
+  return cost?.savings_entity ? 'savings' : (chosen ?? 'calculated');
 }
 
 /** Default of `hide_when_zero` for a node: the grid and the home stay visible at zero. */
@@ -102,6 +109,7 @@ export function toFormData(config: LiveEnergyCardConfig, modes: PriceModes = {})
       period: config.cost?.period ?? 'hour',
       price_mode: priceMode(config.cost, 'price', modes.price),
       export_price_mode: priceMode(config.cost, 'export_price', modes.export_price),
+      savings_mode: savingsMode(config.cost, modes.savings),
     },
   };
 }
@@ -114,6 +122,8 @@ export function priceModesOf(data: Record<string, unknown>): PriceModes {
     const mode = cost[`${key}_mode`] as PriceMode;
     if (['none', 'fixed', 'entity', PRICE_FIELDS[key].readyMode].includes(mode)) out[key] = mode;
   }
+  const savings = cost.savings_mode;
+  if (savings === 'calculated' || savings === 'savings') out.savings = savings;
   return out;
 }
 
@@ -177,6 +187,9 @@ export function fromFormData(
     if (mode !== 'entity') delete cost[fields.entity];
     if (mode !== fields.readyMode) delete cost[fields.ready];
   }
+  const savings = cost.savings_mode;
+  delete cost.savings_mode;
+  if (savings !== undefined && savings !== 'savings') delete cost.savings_entity;
   if (cost.period === 'hour') delete cost.period;
   next.cost = cost;
 

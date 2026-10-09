@@ -185,6 +185,70 @@ describe('computeStats', () => {
     });
   });
 
+  describe('ready-made savings entity', () => {
+    it('hourly: the state of the entity replaces the calculation', () => {
+      const stats = computeStats(
+        importing,
+        hass(ent('sensor.savings_rate', 0.7, '€/h')),
+        { price: 0.2, savings_entity: 'sensor.savings_rate' },
+        undefined,
+      )!;
+      expect(stats.savings).toBeCloseTo(0.7);
+      // The cost is still computed from the price.
+      expect(stats.cost).toBeCloseTo(0.4);
+    });
+
+    it('works with a ready-made cost and no price, which alone gives no savings', () => {
+      const states = hass(ent('sensor.cost_rate', 0.5, '€/h'), ent('sensor.savings_rate', 0.7, '€/h'));
+      const cost = { cost_entity: 'sensor.cost_rate' };
+      expect(computeStats(importing, states, cost, undefined)!.savings).toBeNull();
+      const stats = computeStats(
+        importing,
+        states,
+        { ...cost, savings_entity: 'sensor.savings_rate' },
+        undefined,
+      )!;
+      expect(stats.savings).toBeCloseTo(0.7);
+      expect(stats.cost).toBeCloseTo(0.5);
+    });
+
+    it("daily: today's change from the statistics, the state when there are none", () => {
+      const cost = { savings_entity: 'sensor.savings_day', period: 'day' as const };
+      const day = hass(ent('sensor.savings_day', 143.7, 'EUR'));
+      expect(
+        computeStats(importing, day, cost, undefined, new Map([['savings', 0.13]]))!.savings,
+      ).toBeCloseTo(0.13);
+      expect(computeStats(importing, day, cost, undefined, new Map([['savings', null]]))!.savings).toBe(
+        143.7,
+      );
+      // Not loaded yet: nothing, rather than a cumulative total.
+      expect(computeStats(importing, day, cost, undefined, new Map())!.savings).toBeNull();
+    });
+
+    it('is empty when the entity is unavailable, and its currency is used when none is set', () => {
+      const cost = { savings_entity: 'sensor.s' };
+      expect(
+        computeStats(importing, hass(ent('sensor.s', 'unavailable', '€/h')), cost, undefined)!.savings,
+      ).toBeNull();
+      expect(computeStats(importing, hass(ent('sensor.s', 1, 'CHF/h')), cost, undefined)!.currency).toBe(
+        'CHF',
+      );
+    });
+
+    it('is watched, and its statistics are fetched only in daily mode', () => {
+      const cost = { savings_entity: 'sensor.s' };
+      const cfg = validateConfig({ type: 'x', grid: { entity: 'g' }, cost } as never);
+      expect(watchedEntities(cfg)).toContain('sensor.s');
+      expect(energyStatistics(cfg).has('savings')).toBe(false);
+      const day = validateConfig({
+        type: 'x',
+        grid: { entity: 'g' },
+        cost: { ...cost, period: 'day' },
+      } as never);
+      expect([...energyStatistics(day)]).toEqual([['savings', ['sensor.s']]]);
+    });
+  });
+
   it('price entity and currency from its unit', () => {
     const stats = computeStats(
       importing,

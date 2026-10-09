@@ -56,12 +56,12 @@ hass + config ─► model/   ─► layout.ts ─► tree.ts ─► live-energy
 | `src/unit-layout.ts` | Pure geometry of the bubbles of a source shown one per unit: one row, or two staggered rows when they get too small (`planUnits`, `unitOffsets`). |
 | `src/model/devices.ts` | Device nodes, groups, the "untracked" node and device sorting (hysteresis). |
 | `src/model/flows.ts` | Source and device flows, effects (`flowToggles`), distribution bus (`applyDeviceTree`). |
-| `src/model/format.ts` | Node helpers: entity name cleanup, secondary value, default actions, battery icon. |
+| `src/model/format.ts` | Node helpers: entity name cleanup, secondary value (`gridSecondary`: energy bought ↓ and sent back ↑ on the grid bubble), default actions, battery icon. |
 | `src/layout.ts` | Node positions for a given width and source flow paths (right angles with rounded corners, like the bus). Device modes: `column`, `grid`, `stack` (narrow screens). A source shown unit by unit gets a hub (a point) where its node would be, with its units in rows next to it, and `unitFlowPath` for the feeders. |
 | `src/tree.ts` | Paths of the distribution bus feeding devices in grid / stack modes (and column mode with the `rounded` / `square` line styles). |
 | `src/energy-today.ts` | Today's energy per node from the statistics (`recorder/statistic_during_period`), refreshed by the card every 5 minutes. |
 | `src/battery.ts` | Battery time estimate (to full or to the reserve), the charge of several batteries seen as one (`combinePacks`) and duration formatting. |
-| `src/cost.ts` | Cost, solar savings and grid CO₂: live rate per hour from the flows, or total of the day (`cost.period: day`) from today's energy; price reading and formatting. |
+| `src/cost.ts` | Cost, solar savings and grid CO₂: live rate per hour from the flows, or total of the day (`cost.period: day`) from today's energy; price reading and formatting. Cost, earnings and savings can each be a ready-made entity (`cost_entity`, `earnings_entity`, `savings_entity`), independent of one another. |
 | `src/intensity.ts` | Power → visual parameters (speed, thickness, density, glow). |
 | `src/animator.ts` | `requestAnimationFrame` loop: SVG particles, transitions, animated counters. |
 | `src/live-energy-card.ts` | Lit element: Lovelace lifecycle, rendering, width measurement, registration. |

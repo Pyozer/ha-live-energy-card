@@ -21,7 +21,7 @@ export interface UnitRef {
 const isUnitRef = (where: EntityIssue['where']): where is UnitRef =>
   typeof where === 'object' && 'group' in where;
 
-export type IssueProblem = 'missing' | 'kind' | 'ignored' | 'ignored_price';
+export type IssueProblem = 'missing' | 'kind' | 'ignored' | 'ignored_price' | 'no_price';
 
 export interface EntityIssue {
   /** Where the entity is configured: a node, a section, a device (path in the device list) or a unit. */
@@ -92,8 +92,15 @@ export function entityIssues(config: LiveEnergyCardConfig, hass: HomeAssistant |
     for (const ignored of sources.slice(1))
       issues.push({ where: 'cost', field: ignored.field, entity: ignored.value!, problem: 'ignored_price' });
   }
+  // The solar savings are calculated from the import price: a ready-made cost leaves none to use.
+  const cost = config.cost;
+  if (cost?.cost_entity && !cost.price_entity && typeof cost.price !== 'number' && !cost.savings_entity) {
+    if (config.solar)
+      issues.push({ where: 'cost', field: 'cost_entity', entity: cost.cost_entity, problem: 'no_price' });
+  }
   check('cost', 'cost_entity', config.cost?.cost_entity, 'money');
   check('cost', 'earnings_entity', config.cost?.earnings_entity, 'money');
+  check('cost', 'savings_entity', config.cost?.savings_entity, 'money');
   check('cost', 'price_entity', config.cost?.price_entity, 'price');
   check('cost', 'export_price_entity', config.cost?.export_price_entity, 'price');
   check('carbon', 'intensity_entity', config.carbon?.intensity_entity, 'carbon');

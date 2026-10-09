@@ -75,6 +75,8 @@ export const fr: DeepStrings<typeof en> = {
       missing: 'introuvable',
       ignored: "est ignoré : la ligne personnalisée remplace l'énergie du jour",
       ignored_price: 'est ignoré : une autre source de prix est prioritaire',
+      no_price:
+        'est un coût déjà calculé : les économies solaires ne peuvent pas être calculées sans prix d’achat. Choisis un prix, ou donne une entité d’économies',
       money: "n'est pas un coût (devise ou €/h)",
       power: "n'est pas un capteur de puissance (W, kW)",
       percent: "n'est pas un pourcentage",
@@ -88,6 +90,8 @@ export const fr: DeepStrings<typeof en> = {
       cost_entity: 'Par heure : un débit (€/h). Par jour : un coût en €, cumulé ou remis à zéro chaque jour.',
       earnings_entity:
         'Par heure : un débit (€/h). Par jour : des gains en €, cumulés ou remis à zéro chaque jour.',
+      savings_entity:
+        'Par heure : un débit (€/h). Par jour : les économies en €, cumulées ou remises à zéro chaque jour. Remplace le calcul à partir du prix d’achat.',
     },
     hide_when_zero_default: 'Par défaut ({value})',
     on: 'masqué',
@@ -110,13 +114,16 @@ export const fr: DeepStrings<typeof en> = {
       group_entity: 'Entité de puissance du groupe (facultative, sinon somme de ses appareils)',
       expanded: 'Déplié par défaut',
       period: 'Affichage du coût',
-      export_energy_entity: 'Énergie injectée du jour : compteurs kWh (pour le coût du jour)',
+      export_energy_entity:
+        'Énergie injectée du jour : compteur(s) kWh (affichée sur la bulle, utilisée par le coût du jour)',
       price_mode: 'Prix d’achat',
       price: 'Prix d’achat (par kWh)',
       price_entity: 'Entité du prix d’achat',
       export_price_mode: 'Prix de revente',
       cost_entity: 'Entité du coût d’achat (déjà calculé)',
       earnings_entity: 'Entité des gains de revente (déjà calculé)',
+      savings_mode: 'Économies solaires',
+      savings_entity: 'Entité des économies solaires (déjà calculées)',
       export_price: 'Prix de revente (par kWh)',
       export_price_entity: 'Entité du prix de revente',
       currency: 'Devise (ex. EUR, vide = automatique)',
@@ -175,6 +182,8 @@ export const fr: DeepStrings<typeof en> = {
       entity: 'Entité de prix',
       cost: 'Entité de coût',
       earnings: 'Entité de gains',
+      calculated: 'Calculées (à partir du prix d’achat)',
+      savings: 'Entité d’économies',
     },
   },
 };

@@ -26,7 +26,7 @@ colors reserved for icons and flows. Each flow's animation follows its power.
   below the diagram.
 - **Line styles**: rounded corners, square corners, curves or direct lines, applied to every line
   of the card.
-- **Live cost, solar savings and grid CO₂**.
+- **Live cost, solar savings and grid CO₂**, calculated or read from your own entities.
 - **Home ring**: share of solar, battery and grid in the consumption.
 - **Battery ring**: state of charge.
 - Automatic unit conversion (W, kW, MW), animated counters, tabular figures.
@@ -284,7 +284,7 @@ devices:
 | `devices_columns` | auto | Number of columns in grid mode. |
 | `sort_devices` | `false` | Sorts devices by power (with hysteresis so the list does not keep moving). |
 | `show_untracked` | `false` | Adds an "Other" node: home consumption not covered by the devices. |
-| `show_ratios` | `false` | Shows self-consumption (share of solar used on site) and self-sufficiency (share of consumption covered without the grid). |
+| `show_ratios` | `false` | Shows self-consumption (share of solar used on site) and self-sufficiency (share of consumption covered without the grid). Shown only while the solar bubble is displayed: they disappear with it (no solar source, or idle solar with `hide_when_zero`). |
 | `cost` | — | Prices for the live cost and solar savings (see [Cost and carbon](#cost-and-carbon)). |
 | `carbon` | — | `intensity_entity`: grid carbon intensity for the live CO₂ (see [Cost and carbon](#cost-and-carbon)). |
 | `kilo_threshold` | `1000` | Switch from W to kW. |
@@ -310,8 +310,9 @@ Available for `grid`, `home` and each item of `devices` (and for each unit of `s
 Specific options:
 
 - `grid`: `import_entity` / `export_entity` (alternative to a signed entity; both report positive
-  values), `export_energy_entity` (energy counter(s) in kWh of the energy sent to the grid, for the
-  daily cost), `export_color`,
+  values), `export_energy_entity` (energy counter(s) in kWh of the energy sent to the grid: shown on
+  the bubble next to the energy bought, `↓6.88 ↑0.99 kWh`, and used by the daily cost),
+  `export_color`,
   `max_import` (import limit in W, e.g. the subscribed power: above it, the grid node turns red and
   shows *Over limit*). The grid node shows a signed value: positive when importing, **negative when
   exporting** (a signed entity keeps its sign, an export entity is shown as negative).
@@ -340,8 +341,7 @@ Live indicators shown under the diagram. `cost.period` picks how cost and saving
   - **Cost today** = grid import × import price − grid export × export price.
   - **Solar savings today** = (solar production − energy sent to the grid) × import price.
   - Needs `energy_entity` on every solar unit and on `grid` (the import), plus `grid.export_energy_entity`
-    (the energy sent to the grid). The editor only shows the export field in this mode; the Energy
-    dashboard import fills the three in. While a counter is missing, the indicator is hidden
+    (the energy sent to the grid); the Energy dashboard import fills the three in. While a counter is missing, the indicator is hidden
     rather than wrong.
   - Today's energy is priced at the **current** price: with a tariff that changes during the day
     (peak / off-peak, dynamic prices), the total is an approximation. A *cost entity* (below) gives
@@ -367,12 +367,28 @@ Each price (import, export) comes from **one** source:
 | Price entity | `price_entity` | `export_price_entity` | A price per kWh, read live (dynamic tariff). |
 | Cost entity | `cost_entity` | `earnings_entity` | An amount **already computed**, shown as is. |
 
+The **solar savings** have their own source, independent of the import cost: calculated by default
+(solar consumed on site × import price), or a **savings entity** (`savings_entity`) already computed
+elsewhere, which replaces the calculation:
+
+```yaml
+cost:
+  period: day
+  cost_entity: sensor.electricity_cost_today # what the grid cost
+  savings_entity: sensor.solar_savings_today # what the solar avoided paying
+```
+
+It follows `cost.period` like the cost entity: a rate (`€/h`) per hour; a total in `€` per day,
+cumulative (today's change is taken from the statistics) or reset daily. It needs no price, so it
+works together with a cost entity.
+
 A *cost entity* is for people who already have the cost computed (dynamic tariffs, tariff
 calculators…). Its unit is a currency: `€/h` with `period: hour`; a cost in `€` with `period: day`,
 either cumulative (like the Energy dashboard's cost sensors: today's change is taken from the
 statistics) or reset every day (without statistics, the state is used as is). No price is involved,
-so **Solar savings** are not shown with a cost entity for the import (they need a price); a cost
-entity can be mixed with a price on the other side.
+so the calculated **Solar savings** are not shown with a cost entity for the import (they need a
+price), unless you give a savings entity (below); a cost entity can be mixed with a price on the other
+side.
 
 If several sources are set in YAML, the strongest wins and the others are ignored (the editor flags
 it): cost entity, then price entity, then fixed value. In the visual editor, pick the source

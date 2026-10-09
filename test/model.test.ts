@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeFlows } from '../src/compute';
+import { buildModel } from '../src/model';
 import { modelContext } from '../src/model/context';
 import { buildDevices } from '../src/model/devices';
 import { sourceFlows } from '../src/model/flows';
@@ -186,5 +187,101 @@ describe("today's energy", () => {
       )?.secondary;
     expect(secondary(new Map([['grid', null]]))).toBe('—');
     expect(secondary(new Map())).toBeUndefined();
+  });
+});
+
+describe('grid bubble: energy bought and sent back', () => {
+  const grid = {
+    entity: 'sensor.g',
+    energy_entity: 'sensor.grid_kwh',
+    export_energy_entity: 'sensor.out_kwh',
+  };
+  const secondary = (g: object, today: Map<string, number | null>) => {
+    const config = cfg({ grid: g });
+    const hass = hassWith(state('sensor.g', 100));
+    const src = readSources(config, hass);
+    return sourceNodes(
+      modelContext(config, hass, today),
+      src,
+      computeFlows(src.inputs),
+      sourceColors(src),
+    ).find((n) => n.id === 'grid')?.secondary;
+  };
+
+  it('shows both directions with one unit', () => {
+    expect(
+      secondary(
+        grid,
+        new Map([
+          ['grid', 6.876],
+          ['grid_export', 0.99],
+        ]),
+      ),
+    ).toBe('↓6.88 ↑0.99 kWh');
+  });
+
+  it('shows a dash for the counter whose statistics are unavailable, and waits for the other', () => {
+    expect(
+      secondary(
+        grid,
+        new Map([
+          ['grid', 6.876],
+          ['grid_export', null],
+        ]),
+      ),
+    ).toBe('↓6.88 kWh ↑—');
+    expect(secondary(grid, new Map([['grid_export', 0.99]]))).toBe('↑0.99 kWh');
+    expect(secondary(grid, new Map())).toBeUndefined();
+  });
+
+  it('shows only the export when the energy bought has no counter', () => {
+    expect(
+      secondary(
+        { entity: 'sensor.g', export_energy_entity: 'sensor.out_kwh' },
+        new Map([['grid_export', 2]]),
+      ),
+    ).toBe('↑2.00 kWh');
+  });
+
+  it('stays the energy bought alone without an export counter, and yields to the custom line', () => {
+    expect(
+      secondary({ entity: 'sensor.g', energy_entity: 'sensor.grid_kwh' }, new Map([['grid', 6.876]])),
+    ).toBe('6.88 kWh');
+    expect(secondary({ ...grid, secondary_entity: 'sensor.g' }, new Map([['grid', 6.876]]))).toBe('100 W');
+  });
+});
+
+describe('ratios', () => {
+  const solar = { units: [{ entity: 'sensor.s' }] };
+  const base = { show_ratios: true, grid: { entity: 'sensor.g' }, home: { entity: 'sensor.h' } };
+  const hass = (solarW: number) =>
+    hassWith(state('sensor.g', 500), state('sensor.h', 500 + solarW), state('sensor.s', solarW));
+
+  it('are shown with the solar bubble', () => {
+    expect(buildModel(cfg({ ...base, solar }), hass(300)).ratios).not.toBeNull();
+  });
+
+  it('are hidden with the solar bubble when it is idle and zero values are hidden', () => {
+    expect(buildModel(cfg({ ...base, solar, hide_when_zero: true }), hass(0)).ratios).toBeNull();
+  });
+
+  it('stay shown when the idle solar bubble is kept visible', () => {
+    expect(buildModel(cfg({ ...base, solar, hide_when_zero: false }), hass(0)).ratios).not.toBeNull();
+    expect(
+      buildModel(cfg({ ...base, solar: { ...solar, hide_when_zero: false }, hide_when_zero: true }), hass(0))
+        .ratios,
+    ).not.toBeNull();
+  });
+
+  it('are hidden without any solar source', () => {
+    expect(buildModel(cfg(base), hass(0)).ratios).toBeNull();
+  });
+
+  it('follow the units of a solar source shown one per unit', () => {
+    const separate = { separate: true, units: [{ entity: 'sensor.s' }] };
+    expect(buildModel(cfg({ ...base, solar: separate, hide_when_zero: true }), hass(0)).ratios).toBeNull();
+    expect(
+      buildModel(cfg({ ...base, solar: separate, hide_when_zero: true }), hass(300)).ratios,
+    ).not.toBeNull();
   });
 });

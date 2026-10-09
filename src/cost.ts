@@ -1,5 +1,5 @@
 import type { FlowResult } from './compute';
-import { COST_STATISTIC, EARNINGS_STATISTIC, EXPORT_STATISTIC } from './energy-today';
+import { COST_STATISTIC, EARNINGS_STATISTIC, EXPORT_STATISTIC, SAVINGS_STATISTIC } from './energy-today';
 import type { CostConfig, HassEntity, HomeAssistant } from './types';
 import { numberFormat } from './units';
 
@@ -13,8 +13,8 @@ import { numberFormat } from './units';
  * import × import price − export × export price, and (solar − export) × import price. Today's
  * energy is priced at the current price, so a tariff that changes during the day is approximate.
  *
- * `cost_entity` and `earnings_entity` give ready-made amounts instead (€/h, or € for the day), for
- * tariffs already computed elsewhere.
+ * `cost_entity`, `earnings_entity` and `savings_entity` give ready-made amounts instead (€/h, or € for
+ * the day), for tariffs already computed elsewhere. Each replaces only its own amount.
  */
 
 export interface Price {
@@ -150,6 +150,11 @@ export function computeStats(
   if (cost?.earnings_entity) {
     const e = entityAmount(hass, cost.earnings_entity, period, today.get(EARNINGS_STATISTIC));
     amounts.earnings = e.value;
+    currency ??= e.currency;
+  }
+  if (cost?.savings_entity) {
+    const e = entityAmount(hass, cost.savings_entity, period, today.get(SAVINGS_STATISTIC));
+    amounts.savings = e.value;
     currency ??= e.currency;
   }
   const costTotal =

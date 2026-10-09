@@ -10,10 +10,11 @@ import { entityIds, numberFormat } from './units';
 /** Refresh period. Statistics are compiled every 5 minutes by Home Assistant. */
 export const TODAY_REFRESH_MS = 5 * 60 * 1000;
 
-/** Statistic ids next to the node ids: grid export, and the ready-made cost and earnings entities. */
+/** Statistic ids next to the node ids: grid export, and the ready-made cost, earnings and savings entities. */
 export const EXPORT_STATISTIC = 'grid_export';
 export const COST_STATISTIC = 'cost';
 export const EARNINGS_STATISTIC = 'earnings';
+export const SAVINGS_STATISTIC = 'savings';
 
 /** Energy statistics of each node, by node id (`solar`, `device:2`, `device:2:0`…). */
 export function energyStatistics(config: LiveEnergyCardConfig): Map<string, string[]> {
@@ -39,6 +40,7 @@ export function energyStatistics(config: LiveEnergyCardConfig): Map<string, stri
   if (config.cost?.period === 'day') {
     add(COST_STATISTIC, config.cost.cost_entity);
     add(EARNINGS_STATISTIC, config.cost.earnings_entity);
+    add(SAVINGS_STATISTIC, config.cost.savings_entity);
   }
   (config.devices ?? []).forEach((dev: DeviceConfig, i) => {
     add(`device:${i}`, dev?.energy_entity);
