@@ -1,5 +1,6 @@
 import { matchesKind, type EntityKind } from '../entities';
 import type { BaseNodeConfig, DeviceConfig, EntityRef, HomeAssistant, LiveEnergyCardConfig } from '../types';
+import type { UnitGroup } from '../source-units';
 import { entityIds } from '../units';
 import { isGroup, type DevicePath } from './device-list';
 import { NODE_KEYS, PRICE_FIELDS, PRICE_KEYS, type NodeKey } from './form';
@@ -11,11 +12,20 @@ import { fieldLabel, type Translate } from './schema';
  * not an issue: it is usually temporary, and the card already flags it.
  */
 
+/** A unit of the solar or battery node, by its position in the node's `units`. */
+export interface UnitRef {
+  group: UnitGroup;
+  index: number;
+}
+
+const isUnitRef = (where: EntityIssue['where']): where is UnitRef =>
+  typeof where === 'object' && 'group' in where;
+
 export type IssueProblem = 'missing' | 'kind' | 'ignored' | 'ignored_price';
 
 export interface EntityIssue {
-  /** Where the entity is configured: a node, a section, or a device (path in the device list). */
-  where: NodeKey | 'cost' | 'carbon' | DevicePath;
+  /** Where the entity is configured: a node, a section, a device (path in the device list) or a unit. */
+  where: NodeKey | 'cost' | 'carbon' | DevicePath | UnitRef;
   /** Config field (`entity`, `soc_entity`…). */
   field: string;
   entity: string;
@@ -63,6 +73,9 @@ export function entityIssues(config: LiveEnergyCardConfig, hass: HomeAssistant |
   };
 
   for (const key of NODE_KEYS) checkNode(key, config[key]);
+  for (const group of ['solar', 'battery'] as const) {
+    (config[group]?.units ?? []).forEach((unit, index) => checkNode({ group, index }, unit));
+  }
   (config.devices ?? []).forEach((dev: DeviceConfig, i) => {
     checkNode([i], dev);
     (dev?.devices ?? []).forEach((member, j) => checkNode([i, j], member));
@@ -91,8 +104,16 @@ export function entityIssues(config: LiveEnergyCardConfig, hass: HomeAssistant |
 export function deviceIssues(issues: readonly EntityIssue[], path: DevicePath): EntityIssue[] {
   return issues.filter(
     (i) =>
-      typeof i.where !== 'string' && i.where.length === path.length && i.where.every((v, k) => v === path[k]),
+      typeof i.where === 'object' &&
+      !isUnitRef(i.where) &&
+      i.where.length === path.length &&
+      i.where.every((v, k) => v === path[k]),
   );
+}
+
+/** Issues of a unit of the solar or battery node. */
+export function unitIssues(issues: readonly EntityIssue[], group: UnitGroup, index: number): EntityIssue[] {
+  return issues.filter((i) => isUnitRef(i.where) && i.where.group === group && i.where.index === index);
 }
 
 /** Readable location and problem of an issue, for the editor. */
@@ -105,7 +126,12 @@ export function describeIssue(
   const at = issue.where;
   let where: string;
   let group = false;
-  if (typeof at !== 'string') {
+  if (isUnitRef(at)) {
+    const unit = config[at.group]?.units?.[at.index];
+    const id = entityIds(unit?.entity)[0];
+    const friendly = id ? hass?.states[id]?.attributes.friendly_name : undefined;
+    where = `${t(`node.${at.group}`)} › ${unit?.name ?? friendly ?? t('editor.unit_n', { n: String(at.index + 1) })}`;
+  } else if (typeof at !== 'string') {
     const names: string[] = [];
     let list = config.devices ?? [];
     for (const index of at) {

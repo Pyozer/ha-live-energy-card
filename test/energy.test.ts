@@ -44,7 +44,9 @@ const prefs: EnergyPrefs = {
 describe('Energy dashboard import', () => {
   it('maps sources and devices to their power sensors', () => {
     const imported = configFromEnergyPrefs(prefs);
-    expect(imported.solar).toEqual({ entity: 'sensor.solar_power', energy_entity: 'sensor.solar_energy' });
+    expect(imported.solar).toEqual({
+      units: [{ entity: 'sensor.solar_power', energy_entity: 'sensor.solar_energy' }],
+    });
     // Today's energy of the grid is its import counter; the returned energy serves the daily cost.
     expect(imported.grid).toEqual({
       entity: 'sensor.grid_power',
@@ -72,27 +74,43 @@ describe('Energy dashboard import', () => {
       ],
     });
     expect(imported.grid).toEqual({ import_entity: 'sensor.import', export_entity: 'sensor.export' });
-    expect(imported.battery).toEqual({ entity: 'sensor.bat', invert: true, soc_entity: 'sensor.soc' });
+    expect(imported.battery).toEqual({
+      units: [{ entity: 'sensor.bat', invert: true, soc_entity: 'sensor.soc' }],
+    });
   });
 
-  it('several solar arrays and batteries are added up', () => {
+  it('several solar arrays and batteries become units of their source', () => {
     const imported = configFromEnergyPrefs({
       energy_sources: [
-        { type: 'solar', stat_rate: 'sensor.roof' },
+        { type: 'solar', stat_rate: 'sensor.roof', stat_energy_from: 'sensor.roof_kwh' },
+        { type: 'solar', stat_rate: 'sensor.garage' },
+        // The same sensor twice: one unit.
         { type: 'solar', stat_rate: 'sensor.garage' },
         { type: 'grid', power_config: { stat_rate: 'sensor.grid' } },
         { type: 'grid', power_config: { stat_rate: 'sensor.grid' } },
-        { type: 'battery', stat_rate: 'sensor.bat1', stat_soc: 'sensor.soc1' },
-        { type: 'battery', stat_rate: 'sensor.bat2', stat_soc: 'sensor.soc2' },
+        { type: 'battery', stat_rate: 'sensor.bat1', stat_soc: 'sensor.soc1', name: 'Wall' },
+        { type: 'battery', power_config: { stat_rate_from: 'sensor.out2', stat_rate_to: 'sensor.in2' } },
       ],
     });
-    expect(imported.solar).toEqual({ entity: ['sensor.roof', 'sensor.garage'] });
+    expect(imported.solar).toEqual({
+      units: [{ entity: 'sensor.roof', energy_entity: 'sensor.roof_kwh' }, { entity: 'sensor.garage' }],
+    });
     // Same sensor on two tariff entries: imported once.
     expect(imported.grid).toEqual({ entity: 'sensor.grid' });
     expect(imported.battery).toEqual({
-      entity: ['sensor.bat1', 'sensor.bat2'],
-      soc_entity: ['sensor.soc1', 'sensor.soc2'],
+      units: [
+        { entity: 'sensor.bat1', soc_entity: 'sensor.soc1', name: 'Wall' },
+        { discharge_entity: 'sensor.out2', charge_entity: 'sensor.in2' },
+      ],
     });
+    expect(importedCount(imported)).toBe(5);
+  });
+
+  it('a single battery names its bubble, not its unit', () => {
+    const imported = configFromEnergyPrefs({
+      energy_sources: [{ type: 'battery', stat_rate: 'sensor.bat', name: 'Water heater' }],
+    });
+    expect(imported.battery).toEqual({ name: 'Water heater', units: [{ entity: 'sensor.bat' }] });
   });
 
   it('nested sub-meters join the top-level group, even without its own power sensor', () => {
@@ -146,6 +164,44 @@ describe('Energy dashboard import', () => {
     });
   });
 
+  it('merge: units are kept, completed and joined by the new ones, with the options of the node', () => {
+    const merged = mergeEnergyImport(
+      {
+        type: 'x',
+        solar: {
+          separate: true,
+          color: 'amber',
+          units: [{ entity: 'sensor.roof', name: 'Roof' }, { entity: 'sensor.old' }],
+        },
+        battery: { name: 'Mine', units: [{ entity: 'sensor.bat' }] },
+      },
+      configFromEnergyPrefs({
+        energy_sources: [
+          { type: 'solar', stat_rate: 'sensor.roof', stat_energy_from: 'sensor.roof_kwh' },
+          { type: 'solar', stat_rate: 'sensor.garage' },
+          { type: 'battery', stat_rate: 'sensor.bat', name: 'Water heater' },
+        ],
+      }),
+    );
+    expect(merged.solar).toEqual({
+      separate: true,
+      color: 'amber',
+      units: [
+        { entity: 'sensor.roof', name: 'Roof', energy_entity: 'sensor.roof_kwh' },
+        { entity: 'sensor.old' },
+        { entity: 'sensor.garage' },
+      ],
+    });
+    // The name the user gave wins over the imported one.
+    expect(merged.battery).toEqual({ name: 'Mine', units: [{ entity: 'sensor.bat' }] });
+  });
+
+  it('merge: importing into a card without sources adds them', () => {
+    const merged = mergeEnergyImport({ type: 'x' }, configFromEnergyPrefs(prefs));
+    expect(merged.solar?.units).toHaveLength(1);
+    expect(merged.battery).toBeUndefined();
+  });
+
   it('importing twice does not duplicate devices or groups', () => {
     const imported = configFromEnergyPrefs({
       device_consumption: [
@@ -174,7 +230,7 @@ describe('Energy dashboard import', () => {
       ),
     };
     expect(guessConfig(hass)).toEqual({
-      solar: { entity: 'sensor.solar_power' },
+      solar: { units: [{ entity: 'sensor.solar_power' }] },
       grid: { entity: 'sensor.linky_power' },
       devices: [{ entity: 'sensor.prise_tv' }],
     });

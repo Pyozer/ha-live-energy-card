@@ -14,29 +14,55 @@ export interface AnimationToggles {
 /** One entity, or several whose values are added up (several inverters, phases, batteries…). */
 export type EntityRef = string | string[];
 
-export interface BaseNodeConfig {
-  entity?: EntityRef;
+/**
+ * What a bubble shows and does. It is set on the node when it is shown as a single bubble, and on
+ * each unit when a source is shown one bubble per unit (`separate`).
+ */
+export interface BubbleConfig {
   name?: string;
   icon?: string;
   /** Home Assistant color name (amber, teal…) or CSS color (#ffb300, rgb(), var()). */
   color?: string;
   hide_when_zero?: boolean;
-  /** Inverts the entity's sign. */
-  invert?: boolean;
-  /** Additional entity shown in the node (e.g. today's energy). */
+  /** Additional entity shown in the bubble (e.g. today's energy). */
   secondary_entity?: string;
-  /**
-   * Cumulative energy counter(s) in kWh, as used by the Energy dashboard: the node shows today's
-   * energy from the statistics (unless `secondary_entity` is set).
-   */
-  energy_entity?: EntityRef;
   animation?: AnimationToggles;
   tap_action?: ActionConfig;
   hold_action?: ActionConfig;
   double_tap_action?: ActionConfig;
 }
 
-export type SolarConfig = BaseNodeConfig;
+export interface BaseNodeConfig extends BubbleConfig {
+  entity?: EntityRef;
+  /** Inverts the entity's sign. */
+  invert?: boolean;
+  /**
+   * Cumulative energy counter(s) in kWh, as used by the Energy dashboard: the node shows today's
+   * energy from the statistics (unless `secondary_entity` is set).
+   */
+  energy_entity?: EntityRef;
+}
+
+/**
+ * One unit of the solar source (an inverter, a string of panels…): what it reads, and, when the
+ * source is `separate`, its own bubble.
+ */
+export interface SolarUnitConfig extends BubbleConfig {
+  entity?: string;
+  invert?: boolean;
+  /** Cumulative energy counter in kWh (today's energy of the unit). */
+  energy_entity?: string;
+}
+
+/**
+ * The solar source is made of one or several units, which a single bubble adds up. With `separate`,
+ * each unit has its own bubble instead (set on the unit), and the source itself is not drawn: its
+ * flows start where the units meet. The bubble options of the source are those of the single bubble.
+ */
+export interface SolarConfig extends BubbleConfig {
+  separate?: boolean;
+  units?: SolarUnitConfig[];
+}
 
 export interface GridConfig extends BaseNodeConfig {
   /** Alternative to the signed `entity`: two separate positive entities. */
@@ -49,16 +75,29 @@ export interface GridConfig extends BaseNodeConfig {
   max_import?: number;
 }
 
-export interface BatteryConfig extends BaseNodeConfig {
-  charge_entity?: EntityRef;
-  discharge_entity?: EntityRef;
-  /** State of charge in %. Several entities are averaged. */
-  soc_entity?: EntityRef;
+/** One unit of the battery source (a battery pack): like a solar unit, with a charge level. */
+export interface BatteryUnitConfig extends BubbleConfig {
+  /** Signed power (positive = discharge), or `charge_entity` and `discharge_entity`. */
+  entity?: string;
+  charge_entity?: string;
+  discharge_entity?: string;
+  invert?: boolean;
+  /** State of charge in %. */
+  soc_entity?: string;
+  /** Cumulative energy counter in kWh (today's energy of the unit). */
+  energy_entity?: string;
   charge_color?: string;
   /** Usable capacity in kWh: with `soc_entity`, shows the time to full or to the reserve. */
   capacity?: number;
   /** Reserve kept by the battery (%), the discharge estimate stops there. */
   min_soc?: number;
+}
+
+/** The battery source: one or several units, like the solar source. */
+export interface BatteryConfig extends BubbleConfig {
+  separate?: boolean;
+  charge_color?: string;
+  units?: BatteryUnitConfig[];
 }
 
 export type HomeConfig = BaseNodeConfig;

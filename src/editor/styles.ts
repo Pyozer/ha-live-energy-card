@@ -4,7 +4,8 @@ export const editorStyles = css`
   :host {
     display: block;
   }
-  .devices {
+  .devices,
+  .units {
     margin-top: 16px;
     display: flex;
     flex-direction: column;
@@ -70,7 +71,8 @@ export const editorStyles = css`
     color: var(--primary-text-color);
     background: var(--secondary-background-color);
   }
-  .devices {
+  .devices,
+  .units {
     position: relative;
   }
   /* The lifted block floats above the list and follows the pointer (left and top are set while dragging). */
@@ -88,7 +90,7 @@ export const editorStyles = css`
     cursor: grabbing;
   }
   /* No horizontal scrollbar while the block follows the pointer sideways. */
-  .devices.lifting {
+  .lifting {
     overflow-x: clip;
   }
   /* The gap showing where the dragged device would land: the others move aside to make room. */

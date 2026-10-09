@@ -6,6 +6,7 @@ import {
   findDevice,
   isGroup,
   moveDevice,
+  parsePathKey,
   pathKey,
   removeDevice,
   updateDevice,
@@ -17,6 +18,14 @@ const list: DeviceConfig[] = [
   { entity: 'sensor.a' },
   { name: 'Kitchen', devices: [{ entity: 'sensor.oven' }, { entity: 'sensor.hob' }] },
 ];
+
+describe('path keys', () => {
+  it('turn a path into a key and back', () => {
+    expect(pathKey([2, 0])).toBe('2.0');
+    expect(parsePathKey('2.0')).toEqual([2, 0]);
+    expect(parsePathKey(pathKey([3]))).toEqual([3]);
+  });
+});
 
 describe('editor device list', () => {
   it('reads top-level devices and group members', () => {

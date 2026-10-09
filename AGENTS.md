@@ -52,24 +52,29 @@ hass + config ─► model/   ─► layout.ts ─► tree.ts ─► live-energy
 | `src/model/index.ts` | `buildModel`: readings → energy balance → nodes → flows. Re-exports the model API. |
 | `src/model/context.ts` | Defaults (`DEFAULTS`), per-update context, flow intensity scale. |
 | `src/model/sources.ts` | Source readings (signed entity or positive pair) and the solar, grid, battery and home nodes. |
+| `src/source-units.ts` | The units of the solar and battery sources (`units`: an inverter, a battery pack…), those that read something, with their node id (`solar:0`, `battery:1`…: the position in the list). |
+| `src/unit-layout.ts` | Pure geometry of the bubbles of a source shown one per unit: one row, or two staggered rows when they get too small (`planUnits`, `unitOffsets`). |
 | `src/model/devices.ts` | Device nodes, groups, the "untracked" node and device sorting (hysteresis). |
 | `src/model/flows.ts` | Source and device flows, effects (`flowToggles`), distribution bus (`applyDeviceTree`). |
 | `src/model/format.ts` | Node helpers: entity name cleanup, secondary value, default actions, battery icon. |
-| `src/layout.ts` | Node positions for a given width and source flow paths (right angles with rounded corners, like the bus). Device modes: `column`, `grid`, `stack` (narrow screens). |
+| `src/layout.ts` | Node positions for a given width and source flow paths (right angles with rounded corners, like the bus). Device modes: `column`, `grid`, `stack` (narrow screens). A source shown unit by unit gets a hub (a point) where its node would be, with its units in rows next to it, and `unitFlowPath` for the feeders. |
 | `src/tree.ts` | Paths of the distribution bus feeding devices in grid / stack modes (and column mode with the `rounded` / `square` line styles). |
 | `src/energy-today.ts` | Today's energy per node from the statistics (`recorder/statistic_during_period`), refreshed by the card every 5 minutes. |
-| `src/battery.ts` | Battery time estimate (to full or to the reserve) and duration formatting. |
+| `src/battery.ts` | Battery time estimate (to full or to the reserve), the charge of several batteries seen as one (`combinePacks`) and duration formatting. |
 | `src/cost.ts` | Cost, solar savings and grid CO₂: live rate per hour from the flows, or total of the day (`cost.period: day`) from today's energy; price reading and formatting. |
 | `src/intensity.ts` | Power → visual parameters (speed, thickness, density, glow). |
 | `src/animator.ts` | `requestAnimationFrame` loop: SVG particles, transitions, animated counters. |
 | `src/live-energy-card.ts` | Lit element: Lovelace lifecycle, rendering, width measurement, registration. |
 | `src/styles.ts` | Styles and palette (`--lec-*` variables, light / dark). |
 | `src/actions.ts` | `tap_action`, `hold_action`, `double_tap_action` (`hass-action` event). |
-| `src/editor/editor.ts` | Visual editor element: renders the forms and the device list (pointer-event drag and drop on a handle, arrow keys as keyboard alternative), emits `config-changed`. |
+| `src/editor/editor.ts` | Visual editor element: renders the forms and the device list (drag and drop on a handle, arrow keys as keyboard alternative), emits `config-changed`. |
+| `src/editor/unit-editor.ts` | `live-energy-card-unit-editor`: the list of the units of the solar or battery source (cards opening on their own form, add, remove, reorder), fires `units-changed`. |
+| `src/editor/drag-controller.ts` | `DragController`: the pointer-event drag and drop of a list (lifted block, gap, autoscroll), told what can land where by a `DragSpec`. Used by the device list and the unit lists. |
 | `src/editor/schema.ts` | `ha-form` schemas (card, nodes, devices) and field labels. |
 | `src/editor/form.ts` | Config ↔ form data. Only writes values that differ from the defaults. |
 | `src/editor/validation.ts` | Entity checks shown by the editor: missing entities and entities of the wrong kind. |
 | `src/editor/styles.ts` | Editor styles. |
+| `src/editor/unit-list.ts` | Immutable operations on the units of a source (add, update, remove, reorder by keyboard or drop). |
 | `src/editor/device-list.ts` | Immutable operations on the two-level device list (devices and group members), including `dropDevice` (drag and drop). |
 | `src/editor/drag.ts` | Pure geometry of the device drag and drop: the drop target (before, after, into a group) for a pointer height. |
 | `src/localize/` | `en.ts` is the reference; `fr.ts` is typed against it (a missing key fails to compile). `resolveLanguage` picks the card `language` option, then the HA user language. |
@@ -87,6 +92,19 @@ Design rules:
   path is `display="none"` unless visible, so its blur filter costs nothing when off.
 - **Lit without decorators**: `static properties` + `declare` fields, with
   `useDefineForClassFields: false`. Do not initialize these fields at declaration.
+- **Solar and battery are lists of units; one format only.** What a unit *reads* (`entity`, `invert`,
+  `energy_entity`, battery `soc_entity`…) is set on the unit. Its *bubble* (`name`, `icon`, `color`,
+  `hide_when_zero`, `secondary_entity`, actions, `animation`) is set on the node for a single bubble
+  that adds the units up, and on each unit when the node is `separate`: there is no inheritance
+  between the two, and no `entity` on the node. The editor hides the fields that do not apply.
+- **A source shown one bubble per unit is a hub plus units.** `computeFlows` always works on the
+  totals, so the flows from the source to the home, grid and battery are the same in both displays:
+  they start at the hub, which is a node (id `solar` / `battery`, `hub: true`) with a point-sized
+  rect that is not drawn. Each unit has a feeder flow to the hub (`feeds`), excluded from the device
+  bus. The total is the sum of the raw unit values (a threshold on each unit would lose
+  micro-inverters), while a unit's own bubble and feeder show 0 below the threshold.
+- **Unavailable units**: a single bubble is unavailable as soon as one unit is (a partial total
+  would mislead); with a bubble per unit, the unavailable one counts as 0 and is flagged alone.
 - **A hidden node has no layout position.** Any element attached to a node (caption, ring, badge)
   must disappear with the `.is-hidden` class, otherwise it is drawn at (0, 0).
 - **Clean, iOS-like design**: neutral surfaces, system colors reserved for icons and flows, no neon
@@ -100,7 +118,7 @@ Every change or new feature must be **testable and tested**:
 
 - Add or extend tests in `test/` (`*.test.ts`), one file per area: `compute`, `units-intensity`,
   `layout-model`, `model`, `config`, `battery`, `energy-today`, `colors-format`, `actions`, `localize`, `entities`, `energy`,
-  `device-list`, `editor`, `cost`. Create a new file when a new module appears.
+  `device-list`, `editor`, `cost`, `source-units`, `drag-controller`. Create a new file when a new module appears.
 - Design for testing: extract logic into an exported pure function instead of leaving it in the
   component or the animator.
 - A bug fix starts with a test that reproduces the bug.

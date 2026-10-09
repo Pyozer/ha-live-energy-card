@@ -1,4 +1,13 @@
+import type { UnitGroup } from './source-units';
 import type { LineStyle } from './types';
+import {
+  blockHeight,
+  feederLength,
+  planUnits,
+  UNIT_ROW_GAP,
+  unitOffsets,
+  type UnitPlan,
+} from './unit-layout';
 
 /**
  * Node placement (in px) and flow paths.
@@ -28,6 +37,24 @@ export interface LayoutInput {
   devicesLayout?: DevicesLayout;
   /** Forced number of columns in grid mode. */
   devicesColumns?: number;
+  /**
+   * Ids of the visible units of the solar and battery nodes, when they are shown unit by unit. The
+   * node is then a hub where the units meet (`HUB_SIZE`), with the units in rows next to it.
+   */
+  solarUnits?: string[];
+  batteryUnits?: string[];
+}
+
+/** Size of the rect of a hub: a point, where the flows of the units meet. */
+export const EDGE_INSET = 3;
+export const HUB_SIZE = 2 * EDGE_INSET;
+
+/** Where the feeders of a source shown unit by unit run side by side. */
+export interface UnitsLayout {
+  /** Diameter of the units. */
+  size: number;
+  /** Height of the horizontal segment shared by the feeders. */
+  trunk: number;
 }
 
 export interface DevicesArrangement {
@@ -49,6 +76,7 @@ export interface Layout {
   size: number;
   compact: boolean;
   devices: DevicesArrangement;
+  units: Partial<Record<UnitGroup, UnitsLayout>>;
 }
 
 export const clamp = (v: number, min: number, max: number): number => Math.min(max, Math.max(min, v));
@@ -64,7 +92,12 @@ interface DiagramMetrics {
   below: number;
   pillH: number;
   pillGap: number;
+  /** Arrangement of the units of the solar and battery nodes shown unit by unit. */
+  plans: Partial<Record<UnitGroup, UnitPlan>>;
 }
+
+/** Room a battery caption (charge level) takes under a circle of diameter `size`. */
+const captionHeight = (size: number): number => clamp(size * 0.28, 18, 24);
 
 function diagramMetrics(input: LayoutInput, areaW: number): DiagramMetrics {
   const middle = input.solar || input.battery;
@@ -74,25 +107,80 @@ function diagramMetrics(input: LayoutInput, areaW: number): DiagramMetrics {
   const Dh = Math.min(D * 1.16, 104);
   const spacing = cols > 1 ? clamp((areaW - D / 2 - Dh / 2) / (cols - 1), D * 1.3, D * 2.3) : 0;
   const width = cols > 1 ? D / 2 + spacing * (cols - 1) + Dh / 2 : Dh;
-  // Space reserved below the battery for its caption (charge level).
-  const caption = input.battery ? clamp(D * 0.28, 18, 24) : 0;
   const V = D * 1.3;
   const pillH = clamp(D * 0.56, 36, 46);
+  const plans: DiagramMetrics['plans'] = {};
+  if (input.solar && input.solarUnits?.length) plans.solar = planUnits(input.solarUnits.length, width, D);
+  if (input.battery && input.batteryUnits?.length)
+    plans.battery = planUnits(input.batteryUnits.length, width, D);
+  const { solar, battery } = plans;
   return {
     D,
     Dh,
     spacing,
     width,
     V,
-    above: input.solar ? D / 2 + V : Dh / 2,
-    below: input.battery ? V + D / 2 + caption : Dh / 2,
+    // The nodes sit V from the home, the units beyond. Under a battery: room for its caption (charge level).
+    above: input.solar ? (solar ? V + feederLength(solar.size) + blockHeight(solar) : D / 2 + V) : Dh / 2,
+    below: input.battery
+      ? battery
+        ? V + feederLength(battery.size) + blockHeight(battery, captionHeight(battery.size))
+        : V + D / 2 + captionHeight(D)
+      : Dh / 2,
     pillH,
     pillGap: clamp(pillH * 0.22, 6, 10),
+    plans,
   };
 }
 
 const stackHeight = (count: number, h: number, gap: number): number =>
   count > 0 ? count * h + (count - 1) * gap : 0;
+
+/**
+ * Positions of the grid, solar, battery and home nodes. A source shown unit by unit gets a hub where
+ * its node would be, and its units in rows next to it (above the solar hub, below the battery hub).
+ */
+function placeSources(
+  input: LayoutInput,
+  m: DiagramMetrics,
+  offsetX: number,
+  yMid: number,
+): Pick<Layout, 'nodes' | 'units'> {
+  const { D, Dh, V, spacing } = m;
+  const nodes: Record<string, Rect> = {};
+  const units: Layout['units'] = {};
+  let colX = offsetX + D / 2;
+  if (input.grid) {
+    nodes.grid = { x: colX, y: yMid, w: D, h: D };
+    colX += spacing;
+  }
+
+  const place = (group: UnitGroup, ids: string[] | undefined, y: number, side: 1 | -1) => {
+    const plan = m.plans[group];
+    if (!plan || !ids) {
+      nodes[group] = { x: colX, y, w: D, h: D };
+      return;
+    }
+    nodes[group] = { x: colX, y, w: HUB_SIZE, h: HUB_SIZE };
+    const feeder = feederLength(plan.size);
+    // Under a battery, each row also holds the caption of its units.
+    const row = plan.size + (group === 'battery' ? captionHeight(plan.size) : 0) + UNIT_ROW_GAP;
+    const center = clamp(colX, offsetX + plan.width / 2, offsetX + m.width - plan.width / 2);
+    unitOffsets(plan, side < 0).forEach(({ x, row: r }, i) => {
+      nodes[ids[i]] = {
+        x: center + x,
+        y: y + side * (feeder + plan.size / 2 + r * row),
+        w: plan.size,
+        h: plan.size,
+      };
+    });
+    units[group] = { size: plan.size, trunk: y + (side * feeder) / 2 };
+  };
+  if (input.solar) place('solar', input.solarUnits, yMid - V, -1);
+  if (input.battery) place('battery', input.batteryUnits, yMid + V, 1);
+  nodes.home = { x: offsetX + m.width - Dh / 2, y: yMid, w: Dh, h: Dh };
+  return { nodes, units };
+}
 
 export function computeLayout(input: LayoutInput): Layout {
   const W = Math.max(240, input.width);
@@ -173,20 +261,8 @@ export function computeLayout(input: LayoutInput): Layout {
   const yMid = pad + Math.max(m.above, devAbove);
   const height = yMid + Math.max(m.below, devBelow) + pad;
 
-  const nodes: Record<string, Rect> = {};
-  const { D, Dh, V, spacing } = m;
-  const middle = input.solar || input.battery;
-  let colX = offsetX + D / 2;
-  if (input.grid) {
-    nodes.grid = { x: colX, y: yMid, w: D, h: D };
-    colX += spacing;
-  }
-  if (middle) {
-    if (input.solar) nodes.solar = { x: colX, y: yMid - V, w: D, h: D };
-    if (input.battery) nodes.battery = { x: colX, y: yMid + V, w: D, h: D };
-  }
-  const homeX = offsetX + m.width - Dh / 2;
-  nodes.home = { x: homeX, y: yMid, w: Dh, h: Dh };
+  const { nodes, units } = placeSources(input, m, offsetX, yMid);
+  const { D } = m;
 
   const above: number[] = [];
   columns.forEach((ids, c) => {
@@ -218,6 +294,7 @@ export function computeLayout(input: LayoutInput): Layout {
     size: D,
     compact,
     devices: { mode: gridMode ? 'grid' : 'column', columns, above, bus: 13 },
+    units,
   };
 }
 
@@ -225,18 +302,10 @@ export function computeLayout(input: LayoutInput): Layout {
 function stackLayout(input: LayoutInput, W: number, pad: number): Layout {
   const n = input.devices.length;
   const m = diagramMetrics(input, W - 2 * pad - 18);
-  const { D, Dh, V, spacing } = m;
+  const { D } = m;
   const offsetX = pad + Math.max(0, (W - 2 * pad - 18 - m.width) / 2);
   const yMid = pad + m.above;
-  const nodes: Record<string, Rect> = {};
-  let colX = offsetX + D / 2;
-  if (input.grid) {
-    nodes.grid = { x: colX, y: yMid, w: D, h: D };
-    colX += spacing;
-  }
-  if (input.solar) nodes.solar = { x: colX, y: yMid - V, w: D, h: D };
-  if (input.battery) nodes.battery = { x: colX, y: yMid + V, w: D, h: D };
-  nodes.home = { x: offsetX + m.width - Dh / 2, y: yMid, w: Dh, h: Dh };
+  const { nodes, units } = placeSources(input, m, offsetX, yMid);
 
   const bus = 13;
   const gutter = 22;
@@ -263,6 +332,7 @@ function stackLayout(input: LayoutInput, W: number, pad: number): Layout {
     size: D,
     compact: true,
     devices: { mode: 'stack', columns, above: columns.map(() => 0), bus },
+    units,
   };
 }
 
@@ -272,7 +342,7 @@ export interface Point {
 }
 
 /** Point on a node's edge in direction `angle` (degrees, 0 = right, 90 = down). */
-export function edgePoint(rect: Rect, angle: number, kind: 'circle' | 'pill', inset = 3): Point {
+export function edgePoint(rect: Rect, angle: number, kind: 'circle' | 'pill', inset = EDGE_INSET): Point {
   const rad = (angle * Math.PI) / 180;
   if (kind === 'pill') {
     // Devices are always connected by their left edge.
@@ -386,6 +456,8 @@ export function sourceFlowPath(
   id: SourceFlowId,
   nodes: Record<string, Rect>,
   style: LineStyle = 'rounded',
+  /** Diameter of the source nodes (a hub has none): the corner radius follows it. */
+  size = nodes[SOURCE_FLOWS[id][0]]?.w,
 ): PathGeometry | null {
   const [a, aAngle, b, bAngle] = SOURCE_FLOWS[id];
   const ra = nodes[a];
@@ -401,7 +473,52 @@ export function sourceFlowPath(
   const from = edgePoint(ra, aAngle, 'circle');
   const to = edgePoint(rb, bAngle, 'circle');
   if (style === 'curved') return curveBetween(from, aAngle, to, bAngle);
-  return elbowBetween(from, aAngle, to, bAngle, style === 'square' ? 0 : sourceCornerRadius(ra.w));
+  return elbowBetween(from, aAngle, to, bAngle, style === 'square' ? 0 : sourceCornerRadius(size));
+}
+
+/**
+ * Vertical, horizontal then vertical path, with rounded corners: from a unit down (or up) to the
+ * segment shared by the feeders at height `trunk`, along it, then to the hub.
+ */
+function zigzag(from: Point, to: Point, trunk: number, radius: number): PathGeometry {
+  const dx = to.x - from.x;
+  if (Math.abs(dx) < 0.5) return { d: `M${f(from.x)},${f(from.y)} L${f(to.x)},${f(to.y)}`, from, to };
+  const r = Math.max(0, Math.min(radius, Math.abs(dx) / 2, Math.abs(trunk - from.y), Math.abs(to.y - trunk)));
+  const sx = Math.sign(dx);
+  const sy1 = Math.sign(trunk - from.y);
+  const sy2 = Math.sign(to.y - trunk);
+  return {
+    d:
+      `M${f(from.x)},${f(from.y)} L${f(from.x)},${f(trunk - sy1 * r)} ` +
+      `Q${f(from.x)},${f(trunk)} ${f(from.x + sx * r)},${f(trunk)} L${f(to.x - sx * r)},${f(trunk)} ` +
+      `Q${f(to.x)},${f(trunk)} ${f(to.x)},${f(trunk + sy2 * r)} L${f(to.x)},${f(to.y)}`,
+    from,
+    to,
+  };
+}
+
+/**
+ * Flow between a unit and its hub, in the direction of the power: toward the hub (`towardHub`, a
+ * solar unit producing) or away from it (a battery unit charging). Both ends are on the vertical
+ * of their center, the hub being a point.
+ */
+export function unitFlowPath(
+  unit: Rect,
+  hub: Rect,
+  trunk: number,
+  style: LineStyle,
+  size: number,
+  towardHub: boolean,
+): PathGeometry {
+  // Angle, seen from the unit, of the side facing the hub.
+  const facing = hub.y > unit.y ? 90 : -90;
+  const edge = edgePoint(unit, facing, 'circle');
+  const center = { x: hub.x, y: hub.y };
+  const [from, to] = towardHub ? [edge, center] : [center, edge];
+  const [fromAngle, toAngle] = towardHub ? [facing, facing + 180] : [facing + 180, facing];
+  if (style === 'straight') return { d: `M${f(from.x)},${f(from.y)} L${f(to.x)},${f(to.y)}`, from, to };
+  if (style === 'curved') return curveBetween(from, fromAngle, to, toAngle);
+  return zigzag(from, to, trunk, style === 'square' ? 0 : sourceCornerRadius(size));
 }
 
 /**

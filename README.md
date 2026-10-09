@@ -14,7 +14,9 @@ colors reserved for icons and flows. Each flow's animation follows its power.
 
 - **Animated flows** whose speed, thickness, particle density and glow depend on the power. Each
   of these four effects can be toggled separately (globally or per node).
-- **Several entities per node**: inverters, grid phases or batteries added up.
+- **Several inverters or batteries**: added up in one bubble, or, with `separate: true`, one bubble
+  each with its own power, name, icon and color. Several entities on the grid, the home or a device
+  are added up too.
 - **Device groups** that expand with a tap.
 - **Every source is optional**: without solar, battery or grid, the layout rearranges itself with
   no gaps.
@@ -69,11 +71,13 @@ solar, grid, battery and individual devices), the card configures itself:
 - when the card is added (**Add card → Live Energy Card**), the suggested configuration is
   imported from the Energy dashboard;
 - in the visual editor, **Import from the Energy dashboard** adds the missing sources and devices
-  to an existing card. Imported sources replace the configured entities but keep their name, icon
-  and color; devices already in the card are kept, and get their energy counter if they lacked it.
+  to an existing card. The imported grid replaces the configured entities but keeps its name, icon
+  and color; inverters and batteries are added as units next to the ones already in the card;
+  devices already in the card are kept, and get their energy counter if they lacked it.
 
 The dashboard's energy counters are imported too (`energy_entity`), so solar, grid import and each
-device show **today's energy** under their power.
+device show **today's energy** under their power. Each inverter and each battery of the dashboard
+becomes a unit (see [Several inverters and batteries](#several-inverters-and-batteries)).
 
 Sources and devices without a power sensor are skipped (the dashboard's energy statistics in kWh
 cannot show live flows). A device "included in" another listed device becomes a member of
@@ -86,13 +90,15 @@ their names.
 type: custom:live-energy-card
 max_power: 4000
 solar:
-  entity: sensor.shelly_solaire_puissance
   secondary_entity: sensor.panneaux_solaires_energie_du_jour
+  units:
+    - entity: sensor.shelly_solaire_puissance
 grid:
   entity: sensor.shelly_pro_3em_energy_meter_1_puissance # positive = import
 battery:
-  entity: sensor.batterie_puissance # positive = discharge
-  soc_entity: sensor.batterie_niveau
+  units:
+    - entity: sensor.batterie_puissance # positive = discharge
+      soc_entity: sensor.batterie_niveau
 devices:
   - entity: sensor.shelly_pro_3em_energy_meter_3_puissance
     name: Water heater
@@ -110,7 +116,8 @@ devices:
 ```yaml
 type: custom:live-energy-card
 solar:
-  entity: sensor.shelly_solaire_puissance
+  units:
+    - entity: sensor.shelly_solaire_puissance
 grid:
   entity: sensor.shelly_pro_3em_energy_meter_1_puissance
 devices:
@@ -155,25 +162,82 @@ devices:
       - entity: sensor.hob_power
 ```
 
-### Several inverters, three-phase grid, two batteries
+### Several inverters and batteries
 
-A node is unavailable as soon as one of its entities is, so a partial total is never shown.
+The solar and battery sources are made of **units**: an inverter, a string of panels, a battery
+pack. Each unit reads its own entities. A single bubble adds the units up, which is the default.
 
 ```yaml
 type: custom:live-energy-card
 solar:
-  entity:
-    - sensor.inverter_roof_power
-    - sensor.inverter_garage_power
+  name: Solar # the single bubble: its name, icon and color are set here
+  units:
+    - entity: sensor.inverter_roof_power
+      energy_entity: sensor.inverter_roof_energy
+    - entity: sensor.inverter_garage_power
+      energy_entity: sensor.inverter_garage_energy
 grid:
-  entity:
+  entity: # several entities (phases) are added up too
     - sensor.grid_l1_power
     - sensor.grid_l2_power
     - sensor.grid_l3_power
 battery:
-  entity: [sensor.battery_1_power, sensor.battery_2_power]
-  soc_entity: [sensor.battery_1_level, sensor.battery_2_level]
+  units:
+    - entity: sensor.battery_1_power
+      soc_entity: sensor.battery_1_level
+      capacity: 5
+    - entity: sensor.battery_2_power
+      soc_entity: sensor.battery_2_level
+      capacity: 10
 ```
+
+With `separate: true`, each unit gets its own bubble instead, which shows which inverter produces
+and which battery charges. The grid and the home are never split.
+
+```yaml
+solar:
+  separate: true
+  units:
+    - entity: sensor.inverter_roof_power
+      name: Roof
+      icon: mdi:solar-panel-large
+    - entity: sensor.inverter_garage_power
+      name: Garage
+      color: teal
+```
+
+What a unit reads is always set on the unit; its *bubble* (what it looks like and does) is set on the
+node for a single bubble, and on each unit for a bubble per unit. Switching from one display to the
+other loses nothing.
+
+| On the unit | On the node (single bubble), or on each unit (`separate`) |
+| --- | --- |
+| `entity`, `invert`, `energy_entity` | `name`, `icon`, `color`, `hide_when_zero`, `secondary_entity`, `animation`, `tap_action`, `hold_action`, `double_tap_action` |
+| battery: `charge_entity`, `discharge_entity`, `soc_entity`, `capacity`, `min_soc` | battery: `charge_color` |
+
+- A unit's `entity` is a single entity: one sensor per unit. A battery unit has a signed `entity`
+  (positive = discharge) or a `charge_entity` and a `discharge_entity`.
+- **A single bubble** adds the units up, and is unavailable as soon as one of them is, so a partial
+  total is never shown. Its charge level is the average of the units', weighted by their
+  `capacity` when each has one, and its time to full or to the reserve is estimated on the sum of the
+  capacities (with the reserves weighted the same way) when every unit has a charge level and a
+  capacity. As soon as one of them has no level or no capacity, there is no estimate.
+- **A bubble per unit**: an unavailable unit counts as 0 and is flagged on its own, the others still
+  count. A unit's bubble shows its icon and value, plus its name and daily energy when there is
+  room. Units that do not fit on one row wrap on a second one, and shrink with the width of the card.
+  A battery unit can charge while another one discharges, the source keeping the net balance.
+- The flows to the home, the grid and the other source carry the total, whatever the display, so
+  the energy balance, the ratios, the cost and the carbon do not depend on it. With a bubble per
+  unit, they start at the point where the units meet.
+- The energy of the day of the source is the sum of its units' `energy_entity`, when each has one:
+  that is what the daily solar savings need.
+- The visual editor lists the units under the form of the source, where they can be added, removed
+  and reordered (drag the handle, or use the arrow keys on it).
+
+> **Breaking change**: `entity`, `energy_entity`, `invert` (and, for the battery, `soc_entity`,
+> `charge_entity`, `discharge_entity`, `capacity` and `min_soc`) are no longer options of `solar` and
+> `battery`: move them to a unit, `solar: { units: [{ entity: … }] }`. The card says so in its error
+> message.
 
 ### Six devices in a grid, dimmed idle flows
 
@@ -228,11 +292,12 @@ devices:
 
 ### Node options
 
-Available for `solar`, `grid`, `battery`, `home` and each item of `devices`:
+Available for `grid`, `home` and each item of `devices` (and for each unit of `solar` and `battery`, see
+[Several inverters and batteries](#several-inverters-and-batteries)):
 
 | Option | Description |
 | --- | --- |
-| `entity` | Power entity (W, kW…), or a list of entities whose values are added up (several inverters, grid phases, batteries, or a device made of several plugs). For `grid`: positive = import. For `battery`: positive = discharge. |
+| `entity` | Power entity (W, kW…), or a list of entities whose values are added up (grid phases, or a device made of several plugs). For `grid`: positive = import. |
 | `name`, `icon` | Label and icon. |
 | `color` | HA color name (`amber`, `blue`…) or CSS color. |
 | `invert` | Inverts the entity's sign. |
@@ -250,10 +315,12 @@ Specific options:
   `max_import` (import limit in W, e.g. the subscribed power: above it, the grid node turns red and
   shows *Over limit*). The grid node shows a signed value: positive when importing, **negative when
   exporting** (a signed entity keeps its sign, an export entity is shown as negative).
-- `battery`: `charge_entity` / `discharge_entity`, `soc_entity` (charge level in %; a list is averaged), `charge_color`,
-  `capacity` (usable capacity in kWh) and `min_soc` (reserve in %, default 0): with a charge level,
-  the caption shows the time to full or down to the reserve at the current power (*Full in 2 h 05*),
-  up to 48 h.
+- `solar` and `battery`: `separate` and `units`, see
+  [Several inverters and batteries](#several-inverters-and-batteries). On a battery unit:
+  `charge_entity` / `discharge_entity` (alternative to a signed `entity`), `soc_entity` (charge level
+  in %), `charge_color`, `capacity` (usable capacity in kWh) and `min_soc` (reserve in %, default 0):
+  with a charge level and a capacity, the caption shows the time to full or down to the reserve at
+  the current power (*Full in 2 h 05*), up to 48 h.
 - `home`: `entity` is optional. Without it, consumption is computed from the sources.
 - `devices` groups: `devices` (members, same options as a device), `expanded` (initially
   expanded), `entity` optional. A group's default tap action expands or collapses it.
@@ -272,7 +339,7 @@ Live indicators shown under the diagram. `cost.period` picks how cost and saving
 - `day`: a **total for the day** (€), from today's energy counters (kWh), like the Energy dashboard.
   - **Cost today** = grid import × import price − grid export × export price.
   - **Solar savings today** = (solar production − energy sent to the grid) × import price.
-  - Needs `energy_entity` on `solar` and on `grid` (the import), plus `grid.export_energy_entity`
+  - Needs `energy_entity` on every solar unit and on `grid` (the import), plus `grid.export_energy_entity`
     (the energy sent to the grid). The editor only shows the export field in this mode; the Energy
     dashboard import fills the three in. While a counter is missing, the indicator is hidden
     rather than wrong.
@@ -344,6 +411,9 @@ Allocation then follows fixed priorities:
 1. **Solar** → home, then battery (if charging), then grid (surplus).
 2. **Battery** (if discharging) → home, then grid.
 3. **Grid** → remaining home demand, then battery charge.
+
+The solar and battery totals are the sum of their units. With a bubble per unit, the units' own flows
+join at the point from which the flows above start.
 
 In grid mode, each bus segment carries the sum of the devices downstream.
 "Other" equals `home − Σ devices` (devices with `exclude_from_untracked` left out), never negative.

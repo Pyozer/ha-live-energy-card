@@ -72,6 +72,7 @@ export class FlowAnimator {
   private stage?: HTMLElement;
   private height = { current: 0, target: 0 };
   private scale = 1;
+  private size = 80;
   /** Incremented whenever the geometry may have changed (moved nodes, new layout). */
   private geomVersion = 0;
   private raf = 0;
@@ -148,6 +149,7 @@ export class FlowAnimator {
     lineStyle: LineStyle = 'rounded',
   ): void {
     this.lineStyle = lineStyle;
+    this.size = layout.size;
     this.scale = layout.size / 80;
     this.height.target = layout.height;
     if (this.height.current === 0) this.height.current = layout.height;
@@ -352,7 +354,7 @@ export class FlowAnimator {
         const geom = m.geometry
           ? m.geometry(rects)
           : m.source
-            ? sourceFlowPath(m.source, rects, this.lineStyle)
+            ? sourceFlowPath(m.source, rects, this.lineStyle, this.size)
             : deviceFlowPath(from, to, this.lineStyle);
         if (geom) {
           for (const p of [els.track, els.halo, els.dots]) p.setAttribute('d', geom.d);

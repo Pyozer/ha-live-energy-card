@@ -1,13 +1,16 @@
 import { compactRef } from '../entities';
 import { DEFAULT_TOGGLES } from '../intensity';
 import { DEFAULTS } from '../model';
+import type { UnitGroup } from '../source-units';
 import type {
   AnimationToggles,
   BaseNodeConfig,
+  BatteryUnitConfig,
   CostConfig,
   DeviceConfig,
   GridConfig,
   LiveEnergyCardConfig,
+  SolarConfig,
 } from '../types';
 import { entityIds } from '../units';
 import { isGroup } from './device-list';
@@ -66,17 +69,24 @@ export function hideDefault(kind: NodeKey | 'device', globalHide: boolean | unde
   return globalHide ?? DEFAULTS.hide_when_zero;
 }
 
+export const isUnitGroup = (kind: NodeKey): kind is UnitGroup => kind === 'solar' || kind === 'battery';
+
 export function toFormData(config: LiveEnergyCardConfig, modes: PriceModes = {}): Record<string, unknown> {
   const node = (kind: NodeKey) => {
-    const cfg = (config[kind] ?? {}) as BaseNodeConfig;
+    const cfg = { ...config[kind] } as Record<string, unknown>;
+    // The units are edited in their own list.
+    delete cfg.units;
+    const hide = { hide_when_zero: cfg.hide_when_zero ?? hideDefault(kind, config.hide_when_zero) };
+    if (isUnitGroup(kind)) return { ...cfg, separate: !!cfg.separate, ...hide };
+    const base = cfg as BaseNodeConfig;
     return {
       ...cfg,
-      entity: entityIds(cfg.entity),
-      energy_entity: entityIds(cfg.energy_entity),
+      entity: entityIds(base.entity),
+      energy_entity: entityIds(base.energy_entity),
       ...(kind === 'grid'
         ? { export_energy_entity: entityIds((cfg as GridConfig).export_energy_entity) }
         : {}),
-      hide_when_zero: cfg.hide_when_zero ?? hideDefault(kind, config.hide_when_zero),
+      ...hide,
     };
   };
   return {
@@ -122,8 +132,18 @@ export function fromFormData(
 
   for (const kind of NODE_KEYS) {
     const cfg = { ...((data[kind] as BaseNodeConfig) ?? {}) };
-    cfg.entity = compactRef(cfg.entity);
-    cfg.energy_entity = compactRef(cfg.energy_entity);
+    if (isUnitGroup(kind)) {
+      // The units are edited in their own list and kept from `previous`.
+      const node = cfg as SolarConfig;
+      if (node.separate === false) delete node.separate;
+      const units = (previous[kind] as SolarConfig | undefined)?.units;
+      if (units?.length) node.units = units;
+      else delete node.units;
+    } else {
+      cfg.entity = compactRef(cfg.entity);
+      cfg.energy_entity = compactRef(cfg.energy_entity);
+      if (cfg.invert === false) delete cfg.invert;
+    }
     if (kind === 'grid') {
       const grid = cfg as GridConfig;
       grid.export_energy_entity = compactRef(grid.export_energy_entity);
@@ -131,7 +151,6 @@ export function fromFormData(
     // A value equal to the default is dropped, unless it was written explicitly before.
     const explicit = (previous[kind] as BaseNodeConfig | undefined)?.hide_when_zero !== undefined;
     if (cfg.hide_when_zero === hideDefault(kind, globalHide) && !explicit) delete cfg.hide_when_zero;
-    if (cfg.invert === false) delete cfg.invert;
     const cleaned = clean(cfg);
     if (Object.keys(cleaned).length === 0) delete next[kind];
     else next[kind] = cleaned;
@@ -198,5 +217,28 @@ export function deviceFromForm(
   for (const key of ['invert', 'exclude_from_untracked', 'expanded'] as const) {
     if (value[key] === false) delete value[key];
   }
+  return clean(value);
+}
+
+/** Form data of a unit. Like a device, the form shows the resolved `hide_when_zero`. */
+export function unitFormData(
+  group: UnitGroup,
+  unit: BatteryUnitConfig,
+  globalHide: boolean | undefined,
+): Record<string, unknown> {
+  return { ...unit, hide_when_zero: unit.hide_when_zero ?? hideDefault(group, globalHide) };
+}
+
+/** Unit config from its form data: only what differs from the defaults is written. */
+export function unitFromForm(
+  group: UnitGroup,
+  data: Record<string, unknown>,
+  previous: BatteryUnitConfig | undefined,
+  globalHide: boolean | undefined,
+): BatteryUnitConfig {
+  const value = { ...data } as BatteryUnitConfig;
+  if (value.hide_when_zero === hideDefault(group, globalHide) && previous?.hide_when_zero === undefined)
+    delete value.hide_when_zero;
+  if (value.invert === false) delete value.invert;
   return clean(value);
 }

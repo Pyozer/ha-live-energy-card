@@ -1,5 +1,6 @@
 import { localize } from './localize/localize';
-import type { EntityRef, LineStyle, LiveEnergyCardConfig } from './types';
+import { batteryUnits, solarUnits } from './source-units';
+import type { BatteryUnitConfig, EntityRef, LineStyle, LiveEnergyCardConfig } from './types';
 import { entityIds } from './units';
 
 export const LINE_STYLES: LineStyle[] = ['rounded', 'square', 'curved', 'straight'];
@@ -12,6 +13,33 @@ const NUMERIC_FIELDS = [
   'decimals',
   'kilo_decimals',
 ] as const;
+
+/** Options that moved from the solar and battery nodes to their units. */
+const MOVED_TO_UNITS = {
+  solar: ['entity', 'energy_entity', 'invert'],
+  battery: [
+    'entity',
+    'energy_entity',
+    'invert',
+    'soc_entity',
+    'charge_entity',
+    'discharge_entity',
+    'capacity',
+    'min_soc',
+  ],
+} as const;
+
+/** Copy of an object with its numeric fields coerced (YAML or the editor may give strings), empty ones removed. */
+function withNumbers(obj: object, fields: readonly string[], l: string): Record<string, unknown> {
+  const copy = { ...obj } as Record<string, unknown>;
+  for (const field of fields) {
+    const value = copy[field];
+    if (value === undefined || value === null || value === '') delete copy[field];
+    else if (!Number.isFinite(Number(value))) throw new Error(localize(l, 'error.invalid_power', { field }));
+    else copy[field] = Number(value);
+  }
+  return copy;
+}
 
 function lang(configured: unknown): string {
   if (typeof configured === 'string' && configured && configured !== 'auto') return configured;
@@ -48,25 +76,34 @@ export function validateConfig(input: unknown): LiveEnergyCardConfig {
     throw new Error(localize(l, 'error.invalid_range'));
   }
 
-  // Numbers nested in a section: coerced (YAML or the editor may give strings), empty ones removed.
-  const numbers = <K extends 'cost' | 'grid' | 'battery'>(section: K, fields: string[]) => {
-    if (!config[section]) return;
-    const copy = { ...config[section] } as Record<string, unknown>;
-    for (const field of fields) {
-      const value = copy[field];
-      if (value === undefined || value === null || value === '') delete copy[field];
-      else if (!Number.isFinite(Number(value)))
-        throw new Error(localize(l, 'error.invalid_power', { field }));
-      else copy[field] = Number(value);
-    }
-    (config as Record<string, unknown>)[section] = copy;
+  // Numbers nested in a section: coerced, empty ones removed.
+  const numbers = <K extends 'cost' | 'grid'>(section: K, fields: string[]) => {
+    if (config[section])
+      (config as Record<string, unknown>)[section] = withNumbers(config[section], fields, l);
   };
   numbers('cost', ['price', 'export_price']);
   // An unknown period falls back to the default instead of breaking the card.
   if (config.cost && config.cost.period !== undefined && !['hour', 'day'].includes(config.cost.period))
     config.cost = { ...config.cost, period: undefined };
   numbers('grid', ['max_import']);
-  numbers('battery', ['capacity', 'min_soc']);
+
+  // Solar and battery: their entities are set on their units, as a list without the empty rows left
+  // by the editor. An option that used to be on the node is refused, naming where it goes now.
+  for (const section of ['solar', 'battery'] as const) {
+    const node = config[section];
+    if (!node) continue;
+    for (const field of MOVED_TO_UNITS[section]) {
+      if ((node as Record<string, unknown>)[field] !== undefined)
+        throw new Error(localize(l, 'error.moved_to_units', { node: section, field }));
+    }
+    if (node.units === undefined) continue;
+    if (!Array.isArray(node.units)) throw new Error(localize(l, 'error.invalid_units', { field: section }));
+    const numeric = section === 'battery' ? ['capacity', 'min_soc'] : [];
+    (config as Record<string, unknown>)[section] = {
+      ...node,
+      units: node.units.filter((u) => u && typeof u === 'object').map((u) => withNumbers(u, numeric, l)),
+    };
+  }
 
   // An unknown line style falls back to the default instead of breaking the card.
   if (config.line_style !== undefined && !LINE_STYLES.includes(config.line_style)) delete config.line_style;
@@ -79,9 +116,9 @@ export function validateConfig(input: unknown): LiveEnergyCardConfig {
 
   const has = (...refs: unknown[]) => refs.some((r) => entityIds(r as EntityRef).length > 0);
   const hasEntity =
-    has(config.solar?.entity) ||
+    solarUnits(config.solar).length > 0 ||
     has(config.grid?.entity, config.grid?.import_entity, config.grid?.export_entity) ||
-    has(config.battery?.entity, config.battery?.charge_entity, config.battery?.discharge_entity) ||
+    batteryUnits(config.battery).length > 0 ||
     has(config.home?.entity) ||
     config.devices.some((d) => has(d.entity) || !!d.devices?.some((c) => has(c?.entity)));
   if (!hasEntity) throw new Error(localize(l, 'error.no_entity'));
@@ -94,16 +131,23 @@ export function watchedEntities(config: LiveEnergyCardConfig): string[] {
   const ids = new Set<string>();
   const add = (ref: EntityRef | undefined) => entityIds(ref).forEach((id) => ids.add(id));
   const devices = (config.devices ?? []).flatMap((d) => (d ? [d, ...(d.devices ?? [])] : []));
-  for (const node of [config.solar, config.grid, config.battery, config.home, ...devices]) {
+  for (const node of [config.grid, config.home, ...devices]) {
     if (!node) continue;
     add(node.entity);
     add(node.secondary_entity);
   }
+  for (const unit of [...(config.solar?.units ?? []), ...(config.battery?.units ?? [])]) {
+    if (!unit) continue;
+    add(unit.entity);
+    add(unit.secondary_entity);
+    add((unit as BatteryUnitConfig).charge_entity);
+    add((unit as BatteryUnitConfig).discharge_entity);
+    add((unit as BatteryUnitConfig).soc_entity);
+  }
+  add(config.solar?.secondary_entity);
+  add(config.battery?.secondary_entity);
   add(config.grid?.import_entity);
   add(config.grid?.export_entity);
-  add(config.battery?.charge_entity);
-  add(config.battery?.discharge_entity);
-  add(config.battery?.soc_entity);
   add(config.cost?.price_entity);
   add(config.cost?.export_price_entity);
   add(config.cost?.cost_entity);

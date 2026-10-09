@@ -3,13 +3,13 @@ import { computeStats } from '../cost';
 import type { HomeAssistant, LiveEnergyCardConfig } from '../types';
 import { modelContext } from './context';
 import { buildDevices } from './devices';
-import { deviceFlows, sourceFlows } from './flows';
+import { deviceFlows, sourceFlows, unitFlows } from './flows';
 import { readSources, sourceColors, sourceNodes } from './sources';
 import type { CardModel } from './types';
 
 export { DEFAULTS, flowScale } from './context';
 export { sortWithHysteresis } from './devices';
-export { applyDeviceTree, flowToggles } from './flows';
+export { applyDeviceTree, applyUnitPaths, flowToggles } from './flows';
 export { cleanName } from './format';
 export * from './types';
 
@@ -44,6 +44,7 @@ export function buildModel(
     nodes,
     flows: [
       ...sourceFlows(config, src, result.flows, colors, visible),
+      ...unitFlows(config, src, colors, visible),
       ...deviceFlows(config, devices, colors.home),
     ],
     ratios: config.show_ratios ? computeRatios(result) : null,

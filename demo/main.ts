@@ -20,6 +20,14 @@ const ENT = {
   co2: 'sensor.co2_intensity',
 };
 
+// Units of the solar and battery nodes, for the "unit by unit" display.
+const SOLAR_UNITS = ['Roof south', 'Garage', 'Roof east', 'Carport', 'Shed', 'Roof west', 'Pergola', 'Barn'];
+const BATTERY_UNITS = ['Pack A', 'Pack B', 'Pack C', 'Pack D', 'Pack E', 'Pack F'];
+const solarUnitId = (i: number) => `sensor.solar_unit_${i}`;
+const solarUnitEnergy = (i: number) => `${solarUnitId(i)}_energy`;
+const batteryUnitId = (i: number) => `sensor.battery_unit_${i}`;
+const batteryUnitSoc = (i: number) => `sensor.battery_unit_${i}_level`;
+
 // Devices from the "Foyer" dashboard, with typical consumption when running.
 const DEVICES = [
   { entity: 'sensor.prise_chaudiere_power', name: 'Boiler', icon: 'mdi:radiator', typical: 90 },
@@ -77,6 +85,7 @@ const TODAY_KWH: Record<string, number> = {
   'sensor.grid_export_energy': 4.1,
   'sensor.grid_cost_today': 1.31,
   [ENT.solarDay]: 14.2,
+  ...Object.fromEntries(SOLAR_UNITS.map((_, i) => [solarUnitEnergy(i), 14.2 / SOLAR_UNITS.length])),
   ...Object.fromEntries(DEVICES.map((d) => [`${d.entity}_energy`, (d.typical * 9) / 1000])),
 };
 
@@ -86,9 +95,9 @@ const IT_GROUP = [5, 11, 12];
 const DEFAULT_CONFIG: LiveEnergyCardConfig = {
   type: 'custom:live-energy-card',
   max_power: 4000,
-  solar: { entity: ENT.solar, secondary_entity: ENT.solarDay },
+  solar: { secondary_entity: ENT.solarDay, units: [{ entity: ENT.solar }] },
   grid: { entity: ENT.grid, energy_entity: 'sensor.grid_energy' },
-  battery: { entity: ENT.battery, soc_entity: ENT.soc, capacity: 10, min_soc: 10 },
+  battery: { units: [{ entity: ENT.battery, soc_entity: ENT.soc, capacity: 10, min_soc: 10 }] },
   devices: [
     ...DEVICES.filter((_, i) => !IT_GROUP.includes(i)).map(({ entity, name, icon }) => ({
       entity,
@@ -169,6 +178,21 @@ function buildHass(): HomeAssistant {
   };
   for (const d of DEVICES)
     fresh[d.entity] = entity(d.entity, state.devices[d.entity], 'W', `${d.name} Power`);
+
+  // Units: the solar production is shared unevenly, the battery power and level evenly (almost).
+  const solarCount = config.solar?.units?.length ?? SOLAR_UNITS.length;
+  const weights = Array.from({ length: solarCount }, (_, i) => solarCount - i);
+  const weightSum = weights.reduce((a, b) => a + b, 0);
+  SOLAR_UNITS.forEach((name, i) => {
+    const share = i < solarCount ? weights[i] / weightSum : 0;
+    fresh[solarUnitId(i)] = entity(solarUnitId(i), Math.round(state.solar * share), 'W', `${name} power`);
+  });
+  const batteryCount = config.battery?.units?.length ?? BATTERY_UNITS.length;
+  BATTERY_UNITS.forEach((name, i) => {
+    fresh[batteryUnitId(i)] = entity(batteryUnitId(i), Math.round(state.battery / batteryCount), 'W', name);
+    const soc = Math.min(100, Math.max(0, state.soc + (i - (batteryCount - 1) / 2) * 6));
+    fresh[batteryUnitSoc(i)] = entity(batteryUnitSoc(i), Math.round(soc), '%', `${name} level`);
+  });
 
   // Like Home Assistant: a new object only for entities that changed.
   const states: Record<string, HassEntity> = {};
@@ -480,12 +504,12 @@ toggle(
       if (v) {
         c.cost.period = 'day';
         if (c.cost.cost_entity) c.cost.cost_entity = 'sensor.grid_cost_today';
-        c.solar = { ...c.solar, energy_entity: ENT.solarDay };
+        c.solar = withSolarUnits(c.solar, c.solar?.units?.length ?? 1, !!c.solar?.separate, true);
         c.grid = { ...c.grid, export_energy_entity: 'sensor.grid_export_energy' };
       } else {
         delete c.cost.period;
         if (c.cost.cost_entity) c.cost.cost_entity = 'sensor.grid_cost_rate';
-        if (c.solar) delete c.solar.energy_entity;
+        c.solar = withSolarUnits(c.solar, c.solar?.units?.length ?? 1, !!c.solar?.separate, false);
         if (c.grid) delete c.grid.export_energy_entity;
       }
     }),
@@ -510,6 +534,82 @@ toggle(
   'Title',
   () => !!config.title,
   (v) => withConfig((c) => (v ? (c.title = 'Live energy') : delete c.title)),
+);
+
+/** The solar source with `count` units (the one real sensor for a single unit), summed or one bubble each. */
+function withSolarUnits(
+  solar: LiveEnergyCardConfig['solar'],
+  count: number,
+  separate: boolean,
+  withEnergy: boolean,
+): NonNullable<LiveEnergyCardConfig['solar']> {
+  const node = { ...solar };
+  delete node.units;
+  delete node.separate;
+  const units = Array.from({ length: count }, (_, i) => ({
+    entity: count === 1 ? ENT.solar : solarUnitId(i),
+    name: SOLAR_UNITS[i],
+    ...(withEnergy ? { energy_entity: count === 1 ? ENT.solarDay : solarUnitEnergy(i) } : {}),
+  }));
+  return { ...node, ...(separate ? { separate } : {}), units };
+}
+
+/** The battery source with `count` units, summed or one bubble each. */
+function withBatteryUnits(
+  battery: LiveEnergyCardConfig['battery'],
+  count: number,
+  separate: boolean,
+): NonNullable<LiveEnergyCardConfig['battery']> {
+  const node = { ...battery };
+  delete node.units;
+  delete node.separate;
+  const units = Array.from({ length: count }, (_, i) =>
+    count === 1
+      ? { entity: ENT.battery, soc_entity: ENT.soc, capacity: 10, min_soc: 10 }
+      : { entity: batteryUnitId(i), soc_entity: batteryUnitSoc(i), capacity: 5, name: BATTERY_UNITS[i] },
+  );
+  return { ...node, ...(separate ? { separate } : {}), units };
+}
+
+/** Chooses how many units a source has, and whether they are summed in one bubble or shown one each. */
+function unitsSelect(
+  label: string,
+  counts: number[],
+  current: () => string,
+  apply: (c: LiveEnergyCardConfig, count: number, separate: boolean) => void,
+): void {
+  const chip = document.createElement('label');
+  chip.className = 'chip';
+  const options = [
+    '<option value="1">1 unit</option>',
+    ...counts.map((n) => `<option value="${n}">${n} units, one bubble</option>`),
+    ...counts.map((n) => `<option value="${n}s">${n} units, a bubble each</option>`),
+  ];
+  chip.innerHTML = `${label} <select>${options.join('')}</select>`;
+  const input = chip.querySelector('select')!;
+  input.value = current();
+  input.addEventListener('change', () =>
+    withConfig((c) => apply(c, parseInt(input.value, 10), input.value.endsWith('s'))),
+  );
+  display.appendChild(chip);
+}
+const currentUnits = (source: { units?: unknown[]; separate?: boolean } | undefined) =>
+  `${source?.units?.length ?? 1}${source?.separate ? 's' : ''}`;
+unitsSelect(
+  'Solar',
+  [2, 3, 4, 6, 8],
+  () => currentUnits(config.solar),
+  (c, count, separate) => {
+    c.solar = withSolarUnits(c.solar, count, separate, c.cost?.period === 'day');
+  },
+);
+unitsSelect(
+  'Battery',
+  [2, 3, 4, 6],
+  () => currentUnits(config.battery),
+  (c, count, separate) => {
+    c.battery = withBatteryUnits(c.battery, count, separate);
+  },
 );
 
 const layoutSelect = document.createElement('label');

@@ -44,6 +44,12 @@ export interface FlowResult {
 
 const pos = (v: number | undefined): number => (v !== undefined && Number.isFinite(v) && v > 0 ? v : 0);
 
+/** A positive power, or 0 below the threshold (noise of the sensors). */
+export function thresholded(value: number | undefined, threshold = 0): number {
+  const p = pos(value);
+  return p < threshold ? 0 : p;
+}
+
 /** Splits a signed power into two positive components. */
 export function splitSigned(value: number | undefined): { positive: number; negative: number } {
   if (value === undefined || !Number.isFinite(value)) return { positive: 0, negative: 0 };
@@ -51,10 +57,7 @@ export function splitSigned(value: number | undefined): { positive: number; nega
 }
 
 export function computeFlows(inputs: SourceInputs, threshold = 0): FlowResult {
-  const clean = (v: number | undefined): number => {
-    const p = pos(v);
-    return p < threshold ? 0 : p;
-  };
+  const clean = (v: number | undefined): number => thresholded(v, threshold);
 
   const solar = clean(inputs.solar);
   let gridImport = clean(inputs.gridImport);

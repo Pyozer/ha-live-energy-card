@@ -45,6 +45,8 @@ export const fr: DeepStrings<typeof en> = {
     invalid_power: '{field} doit être un nombre.',
     invalid_range: 'max_power doit être supérieur à min_power.',
     invalid_devices: 'devices doit être une liste.',
+    invalid_units: '{field}.units doit être une liste.',
+    moved_to_units: '{node}.{field} se règle désormais sur chaque unité : déplacez-le dans {node}.units.',
   },
   editor: {
     general: 'Général',
@@ -59,10 +61,15 @@ export const fr: DeepStrings<typeof en> = {
     add_member: 'Ajouter un appareil au groupe',
     add_device: 'Ajouter un appareil',
     drag: 'Glisser pour réordonner ou déplacer dans un groupe (les flèches fonctionnent aussi)',
+    drag_unit: 'Glisser pour réordonner (les flèches fonctionnent aussi)',
     remove: 'Supprimer',
     edit: 'Modifier',
     no_devices: "Aucun appareil pour l'instant.",
     device_n: 'Appareil {n}',
+    unit_n: 'Unité {n}',
+    add_unit: 'Ajouter une unité',
+    units_solar: 'Unités solaires',
+    units_battery: 'Unités de batterie',
     issues: 'Entités à vérifier ({count})',
     issue: {
       missing: 'introuvable',
@@ -76,6 +83,8 @@ export const fr: DeepStrings<typeof en> = {
       carbon: "n'est pas une intensité carbone (gCO2eq/kWh)",
     },
     helper: {
+      separate:
+        'Une bulle par unité (onduleur, batterie…) au lieu d’une seule pour le total. Son nom, son icône et sa couleur se règlent alors sur chaque unité.',
       cost_entity: 'Par heure : un débit (€/h). Par jour : un coût en €, cumulé ou remis à zéro chaque jour.',
       earnings_entity:
         'Par heure : un débit (€/h). Par jour : des gains en €, cumulés ou remis à zéro chaque jour.',
@@ -87,6 +96,7 @@ export const fr: DeepStrings<typeof en> = {
       title: 'Titre',
       language: 'Langue',
       entity: 'Entité de puissance',
+      separate: 'Une bulle par unité (onduleur, batterie…)',
       name: 'Nom',
       icon: 'Icône',
       color: 'Couleur',
@@ -114,7 +124,7 @@ export const fr: DeepStrings<typeof en> = {
       eco_mode: 'Mode éco (30 i/s, sans halo) pour les appareils peu puissants',
       transparent: 'Fond transparent (sans cadre de carte)',
       hide_when_zero: 'Masquer à zéro',
-      energy_entity: 'Énergie du jour : compteurs cumulatifs en kWh (additionnés)',
+      energy_entity: 'Énergie du jour : compteur(s) cumulatif(s) en kWh (additionnés)',
       secondary_entity:
         "Ligne personnalisée : n'importe quelle entité, affichée telle quelle (remplace l'énergie du jour)",
       import_entity: 'Entité de soutirage (alternative)',

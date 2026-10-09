@@ -1,6 +1,7 @@
 import type { FlowResult, Ratios } from '../compute';
 import type { Stats } from '../cost';
 import type { PathGeometry, Rect, SourceFlowId } from '../layout';
+import type { UnitGroup } from '../source-units';
 import type { ActionConfig, AnimationToggles } from '../types';
 
 export type NodeKind = 'solar' | 'grid' | 'battery' | 'home' | 'device';
@@ -45,6 +46,13 @@ export interface NodeModel {
   group?: { expanded: boolean; count: number };
   /** Group the device belongs to. */
   parent?: string;
+  /** Source node shown unit by unit: this node is one of its units. */
+  unit?: UnitGroup;
+  /**
+   * Source node shown unit by unit: this node is where its units meet. It is not drawn, the flows
+   * to the home, the grid and the other source start from it.
+   */
+  hub?: boolean;
   actions: NodeActions;
 }
 
@@ -62,6 +70,8 @@ export interface FlowModel {
   colorTo: string;
   toggles: Required<AnimationToggles>;
   source: SourceFlowId | null;
+  /** Flow between a unit and the hub of the source node it belongs to. */
+  feeds?: UnitGroup;
   /** Custom path (distribution bus in grid mode). */
   geometry?: (rects: Record<string, Rect>) => PathGeometry | null;
 }

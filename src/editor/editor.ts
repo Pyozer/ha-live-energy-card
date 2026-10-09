@@ -12,7 +12,8 @@ import { LitElement, html, nothing, type TemplateResult } from 'lit';
 import { fireEvent } from '../actions';
 import { configFromEnergyPrefs, fetchEnergyPrefs, importedCount, mergeEnergyImport } from '../energy';
 import { localize, type LocalizeKey } from '../localize/localize';
-import type { DeviceConfig, HomeAssistant, LiveEnergyCardConfig } from '../types';
+import type { UnitGroup } from '../source-units';
+import type { BatteryConfig, DeviceConfig, HomeAssistant, LiveEnergyCardConfig, SolarConfig } from '../types';
 import { entityIds } from '../units';
 import {
   addDevice,
@@ -21,13 +22,14 @@ import {
   findDevice,
   isGroup,
   moveDevice,
+  parsePathKey,
   pathKey,
   removeDevice,
   updateDevice,
   type DevicePath,
-  type DropTarget,
 } from './device-list';
-import { dropTargetAt, type DragBlock, type Span } from './drag';
+import { dropTargetAt } from './drag';
+import { DragController, measureBlocks } from './drag-controller';
 import {
   deviceFormData,
   deviceFromForm,
@@ -38,6 +40,7 @@ import {
 } from './form';
 import { EditorSchema, fieldHelper, formLabel } from './schema';
 import { editorStyles } from './styles';
+import './unit-editor';
 import { describeIssue, deviceIssues, entityIssues, type EntityIssue } from './validation';
 
 export class LiveEnergyCardEditor extends LitElement {
@@ -47,9 +50,6 @@ export class LiveEnergyCardEditor extends LitElement {
     _expanded: { state: true },
     _importStatus: { state: true },
     _priceModes: { state: true },
-    _dragging: { state: true },
-    _drop: { state: true },
-    _slotHeight: { state: true },
   };
 
   declare hass?: HomeAssistant;
@@ -60,29 +60,32 @@ export class LiveEnergyCardEditor extends LitElement {
   declare _importStatus?: { ok: boolean; text: string };
   /** Price sources picked in the form, for prices that have no value yet. */
   declare _priceModes: PriceModes;
-  /** Path key of the device being dragged, empty when none. */
-  declare _dragging: string;
-  /** Where the dragged device would land, `undefined` when the drop is not allowed. */
-  declare _drop?: DropTarget;
-  /** Height (px) of the gap left for the dragged device. */
-  declare _slotHeight: number;
-  /** Drag in progress: the lifted block, and where the pointer grabbed it and is now. */
-  private _drag?: {
-    el: HTMLElement;
-    scroller: HTMLElement | null;
-    grabX: number;
-    grabY: number;
-    x: number;
-    y: number;
-  };
-  private _dragFrame = 0;
+  /** Drag and drop of the devices, among the top level and the groups. */
+  private readonly _drag = new DragController(this, {
+    list: () => this.renderRoot.querySelector<HTMLElement>('.devices'),
+    target: (source, y) => {
+      const devices = this._devices();
+      const path = parsePathKey(source);
+      const target = dropTargetAt(
+        measureBlocks(this.renderRoot.querySelector('.devices')),
+        y,
+        isGroup(deviceAt(devices, path)),
+      );
+      return target && dropDevice(devices, path, target) ? target : undefined;
+    },
+    drop: (source, target) => {
+      const before = this._devices();
+      const result = dropDevice(before, parsePathKey(source), target);
+      if (!result) return;
+      this._followExpanded(before, result.devices);
+      this._setDevices(result.devices);
+    },
+  });
 
   constructor() {
     super();
     this._expanded = '';
     this._priceModes = {};
-    this._dragging = '';
-    this._slotHeight = 0;
   }
 
   setConfig(config: LiveEnergyCardConfig): void {
@@ -134,145 +137,9 @@ export class LiveEnergyCardEditor extends LitElement {
 
   /** Keeps the device being edited open after the list changed (by identity: its path may differ). */
   private _followExpanded(before: DeviceConfig[], after: DeviceConfig[]): void {
-    const open = this._expanded
-      ? deviceAt(
-          before,
-          this._expanded.split('.').map((n) => Number(n)),
-        )
-      : undefined;
+    const open = this._expanded ? deviceAt(before, parsePathKey(this._expanded)) : undefined;
     const path = open ? findDevice(after, open) : undefined;
     this._expanded = path ? pathKey(path) : '';
-  }
-
-  // --- Drag and drop ------------------------------------------------------------------------------
-  // Pointer events (mouse, touch and pen) on a handle: the list is two levels deep and grows with
-  // the config, so the geometry is measured on pointer move and the result shown as a drop mark.
-
-  /**
-   * Blocks as laid out on screen. The lifted block floats above the list (out of the flow), so it is
-   * left out: the others have already closed up around the gap shown for the drop.
-   */
-  private _dragBlocks(): DragBlock[] {
-    const span = (el: Element | null): Span => {
-      const r = el!.getBoundingClientRect();
-      return { top: r.top, bottom: r.bottom };
-    };
-    const indexOf = (el: Element) => Number((el as HTMLElement).dataset.path!.split('.').pop());
-    return [...this.renderRoot.querySelectorAll('.devices > .device:not(.lifted)')].map((el) => ({
-      index: indexOf(el),
-      block: span(el),
-      head: span(el.querySelector(':scope > .device-head')),
-      group: el.classList.contains('group'),
-      members: [...el.querySelectorAll(':scope > .members > .device:not(.lifted)')].map((m) => ({
-        index: indexOf(m),
-        ...span(m),
-      })),
-    }));
-  }
-
-  /** Drop target under the pointer, kept only when it would actually move the device. */
-  private _updateDrop(): void {
-    const source = this._dragging.split('.').map((n) => Number(n));
-    const devices = this._devices();
-    const dragged = deviceAt(devices, source);
-    const target = dropTargetAt(this._dragBlocks(), this._drag!.y, isGroup(dragged));
-    this._drop = target && dropDevice(devices, source, target) ? target : undefined;
-  }
-
-  /** Makes the lifted block follow the pointer, wherever the list is scrolled to. */
-  private _followPointer(): void {
-    const d = this._drag!;
-    const list = this.renderRoot.querySelector('.devices')!;
-    const box = list.getBoundingClientRect();
-    d.el.style.left = `${d.x - d.grabX - box.left - list.clientLeft}px`;
-    d.el.style.top = `${d.y - d.grabY - box.top - list.clientTop}px`;
-  }
-
-  private _dragStart(ev: PointerEvent, path: DevicePath): void {
-    if (this._dragging || (ev.pointerType === 'mouse' && ev.button !== 0)) return;
-    ev.preventDefault();
-    const handle = ev.currentTarget as HTMLElement;
-    handle.setPointerCapture(ev.pointerId);
-    const el = handle.closest('.device') as HTMLElement;
-    const box = el.getBoundingClientRect();
-    this._drag = {
-      el,
-      scroller: this._scrollParent(),
-      grabX: ev.clientX - box.left,
-      grabY: ev.clientY - box.top,
-      x: ev.clientX,
-      y: ev.clientY,
-    };
-    // Lifted out of the list at its current size; a gap of the same size stays in its place.
-    el.style.width = `${box.width}px`;
-    this._slotHeight = box.height;
-    this._dragging = pathKey(path);
-    this._dragLoop();
-  }
-
-  private _dragMove(ev: PointerEvent): void {
-    if (!this._drag) return;
-    this._drag.x = ev.clientX;
-    this._drag.y = ev.clientY;
-    this._followPointer();
-    this._updateDrop();
-  }
-
-  /** While dragging: scrolls the editor near its edges, and keeps the block and drop mark current. */
-  private _dragLoop = (): void => {
-    if (!this._drag) return;
-    this._scrollNearEdge();
-    this._followPointer();
-    this._updateDrop();
-    this._dragFrame = requestAnimationFrame(this._dragLoop);
-  };
-
-  /** Closest scrollable ancestor, crossing shadow roots (the editor lives in a dialog), else the page. */
-  private _scrollParent(): HTMLElement | null {
-    let node: Node | null = this.parentNode ?? (this.getRootNode() as ShadowRoot).host;
-    while (node) {
-      if (node instanceof HTMLElement) {
-        const overflow = getComputedStyle(node).overflowY;
-        if ((overflow === 'auto' || overflow === 'scroll') && node.scrollHeight > node.clientHeight)
-          return node;
-      }
-      node = node.parentNode ?? (node as ShadowRoot).host ?? null;
-    }
-    return document.scrollingElement as HTMLElement | null;
-  }
-
-  private _scrollNearEdge(): void {
-    const el = this._drag!.scroller;
-    // The page itself scrolls when no ancestor does: its edges are the window's.
-    const rect =
-      el && el !== document.scrollingElement
-        ? el.getBoundingClientRect()
-        : { top: 0, bottom: window.innerHeight };
-    const top = Math.max(rect.top, 0);
-    const bottom = Math.min(rect.bottom, window.innerHeight);
-    const y = this._drag!.y;
-    const step = y < top + 48 ? -12 : y > bottom - 48 ? 12 : 0;
-    if (step) el?.scrollBy(0, step);
-  }
-
-  private _dragEnd(ev: PointerEvent, cancel = false): void {
-    if (!this._drag) return;
-    cancelAnimationFrame(this._dragFrame);
-    // The release point decides, even if no frame ran since the last move.
-    this._drag.y = ev.clientY;
-    this._updateDrop();
-    (ev.currentTarget as HTMLElement).releasePointerCapture?.(ev.pointerId);
-    this._drag.el.style.cssText = '';
-    this._drag = undefined;
-    const source = this._dragging.split('.').map((n) => Number(n));
-    const target = cancel ? undefined : this._drop;
-    this._dragging = '';
-    this._drop = undefined;
-    const before = this._devices();
-    const result = target ? dropDevice(before, source, target) : null;
-    if (!result) return;
-    this._followExpanded(before, result.devices);
-    this._setDevices(result.devices);
   }
 
   /** Keyboard alternative to dragging: arrows move the device within its list. */
@@ -348,7 +215,9 @@ export class LiveEnergyCardEditor extends LitElement {
         @value-changed=${this._valueChanged}
       ></ha-form>
 
-      <div class="devices ${this._dragging ? 'lifting' : ''}">
+      ${this._renderUnits('solar', issues)}${this._renderUnits('battery', issues)}
+
+      <div class="devices ${this._drag.dragging ? 'lifting' : ''}">
         <div class="devices-title">
           <ha-icon icon="mdi:power-plug-outline"></ha-icon>
           <span>${this._t('editor.devices')}</span>
@@ -366,6 +235,19 @@ export class LiveEnergyCardEditor extends LitElement {
         </div>
       </div>
     `;
+  }
+
+  /** The units of the solar or battery source: a list of their own, under the form of the source. */
+  private _renderUnits(group: UnitGroup, issues: EntityIssue[]): TemplateResult {
+    return html`<live-energy-card-unit-editor
+      .hass=${this.hass}
+      .group=${group}
+      .source=${this._config![group]}
+      .hideWhenZero=${this._config!.hide_when_zero}
+      .issues=${issues}
+      @units-changed=${(ev: CustomEvent<{ node: SolarConfig | BatteryConfig }>) =>
+        this._emit({ ...this._config!, [group]: ev.detail.node })}
+    ></live-energy-card-unit-editor>`;
   }
 
   private _renderIssues(issues: EntityIssue[]): TemplateResult {
@@ -391,13 +273,13 @@ export class LiveEnergyCardEditor extends LitElement {
 
   /** The gap showing where the dragged device would land. */
   private _slot(key: string, where: 'before' | 'after' | 'into'): TemplateResult | typeof nothing {
-    if (!this._dragging) return nothing;
-    const drop = this._drop;
+    const { dragging, target, slotHeight } = this._drag;
+    if (!dragging) return nothing;
     // Without a valid drop, the gap stays where the device was lifted from.
-    const here = drop
-      ? drop.position === where && pathKey(drop.path) === key
-      : where === 'after' && key === this._dragging;
-    return here ? html`<div class="drop-slot" style="height: ${this._slotHeight}px"></div>` : nothing;
+    const here = target
+      ? target.position === where && pathKey(target.path) === key
+      : where === 'after' && key === dragging;
+    return here ? html`<div class="drop-slot" style="height: ${slotHeight}px"></div>` : nothing;
   }
 
   /** A device and the gaps around it. The three parts stay put while dragging, so the DOM does too. */
@@ -419,11 +301,12 @@ export class LiveEnergyCardEditor extends LitElement {
     const icon =
       dev.icon ?? state?.attributes.icon ?? (group ? 'mdi:folder-outline' : 'mdi:power-plug-outline');
     const warning = deviceIssues(issues, path).length > 0;
-    const into = this._drop?.position === 'into' && pathKey(this._drop.path) === key;
+    const { target } = this._drag;
+    const into = target?.position === 'into' && pathKey(target.path) === key;
     return html`
       <div
         class="device ${expanded ? 'expanded' : ''} ${group ? 'group' : ''} ${into ? 'drop-into' : ''} ${
-          this._dragging === key ? 'lifted' : ''
+          this._drag.dragging === key ? 'lifted' : ''
         }"
         data-path=${key}
       >
@@ -432,10 +315,10 @@ export class LiveEnergyCardEditor extends LitElement {
             class="handle"
             .title=${this._t('editor.drag')}
             aria-label=${this._t('editor.drag')}
-            @pointerdown=${(ev: PointerEvent) => this._dragStart(ev, path)}
-            @pointermove=${(ev: PointerEvent) => this._dragMove(ev)}
-            @pointerup=${(ev: PointerEvent) => this._dragEnd(ev)}
-            @pointercancel=${(ev: PointerEvent) => this._dragEnd(ev, true)}
+            @pointerdown=${(ev: PointerEvent) => this._drag.start(ev, pathKey(path))}
+            @pointermove=${(ev: PointerEvent) => this._drag.move(ev)}
+            @pointerup=${(ev: PointerEvent) => this._drag.end(ev)}
+            @pointercancel=${(ev: PointerEvent) => this._drag.end(ev, true)}
             @keydown=${(ev: KeyboardEvent) => this._dragKey(ev, path)}
           >
             <ha-svg-icon .path=${mdiDragVertical}></ha-svg-icon>

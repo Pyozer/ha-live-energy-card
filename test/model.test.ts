@@ -30,7 +30,7 @@ describe('readSources', () => {
 
   it('reads separate charge and discharge entities', () => {
     const src = readSources(
-      cfg({ battery: { charge_entity: 'sensor.c', discharge_entity: 'sensor.d' } }),
+      cfg({ battery: { units: [{ charge_entity: 'sensor.c', discharge_entity: 'sensor.d' }] } }),
       hassWith(state('sensor.c', 300), state('sensor.d', 0)),
     );
     expect(src.inputs.batteryCharge).toBe(300);
@@ -76,7 +76,7 @@ describe('buildDevices', () => {
 
 describe('sourceFlows', () => {
   it('only creates flows whose two ends are configured', () => {
-    const config = cfg({ solar: { entity: 'sensor.s' } });
+    const config = cfg({ solar: { units: [{ entity: 'sensor.s' }] } });
     const hass = hassWith(state('sensor.s', 800));
     const src = readSources(config, hass);
     const result = computeFlows(src.inputs);
@@ -141,7 +141,9 @@ describe('grid displayed value', () => {
 
 describe('battery estimate', () => {
   it('replaces the battery status when capacity and charge level are known', () => {
-    const config = cfg({ battery: { entity: 'sensor.b', soc_entity: 'sensor.soc', capacity: 10 } });
+    const config = cfg({
+      battery: { units: [{ entity: 'sensor.b', soc_entity: 'sensor.soc', capacity: 10 }] },
+    });
     const hass = hassWith(state('sensor.b', -2000), state('sensor.soc', 50, '%'));
     const src = readSources(config, hass);
     const nodes = sourceNodes(modelContext(config, hass), src, computeFlows(src.inputs), sourceColors(src));
@@ -153,7 +155,10 @@ describe("today's energy", () => {
   it('is the secondary line of a node, unless it has a secondary entity', () => {
     const config = cfg({
       grid: { entity: 'sensor.g', energy_entity: 'sensor.grid_kwh' },
-      solar: { entity: 'sensor.s', energy_entity: 'sensor.pv_kwh', secondary_entity: 'sensor.day' },
+      solar: {
+        secondary_entity: 'sensor.day',
+        units: [{ entity: 'sensor.s', energy_entity: 'sensor.pv_kwh' }],
+      },
     });
     const hass = hassWith(state('sensor.g', 100), state('sensor.s', 100), state('sensor.day', 3, 'kWh'));
     const src = readSources(config, hass);

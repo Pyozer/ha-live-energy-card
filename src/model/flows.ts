@@ -1,8 +1,10 @@
-import type { Flows } from '../compute';
+import { thresholded, type Flows } from '../compute';
 import { resolveToggles } from '../intensity';
-import { busCornerRadius, usesBus, type Layout, type SourceFlowId } from '../layout';
+import { busCornerRadius, unitFlowPath, usesBus, type Layout, type SourceFlowId } from '../layout';
+import type { UnitGroup } from '../source-units';
 import { buildDeviceTree } from '../tree';
-import type { AnimationToggles, BaseNodeConfig, LiveEnergyCardConfig } from '../types';
+import { DEFAULT_COLORS, resolveColor } from '../colors';
+import type { AnimationToggles, BubbleConfig, LiveEnergyCardConfig } from '../types';
 import { DEFAULTS, flowScale, intensityOf, type FlowScale } from './context';
 import type { DeviceNodes } from './devices';
 import type { SourceColors, SourceReadings } from './sources';
@@ -26,7 +28,7 @@ export function sourceFlows(
   visible: ReadonlySet<string>,
 ): FlowModel[] {
   const scale = flowScale(config);
-  const nodeCfg: Record<string, BaseNodeConfig | undefined> = {
+  const nodeCfg: Record<string, BubbleConfig | undefined> = {
     solar: src.solar,
     grid: src.grid,
     battery: src.battery,
@@ -69,6 +71,102 @@ export function sourceFlows(
   flow('battery_grid', 'battery', 'grid', f.batteryToGrid, colors.battery, colors.gridExport);
   return flows;
 }
+
+/**
+ * Flows between the units of a source and its hub: the production of each solar unit, the charge
+ * and discharge of each battery. The flows leaving the hub carry the total.
+ */
+export function unitFlows(
+  config: LiveEnergyCardConfig,
+  src: SourceReadings,
+  colors: SourceColors,
+  visible: ReadonlySet<string>,
+): FlowModel[] {
+  const scale = flowScale(config);
+  const flows: FlowModel[] = [];
+  const flow = (
+    group: UnitGroup,
+    id: string,
+    from: string,
+    to: string,
+    watts: number,
+    [colorFrom, colorTo]: [string, string],
+    animation: AnimationToggles | undefined,
+    idle: boolean,
+  ) => {
+    const shown = visible.has(from) && visible.has(to);
+    const active = watts > 0 && shown;
+    flows.push({
+      id,
+      from,
+      to,
+      watts,
+      intensity: intensityOf(scale, watts),
+      active,
+      idle: scale.dimIdle && !active && shown && idle,
+      colorFrom,
+      colorTo,
+      toggles: flowToggles(config, animation),
+      source: null,
+      feeds: group,
+    });
+  };
+
+  const threshold = config.threshold_w ?? DEFAULTS.threshold_w;
+  const power = (watts: number) => thresholded(watts, threshold);
+  if (src.solar?.separate) {
+    for (const { unit, value } of src.solarUnits) {
+      const color = resolveColor(unit.config.color, DEFAULT_COLORS.solar);
+      const watts = power(value);
+      flow(
+        'solar',
+        `feed:${unit.id}`,
+        unit.id,
+        'solar',
+        watts,
+        [color, colors.solar],
+        unit.config.animation,
+        true,
+      );
+    }
+  }
+  if (src.battery?.separate) {
+    for (const { unit, charge, discharge } of src.batteryUnits) {
+      const color = resolveColor(unit.config.color, DEFAULT_COLORS.battery);
+      const chargeColor = resolveColor(
+        unit.config.charge_color ?? unit.config.color,
+        DEFAULT_COLORS.batteryCharge,
+      );
+      const feed = `feed:${unit.id}`;
+      const animation = unit.config.animation;
+      flow(
+        'battery',
+        `${feed}:charge`,
+        'battery',
+        unit.id,
+        power(charge),
+        [colors.batteryCharge, chargeColor],
+        animation,
+        false,
+      );
+      // The two directions share one path: the idle track is drawn once.
+      flow(
+        'battery',
+        `${feed}:discharge`,
+        unit.id,
+        'battery',
+        power(discharge),
+        [color, colors.battery],
+        animation,
+        true,
+      );
+    }
+  }
+  return flows;
+}
+
+/** Home → device flows (the other ones link the sources and their units). */
+const isDeviceFlow = (f: FlowModel): boolean => f.source === null && !f.feeds;
 
 /** One home → device flow per device. */
 export function deviceFlows(
@@ -132,11 +230,11 @@ export function applyDeviceTree(model: CardModel, layout: Layout, config: LiveEn
   const scale = flowScale(config);
   const home = model.nodes.find((n) => n.id === 'home')!;
   // Power carried toward each device (zero for an expanded group, whose members carry it).
-  const watts = new Map(model.flows.filter((f) => f.source === null).map((f) => [f.to, f.watts]));
+  const watts = new Map(model.flows.filter(isDeviceFlow).map((f) => [f.to, f.watts]));
   const byId = new Map(model.flows.map((f) => [f.id, f]));
   const bus = layout.devices.bus;
 
-  const flows = model.flows.filter((f) => f.source !== null);
+  const flows = model.flows.filter((f) => !isDeviceFlow(f));
   const used = new Set<string>();
   for (const edge of buildDeviceTree(layout.devices, busCornerRadius(style))) {
     if (edge.leaf) {
@@ -154,7 +252,7 @@ export function applyDeviceTree(model: CardModel, layout: Layout, config: LiveEn
   }
   // Hidden devices: a short segment that fades out with the pill.
   for (const f of model.flows) {
-    if (f.source !== null || used.has(f.id)) continue;
+    if (!isDeviceFlow(f) || used.has(f.id)) continue;
     flows.push({
       ...f,
       geometry: (rects) => {
@@ -170,4 +268,30 @@ export function applyDeviceTree(model: CardModel, layout: Layout, config: LiveEn
     });
   }
   return flows;
+}
+
+/** Gives the flows between a unit and its hub their path, which depends on the layout. */
+export function applyUnitPaths(
+  flows: FlowModel[],
+  layout: Layout,
+  config: LiveEnergyCardConfig,
+): FlowModel[] {
+  const style = config.line_style ?? DEFAULTS.line_style;
+  return flows.map((flow) => {
+    const group = flow.feeds;
+    if (!group) return flow;
+    const trunk = layout.units[group]?.trunk;
+    const towardHub = flow.to === group;
+    const unitId = towardHub ? flow.from : flow.to;
+    return {
+      ...flow,
+      geometry: (rects) => {
+        const unit = rects[unitId];
+        const hub = rects[group];
+        return unit && hub && trunk !== undefined
+          ? unitFlowPath(unit, hub, trunk, style, layout.size, towardHub)
+          : null;
+      },
+    };
+  });
 }

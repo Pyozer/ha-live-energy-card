@@ -8,6 +8,7 @@ import type { DeviceConfig } from '../types';
 export type DevicePath = readonly number[];
 
 export const pathKey = (path: DevicePath): string => path.join('.');
+export const parsePathKey = (key: string): DevicePath => key.split('.').map(Number);
 
 export const isGroup = (dev: DeviceConfig | undefined): boolean => Array.isArray(dev?.devices);
 

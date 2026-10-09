@@ -4,11 +4,13 @@ import {
   deviceFlowPath,
   elbowBetween,
   sourceFlowPath,
+  unitFlowPath,
   type Layout,
   type Rect,
 } from '../src/layout';
 import {
   applyDeviceTree,
+  applyUnitPaths,
   buildModel,
   cleanName,
   sortWithHysteresis,
@@ -231,7 +233,7 @@ describe('line styles', () => {
 describe('buildModel', () => {
   const config: LiveEnergyCardConfig = {
     type: 'custom:live-energy-card',
-    solar: { entity: 'sensor.solar' },
+    solar: { units: [{ entity: 'sensor.solar' }] },
     grid: { entity: 'sensor.grid' },
     devices: [
       { entity: 'sensor.frigo' },
@@ -310,9 +312,14 @@ describe('buildModel', () => {
     const model = buildModel(
       {
         type: 'custom:live-energy-card',
-        solar: { entity: ['sensor.roof', 'sensor.garage'] },
+        solar: { units: [{ entity: 'sensor.roof' }, { entity: 'sensor.garage' }] },
         grid: { entity: ['sensor.l1', 'sensor.l2', 'sensor.l3'] },
-        battery: { entity: ['sensor.b1', 'sensor.b2'], soc_entity: ['sensor.s1', 'sensor.s2'] },
+        battery: {
+          units: [
+            { entity: 'sensor.b1', soc_entity: 'sensor.s1' },
+            { entity: 'sensor.b2', soc_entity: 'sensor.s2' },
+          ],
+        },
         devices: [{ entity: ['sensor.oven', 'sensor.hob'], name: 'Kitchen' }],
       },
       hassWith([
@@ -341,7 +348,7 @@ describe('buildModel', () => {
 
   it('a node is unavailable when one of its entities is', () => {
     const model = buildModel(
-      { type: 'x', solar: { entity: ['sensor.roof', 'sensor.garage'] } },
+      { type: 'x', solar: { units: [{ entity: 'sensor.roof' }, { entity: 'sensor.garage' }] } },
       hassWith([state('sensor.roof', 1000), state('sensor.garage', 'unavailable')]),
     );
     expect(model.nodes.find((n) => n.id === 'solar')?.available).toBe(false);
@@ -496,7 +503,7 @@ describe('utilities', () => {
         devices: [{ entity: ['sensor.a', 'sensor.b'] }],
       }).sort(),
     ).toEqual(['sensor.a', 'sensor.b', 'sensor.l1', 'sensor.l2']);
-    expect(() => validateConfig({ type: 'x', solar: { entity: [] } })).toThrow();
+    expect(() => validateConfig({ type: 'x', solar: { units: [] } })).toThrow();
   });
 
   it('validateConfig', () => {
@@ -507,5 +514,408 @@ describe('utilities', () => {
     expect(() => validateConfig({ type: 'x', grid: { entity: 'sensor.g' }, max_power: 'abc' })).toThrow();
     const ok = validateConfig({ type: 'x', grid: { entity: 'sensor.g' }, max_power: '3000' });
     expect(ok.max_power).toBe(3000);
+  });
+});
+
+describe('sources shown unit by unit', () => {
+  const solarCfg: LiveEnergyCardConfig = {
+    type: 'x',
+    max_power: 4000,
+    solar: {
+      separate: true,
+      color: 'amber',
+      units: [
+        { entity: 'sensor.roof', name: 'Roof' },
+        { entity: 'sensor.garage' },
+        { entity: 'sensor.shed' },
+      ],
+    },
+    battery: {
+      separate: true,
+      units: [
+        { entity: 'sensor.b1', soc_entity: 'sensor.s1', name: 'A' },
+        { entity: 'sensor.b2', soc_entity: 'sensor.s2', name: 'B' },
+      ],
+    },
+    grid: { entity: 'sensor.grid' },
+  };
+  const hass = hassWith([
+    state('sensor.roof', 1500),
+    state('sensor.garage', 500),
+    state('sensor.shed', 0),
+    state('sensor.b1', -300),
+    state('sensor.b2', -100),
+    state('sensor.s1', 40, '%'),
+    state('sensor.s2', 60, '%'),
+    state('sensor.grid', -1000),
+  ]);
+  const byId = <T extends { id: string }>(list: T[]) => Object.fromEntries(list.map((x) => [x.id, x]));
+
+  it('has a hub for the source and one node per unit', () => {
+    const nodes = byId(buildModel(solarCfg, hass).nodes);
+    expect(nodes.solar).toMatchObject({ hub: true, watts: 2000, kind: 'solar' });
+    expect(nodes['solar:0']).toMatchObject({ unit: 'solar', name: 'Roof', watts: 1500 });
+    expect(nodes['solar:1']).toMatchObject({ unit: 'solar', watts: 500 });
+    expect(nodes.battery).toMatchObject({ hub: true, watts: 400 });
+    expect(nodes['battery:0']).toMatchObject({ unit: 'battery', name: 'A', watts: 300, soc: 40 });
+    expect(nodes['battery:0'].status).toBe('En charge');
+    // A single bubble stays as before.
+    expect(nodes.grid.hub).toBeUndefined();
+  });
+
+  it('names a unit after its entity, then after its position', () => {
+    const nodes = byId(
+      buildModel(
+        {
+          ...solarCfg,
+          solar: { separate: true, units: [{ entity: 'sensor.garage' }, {}, { entity: 'sensor.gone' }] },
+        },
+        hass,
+      ).nodes,
+    );
+    // The entity's friendly name, cleaned of its "Puissance" suffix.
+    expect(nodes['solar:0'].name).toBe('sensor.garage');
+    expect(nodes['solar:2'].name).toBe('Solaire 3');
+  });
+
+  it('hides a unit at zero, and the hub with its last unit', () => {
+    const nodes = byId(buildModel(solarCfg, hass).nodes);
+    expect(nodes['solar:2'].visible).toBe(false);
+    expect(nodes.solar.visible).toBe(true);
+    const night = hassWith(
+      ['roof', 'garage', 'shed'].map((n) => state(`sensor.${n}`, 0)).concat(state('sensor.grid', 300)),
+    );
+    const dark = byId(buildModel(solarCfg, night).nodes);
+    expect(dark.solar.visible).toBe(false);
+    expect(dark['solar:0'].visible).toBe(false);
+  });
+
+  it('flows from the hub are those of a single node with the same total', () => {
+    const single = buildModel(
+      {
+        type: 'x',
+        max_power: 4000,
+        solar: { units: [{ entity: 'sensor.total' }] },
+        grid: { entity: 'sensor.grid' },
+      },
+      hassWith([state('sensor.total', 2000), state('sensor.grid', -1000)]),
+    );
+    const split = buildModel({ ...solarCfg, battery: undefined }, hass);
+    for (const flow of single.flows) {
+      expect(byId(split.flows)[flow.id], flow.id).toMatchObject({
+        from: flow.from,
+        to: flow.to,
+        watts: flow.watts,
+      });
+    }
+  });
+
+  it('feeds the hub with the power of each solar unit', () => {
+    const feeders = buildModel(solarCfg, hass).flows.filter((f) => f.feeds === 'solar');
+    expect(feeders.map((f) => [f.id, f.from, f.to, f.watts, f.active])).toEqual([
+      ['feed:solar:0', 'solar:0', 'solar', 1500, true],
+      ['feed:solar:1', 'solar:1', 'solar', 500, true],
+      // A hidden unit has no flow to show.
+      ['feed:solar:2', 'solar:2', 'solar', 0, false],
+    ]);
+    expect(feeders.reduce((acc, f) => acc + f.watts, 0)).toBe(2000);
+    expect(feeders.every((f) => f.source === null)).toBe(true);
+  });
+
+  it('feeds the battery units in both directions, and their sum is the net of the node', () => {
+    const model = buildModel(solarCfg, hass);
+    const flows = byId(model.flows);
+    expect(flows['feed:battery:0:charge']).toMatchObject({ from: 'battery', to: 'battery:0', watts: 300 });
+    expect(flows['feed:battery:0:discharge']).toMatchObject({ from: 'battery:0', to: 'battery', watts: 0 });
+    expect(model.result.batteryCharge).toBe(400);
+  });
+
+  it('a battery unit charging while another discharges shows both, the node the net', () => {
+    const mixed = hassWith([
+      state('sensor.b1', -500),
+      state('sensor.b2', 200),
+      state('sensor.grid', 0),
+      state('sensor.roof', 0),
+    ]);
+    const model = buildModel(solarCfg, mixed);
+    const flows = byId(model.flows);
+    expect(flows['feed:battery:0:charge'].watts).toBe(500);
+    expect(flows['feed:battery:1:discharge'].watts).toBe(200);
+    expect(model.result.batteryCharge).toBe(300);
+    expect(model.result.batteryDischarge).toBe(0);
+  });
+
+  it('a unit below the threshold shows 0 but still counts in the total, so micro-inverters add up', () => {
+    const noisy = hassWith([state('sensor.roof', 3), state('sensor.garage', 4), state('sensor.shed', 2)]);
+    const model = buildModel({ ...solarCfg, battery: undefined, grid: undefined }, noisy);
+    const nodes = byId(model.nodes);
+    expect(model.result.solar).toBe(9);
+    expect(nodes.solar.watts).toBe(9);
+    expect(nodes['solar:0'].watts).toBe(0);
+    expect(byId(model.flows)['feed:solar:0'].watts).toBe(0);
+  });
+
+  it('an unavailable unit counts as 0 and is flagged alone', () => {
+    const broken = hassWith([state('sensor.roof', 'unavailable'), state('sensor.garage', 500)]);
+    const nodes = byId(buildModel({ ...solarCfg, battery: undefined, grid: undefined }, broken).nodes);
+    expect(nodes['solar:0'].available).toBe(false);
+    expect(nodes['solar:1'].available).toBe(true);
+    expect(nodes.solar).toMatchObject({ available: true, watts: 500 });
+  });
+
+  it('the distribution bus leaves the feeders alone', () => {
+    const config = { ...solarCfg, devices: [{ entity: 'sensor.tv' }, { entity: 'sensor.fridge' }] };
+    const model = buildModel(config, hassWith([...Object.values(hass.states), state('sensor.tv', 100)]));
+    const layout = computeLayout({
+      width: 700,
+      solar: true,
+      grid: true,
+      battery: true,
+      devices: ['device:0', 'device:1'],
+      solarUnits: ['solar:0', 'solar:1'],
+      batteryUnits: ['battery:0', 'battery:1'],
+    });
+    const ids = applyDeviceTree(model, layout, config).map((f) => f.id);
+    expect(ids).toContain('feed:solar:0');
+    expect(ids).toContain('feed:battery:1:charge');
+  });
+
+  it('watches the entities of the units', () => {
+    expect(new Set(watchedEntities(solarCfg))).toEqual(
+      new Set([
+        'sensor.roof',
+        'sensor.garage',
+        'sensor.shed',
+        'sensor.b1',
+        'sensor.b2',
+        'sensor.s1',
+        'sensor.s2',
+        'sensor.grid',
+      ]),
+    );
+  });
+});
+
+describe('sources with several units, as a single bubble', () => {
+  const byId = <T extends { id: string }>(list: T[]) => Object.fromEntries(list.map((x) => [x.id, x]));
+  const config: LiveEnergyCardConfig = {
+    type: 'x',
+    solar: {
+      name: 'PV',
+      color: 'teal',
+      units: [
+        { entity: 'sensor.roof', name: 'Roof', color: 'red' },
+        { entity: 'sensor.garage', name: 'Garage' },
+      ],
+    },
+    battery: {
+      units: [
+        { entity: 'sensor.b1', soc_entity: 'sensor.s1', capacity: 10, min_soc: 10 },
+        { entity: 'sensor.b2', soc_entity: 'sensor.s2', capacity: 5 },
+      ],
+    },
+    grid: { entity: 'sensor.grid' },
+  };
+  const hass = (b1: number, b2: number, roof: number | string = 1000) =>
+    hassWith([
+      state('sensor.roof', roof),
+      state('sensor.garage', 500),
+      state('sensor.b1', b1),
+      state('sensor.b2', b2),
+      state('sensor.s1', 80, '%'),
+      state('sensor.s2', 20, '%'),
+      state('sensor.grid', 0),
+    ]);
+
+  it('is one node with the total, named and colored by the node, not by its units', () => {
+    const model = buildModel(config, hass(0, 0));
+    const nodes = byId(model.nodes);
+    expect(nodes.solar).toMatchObject({ name: 'PV', watts: 1500, color: expect.stringContaining('') });
+    expect(nodes.solar.hub).toBeUndefined();
+    expect(nodes['solar:0']).toBeUndefined();
+    expect(model.nodes.filter((n) => n.unit)).toEqual([]);
+    expect(model.flows.filter((f) => f.feeds)).toEqual([]);
+    // More-info opens the first unit's entity.
+    expect(nodes.solar.actions.entity).toBe('sensor.roof');
+  });
+
+  it('is unavailable as soon as one unit is: a partial total would mislead', () => {
+    const model = buildModel(config, hass(0, 0, 'unavailable'));
+    expect(byId(model.nodes).solar).toMatchObject({ available: false, watts: null });
+    expect(model.result.solar).toBe(0);
+  });
+
+  it('weights the charge level by the capacities, and estimates the time on their sum', () => {
+    // 80 % of 10 kWh and 20 % of 5 kWh: 9 kWh of 15, i.e. 60 %.
+    const model = buildModel(config, hass(-2000, -1000));
+    const battery = byId(model.nodes).battery;
+    expect(battery.soc).toBeCloseTo(60);
+    expect(battery.watts).toBe(3000);
+    // 6 kWh left to charge at 3 kW.
+    expect(battery.status).toContain('2 h');
+  });
+
+  it('adds the units, even when one charges while another discharges', () => {
+    const model = buildModel(config, hass(-500, 200));
+    expect(byId(model.nodes).battery.watts).toBe(300);
+    expect(model.result.batteryCharge).toBe(300);
+  });
+
+  it('drops the charge level when a unit has none', () => {
+    const partial: LiveEnergyCardConfig = {
+      ...config,
+      battery: {
+        units: [{ entity: 'sensor.b1', soc_entity: 'sensor.s1', capacity: 10 }, { entity: 'sensor.b2' }],
+      },
+    };
+    const battery = byId(buildModel(partial, hass(-2000, -1000)).nodes).battery;
+    // The level of the unit that has one, but no estimate on part of the batteries.
+    expect(battery.soc).toBeCloseTo(80);
+    expect(battery.status).toBe('En charge');
+  });
+});
+
+describe('layout with units', () => {
+  const ids = (group: string, n: number) => Array.from({ length: n }, (_, i) => `${group}:${i}`);
+
+  for (const width of [320, 380, 520, 700, 1000]) {
+    for (const [solar, battery] of [
+      [3, 0],
+      [0, 2],
+      [2, 3],
+      [8, 6],
+      [13, 13],
+    ]) {
+      for (const n of [0, 5]) {
+        it(`no overlap (${width}px, ${solar} solar units, ${battery} battery units, ${n} devices)`, () => {
+          const layout = computeLayout({
+            width,
+            solar: solar > 0,
+            grid: true,
+            battery: battery > 0,
+            devices: devices(n),
+            solarUnits: solar ? ids('solar', solar) : undefined,
+            batteryUnits: battery ? ids('battery', battery) : undefined,
+          });
+          assertNoOverlap(layout);
+        });
+      }
+    }
+  }
+
+  const input = {
+    width: 700,
+    solar: true,
+    grid: true,
+    battery: true,
+    devices: devices(3),
+    solarUnits: ids('solar', 3),
+    batteryUnits: ids('battery', 2),
+  };
+
+  it('puts a hub where the node was, the units above it for solar and below it for the battery', () => {
+    const layout = computeLayout(input);
+    const plain = computeLayout({ ...input, solarUnits: undefined, batteryUnits: undefined });
+    for (const group of ['solar', 'battery'] as const) {
+      const hub = layout.nodes[group];
+      expect(hub.w).toBe(6);
+      expect(hub.x).toBeCloseTo(plain.nodes[group].x);
+      const side = group === 'solar' ? -1 : 1;
+      for (const id of input[`${group}Units`]) {
+        expect(Math.sign(layout.nodes[id].y - hub.y)).toBe(side);
+      }
+    }
+    // The nodes around keep their place relative to each other: only the vertical room grows.
+    expect(layout.nodes.grid.x).toBeCloseTo(plain.nodes.grid.x);
+    expect(layout.height).toBeGreaterThan(plain.height);
+  });
+
+  it('reports the size of the units and the height of the segment their feeders share', () => {
+    const layout = computeLayout(input);
+    expect(layout.units.solar!.size).toBe(layout.nodes['solar:0'].w);
+    const hub = layout.nodes.solar;
+    expect(layout.units.solar!.trunk).toBeLessThan(hub.y);
+    expect(layout.units.solar!.trunk).toBeGreaterThan(layout.nodes['solar:0'].y);
+    expect(layout.units.battery!.trunk).toBeGreaterThan(layout.nodes.battery.y);
+    expect(computeLayout({ ...input, solarUnits: undefined }).units.solar).toBeUndefined();
+  });
+
+  it('keeps the units inside the diagram, whatever the width', () => {
+    for (const width of [320, 700, 1400]) {
+      const layout = computeLayout({ ...input, width, solarUnits: ids('solar', 8) });
+      const left = Math.min(...ids('solar', 8).map((id) => layout.nodes[id].x - layout.nodes[id].w / 2));
+      const right = Math.max(...ids('solar', 8).map((id) => layout.nodes[id].x + layout.nodes[id].w / 2));
+      expect(left).toBeGreaterThanOrEqual(0);
+      expect(right).toBeLessThanOrEqual(layout.width);
+    }
+  });
+});
+
+describe('unit flow paths', () => {
+  const unit: Rect = { x: 40, y: 20, w: 60, h: 60 };
+  const hub: Rect = { x: 120, y: 100, w: 6, h: 6 };
+
+  it('runs from the side of the unit facing the hub to the hub itself', () => {
+    const path = unitFlowPath(unit, hub, 90, 'rounded', 74, true);
+    expect(path.from).toEqual({ x: 40, y: 20 + 30 - 3 });
+    expect(path.to).toEqual({ x: 120, y: 100 });
+    expect(path.d).toContain('Q');
+  });
+
+  it('runs the other way for a unit that receives power', () => {
+    const path = unitFlowPath(unit, hub, 90, 'rounded', 74, false);
+    expect(path.from).toEqual({ x: 120, y: 100 });
+    expect(path.to).toEqual({ x: 40, y: 47 });
+  });
+
+  it('goes straight down when the unit is above the hub', () => {
+    const path = unitFlowPath({ ...unit, x: 120 }, hub, 90, 'rounded', 74, true);
+    expect(path.d).not.toContain('Q');
+  });
+
+  it('turns on the shared segment, with a corner that never exceeds the segments', () => {
+    const square = unitFlowPath(unit, hub, 90, 'square', 74, true);
+    expect(square.d).toContain('L40,90 Q40,90 40,90 L120,90');
+    // Squeezed between the unit and the segment: a small radius.
+    const tight = unitFlowPath(unit, hub, 49, 'rounded', 74, true);
+    expect(tight.d).toMatch(/Q40,49 \d+(\.\d)?,49/);
+  });
+
+  it('a unit below the hub (battery) faces up', () => {
+    const below: Rect = { x: 40, y: 200, w: 60, h: 60 };
+    const path = unitFlowPath(below, hub, 130, 'rounded', 74, true);
+    expect(path.from.y).toBe(200 - 30 + 3);
+  });
+
+  it('follows the line style', () => {
+    expect(unitFlowPath(unit, hub, 90, 'curved', 74, true).d).toContain('C');
+    const straight = unitFlowPath(unit, hub, 90, 'straight', 74, true);
+    expect(straight.d).toMatch(/^M[\d.]+,[\d.]+ L[\d.]+,[\d.]+$/);
+  });
+
+  it('applyUnitPaths gives the feeders a path, and only them', () => {
+    const config: LiveEnergyCardConfig = {
+      type: 'x',
+      solar: { separate: true, units: [{ entity: 'sensor.a' }, { entity: 'sensor.b' }] },
+      grid: { entity: 'sensor.g' },
+    };
+    const model = buildModel(
+      config,
+      hassWith([state('sensor.a', 800), state('sensor.b', 400), state('sensor.g', 0)]),
+    );
+    const layout = computeLayout({
+      width: 700,
+      solar: true,
+      grid: true,
+      battery: false,
+      devices: [],
+      solarUnits: ['solar:0', 'solar:1'],
+    });
+    const flows = applyUnitPaths(model.flows, layout, config);
+    const feeder = flows.find((f) => f.id === 'feed:solar:0')!;
+    expect(feeder.geometry?.(layout.nodes)?.d).toMatch(/^M/);
+    expect(flows.find((f) => f.id === 'solar_home')!.geometry).toBeUndefined();
+    // Without the unit on screen, no path.
+    expect(feeder.geometry?.({ solar: layout.nodes.solar })).toBeNull();
   });
 });

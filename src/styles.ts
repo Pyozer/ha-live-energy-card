@@ -229,6 +229,12 @@ export const cardStyles = css`
     text-overflow: ellipsis;
   }
 
+  /* Units of a source shown unit by unit: small circles, the name only when there is room for it. */
+  .circle.is-small .name,
+  .circle.is-small .secondary {
+    display: none;
+  }
+
   .ring {
     position: absolute;
     inset: calc(var(--s) * -0.06);

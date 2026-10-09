@@ -1,3 +1,4 @@
+import { batteryUnits, solarUnits } from './source-units';
 import type { DeviceConfig, EntityRef, HomeAssistant, LiveEnergyCardConfig } from './types';
 import { entityIds, numberFormat } from './units';
 
@@ -21,7 +22,17 @@ export function energyStatistics(config: LiveEnergyCardConfig): Map<string, stri
     const ids = entityIds(ref);
     if (ids.length) out.set(id, ids);
   };
-  for (const key of ['solar', 'grid', 'battery', 'home'] as const) add(key, config[key]?.energy_entity);
+  for (const key of ['grid', 'home'] as const) add(key, config[key]?.energy_entity);
+  // Solar and battery: a counter per unit. The bubble of the source adds them up, which needs one on
+  // every unit, and a bubble per unit shows its own.
+  for (const [group, node, units] of [
+    ['solar', config.solar, solarUnits(config.solar)],
+    ['battery', config.battery, batteryUnits(config.battery)],
+  ] as const) {
+    const counters = units.map((u) => entityIds(u.config.energy_entity));
+    if (node?.separate) units.forEach((u, i) => add(u.id, counters[i]));
+    if (counters.length && counters.every((c) => c.length > 0)) add(group, counters.flat());
+  }
   // Energy sent to the grid: only used by the daily cost.
   add(EXPORT_STATISTIC, config.grid?.export_energy_entity);
   // Ready-made cost entities: today's change in daily mode (in hourly mode, their state is used).

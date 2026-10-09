@@ -1,8 +1,15 @@
 import { entitySelector, type EntityKind } from '../entities';
 import { LANGUAGE_NAMES, SUPPORTED_LANGUAGES, type LocalizeKey } from '../localize/localize';
-import type { DeviceConfig, EntityRef, HomeAssistant, LiveEnergyCardConfig } from '../types';
+import type { UnitGroup } from '../source-units';
+import type {
+  BatteryUnitConfig,
+  DeviceConfig,
+  EntityRef,
+  HomeAssistant,
+  LiveEnergyCardConfig,
+} from '../types';
 import { isGroup } from './device-list';
-import { PRICE_FIELDS, priceMode, type NodeKey, type PriceKey, type PriceModes } from './form';
+import { isUnitGroup, PRICE_FIELDS, priceMode, type NodeKey, type PriceKey, type PriceModes } from './form';
 
 /** `ha-form` schemas of the visual editor. */
 
@@ -11,7 +18,7 @@ export type Translate = (key: LocalizeKey, vars?: Record<string, string>) => str
 
 const ANY_ENTITY = { entity: {} };
 
-const NODE_ICONS: Record<NodeKey, string> = {
+export const NODE_ICONS: Record<NodeKey, string> = {
   solar: 'mdi:solar-power-variant',
   grid: 'mdi:transmission-tower',
   battery: 'mdi:home-battery-outline',
@@ -62,10 +69,69 @@ export class EditorSchema {
     return entitySelector(this.hass, kind, current as EntityRef | undefined, multiple);
   }
 
+  /**
+   * Fields of a node. The solar and battery sources only have their bubble here, as a single one:
+   * with `separate`, the bubble is that of each unit. What they read is set on their units.
+   */
   node(kind: NodeKey, config: LiveEnergyCardConfig): Schema[] {
-    const cfg = (config[kind] ?? {}) as Record<string, unknown>;
+    if (!isUnitGroup(kind)) return this.fields(kind, config[kind], config);
+    const separate: Schema = { name: 'separate', selector: { boolean: {} } };
+    return config[kind]?.separate ? [separate] : [separate, ...this.bubble(kind)];
+  }
+
+  /**
+   * Fields of a unit of the solar or battery source: what it reads, then its bubble when the source
+   * is shown one bubble per unit.
+   */
+  unit(group: UnitGroup, unit: BatteryUnitConfig, separate: boolean): Schema[] {
+    const cfg = unit as Record<string, unknown>;
     const power = (name: string): Schema => ({ name, selector: this.entity('power', cfg[name]) });
-    // The main entity accepts several sensors, added up (several inverters, phases…).
+    const reads: Schema[] =
+      group === 'solar'
+        ? [power('entity')]
+        : [
+            power('entity'),
+            grid([power('charge_entity'), power('discharge_entity')]),
+            { name: 'soc_entity', selector: this.entity('percent', cfg.soc_entity) },
+            grid([
+              {
+                name: 'capacity',
+                selector: { number: { min: 0, step: 0.1, mode: 'box', unit_of_measurement: 'kWh' } },
+              },
+              {
+                name: 'min_soc',
+                selector: { number: { min: 0, max: 100, mode: 'box', unit_of_measurement: '%' } },
+              },
+            ]),
+          ];
+    return [
+      ...reads,
+      grid(booleans(['invert'])),
+      { name: 'energy_entity', selector: this.entity('energy', cfg.energy_entity) },
+      ...(separate ? this.bubble(group) : []),
+    ];
+  }
+
+  /** What a bubble shows and does: its look, whether it hides at zero, its custom line, its actions. */
+  private bubble(kind: UnitGroup): Schema[] {
+    return [
+      grid([
+        { name: 'name', selector: { text: {} } },
+        { name: 'icon', selector: { icon: {} } },
+        { name: 'color', selector: { ui_color: { include_none: false } } },
+        ...(kind === 'battery' ? [{ name: 'charge_color', selector: { ui_color: {} } }] : []),
+      ]),
+      grid(booleans(['hide_when_zero'])),
+      { name: 'secondary_entity', selector: ANY_ENTITY },
+      actionsSchema(this.t),
+    ];
+  }
+
+  /** Fields of the grid and the home. */
+  private fields(kind: 'grid' | 'home', node: object | undefined, config: LiveEnergyCardConfig): Schema[] {
+    const cfg = (node ?? {}) as Record<string, unknown>;
+    const power = (name: string): Schema => ({ name, selector: this.entity('power', cfg[name]) });
+    // The main entity accepts several sensors, added up (grid phases…).
     const entities: Schema[] = [{ name: 'entity', selector: this.entity('power', cfg.entity, true) }];
     if (kind === 'grid') {
       entities.push(grid([power('import_entity'), power('export_entity')]), watts('max_import', 0));
@@ -77,22 +143,6 @@ export class EditorSchema {
         });
       }
     }
-    if (kind === 'battery') {
-      entities.push(
-        { name: 'soc_entity', selector: this.entity('percent', cfg.soc_entity) },
-        grid([
-          {
-            name: 'capacity',
-            selector: { number: { min: 0, step: 0.1, mode: 'box', unit_of_measurement: 'kWh' } },
-          },
-          {
-            name: 'min_soc',
-            selector: { number: { min: 0, max: 100, mode: 'box', unit_of_measurement: '%' } },
-          },
-        ]),
-        grid([power('charge_entity'), power('discharge_entity')]),
-      );
-    }
     return [
       ...entities,
       grid([
@@ -100,7 +150,6 @@ export class EditorSchema {
         { name: 'icon', selector: { icon: {} } },
         { name: 'color', selector: { ui_color: { include_none: false } } },
         ...(kind === 'grid' ? [{ name: 'export_color', selector: { ui_color: {} } }] : []),
-        ...(kind === 'battery' ? [{ name: 'charge_color', selector: { ui_color: {} } }] : []),
       ]),
       grid(booleans(kind === 'home' ? ['invert'] : ['hide_when_zero', 'invert'])),
       { name: 'energy_entity', selector: this.entity('energy', cfg.energy_entity, true) },

@@ -1,14 +1,14 @@
 import { entitiesOfKind } from './entities';
 import { entityIds } from './units';
 import type {
-  BatteryConfig,
+  BatteryUnitConfig,
   CostConfig,
   DeviceConfig,
   EntityRef,
   GridConfig,
   HomeAssistant,
   LiveEnergyCardConfig,
-  SolarConfig,
+  SolarUnitConfig,
 } from './types';
 
 /**
@@ -56,13 +56,15 @@ export type EnergyImport = Pick<LiveEnergyCardConfig, 'solar' | 'grid' | 'batter
 
 const str = (v: string | null | undefined): string | undefined => (v ? v : undefined);
 
-/** Power entities of a source: `power_config` (newer format) first, then `stat_rate`. */
-function powerOf(source: EnergySource): {
+interface Power {
   entity?: string;
   invert?: boolean;
   from?: string;
   to?: string;
-} {
+}
+
+/** Power entities of a source: `power_config` (newer format) first, then `stat_rate`. */
+function powerOf(source: EnergySource): Power {
   const pc = source.power_config ?? {};
   if (str(pc.stat_rate)) return { entity: pc.stat_rate! };
   if (str(pc.stat_rate_inverted)) return { entity: pc.stat_rate_inverted!, invert: true };
@@ -72,7 +74,7 @@ function powerOf(source: EnergySource): {
   return { entity: str(source.stat_rate) };
 }
 
-const hasPower = (p: ReturnType<typeof powerOf>): boolean => !!(p.entity || p.from || p.to);
+const hasPower = (p: Power): boolean => !!(p.entity || p.from || p.to);
 
 /** Energy counters (`stat_energy_from`, or `stat_energy_to` for the grid export) of a type: one id, a list, or none. */
 function energyOf(
@@ -90,8 +92,6 @@ export function configFromEnergyPrefs(prefs: EnergyPrefs): EnergyImport {
   const sources = prefs.energy_sources ?? [];
   const out: EnergyImport = {};
 
-  // Several sources of a type (inverters, batteries, grid entries per tariff) are added up when they
-  // all use a single signed sensor; otherwise the first one with a power sensor is used.
   const powered = (type: string) =>
     sources
       .filter((s) => s.type === type)
@@ -101,17 +101,28 @@ export function configFromEnergyPrefs(prefs: EnergyPrefs): EnergyImport {
     const unique = [...new Set(list.filter((p) => p.entity && !p.invert).map((p) => p.entity!))];
     return unique.length > 1 && unique.length === list.length ? unique : undefined;
   };
+  // Inverters and batteries are units of their source: one per entry, the same sensor only once.
+  const unitsOf = <T extends { entity?: string }>(
+    type: string,
+    unit: (s: EnergySource, p: Power) => T,
+  ): T[] => {
+    const seen = new Set<string>();
+    return sources.flatMap((s) => {
+      const p = powerOf(s);
+      if (s.type !== type || !hasPower(p)) return [];
+      const key = [p.entity, p.from, p.to].join('|');
+      if (seen.has(key)) return [];
+      seen.add(key);
+      return [unit(s, p)];
+    });
+  };
 
-  const solars = powered('solar');
-  if (solars.length) {
-    const many = signed(solars);
-    const p = solars[0];
-    const cfg: SolarConfig = { entity: many ?? p.entity ?? p.from };
-    if (!many && p.invert) cfg.invert = true;
-    const energy = energyOf(sources, 'solar');
-    if (energy) cfg.energy_entity = energy;
-    out.solar = cfg;
-  }
+  const solarUnits = unitsOf<SolarUnitConfig>('solar', (s, p) => ({
+    entity: p.entity ?? p.from,
+    ...(p.invert ? { invert: true } : {}),
+    ...(str(s.stat_energy_from) ? { energy_entity: s.stat_energy_from! } : {}),
+  }));
+  if (solarUnits.length) out.solar = { units: solarUnits };
 
   const grids = powered('grid');
   if (grids.length) {
@@ -136,23 +147,19 @@ export function configFromEnergyPrefs(prefs: EnergyPrefs): EnergyImport {
     out.grid = cfg;
   }
 
-  const batterySources = sources.filter((s) => s.type === 'battery' && hasPower(powerOf(s)));
-  if (batterySources.length) {
-    const list = batterySources.map(powerOf);
-    const many = signed(list);
-    const p = list[0];
-    // Battery power: positive = discharge, as in the Energy dashboard.
-    const cfg: BatteryConfig = many
-      ? { entity: many }
-      : p.entity
-        ? { entity: p.entity }
-        : { discharge_entity: p.from, charge_entity: p.to };
-    if (!many && p.invert) cfg.invert = true;
-    const first = batterySources[0];
-    if (!many && str(first.name)) cfg.name = first.name!;
-    const socs = (many ? batterySources : [first]).map((b) => str(b.stat_soc)).filter(Boolean) as string[];
-    if (socs.length) cfg.soc_entity = socs.length === 1 ? socs[0] : socs;
-    out.battery = cfg;
+  // Battery power: positive = discharge, as in the Energy dashboard.
+  const batteryUnits = unitsOf<BatteryUnitConfig>('battery', (s, p) => ({
+    ...(p.entity ? { entity: p.entity } : { discharge_entity: p.from, charge_entity: p.to }),
+    ...(p.invert ? { invert: true } : {}),
+    ...(str(s.stat_soc) ? { soc_entity: s.stat_soc! } : {}),
+    ...(str(s.name) ? { name: s.name! } : {}),
+  }));
+  if (batteryUnits.length) {
+    // A single battery names its bubble, several name their units.
+    const [only] = batteryUnits.length === 1 ? batteryUnits : [];
+    const name = only?.name;
+    if (only) delete only.name;
+    out.battery = { ...(name ? { name } : {}), units: batteryUnits };
   }
 
   const cost = costFromSources(sources);
@@ -225,15 +232,16 @@ function costFromSources(sources: EnergySource[]): CostConfig | undefined {
 /** Number of nodes found by an import, to report it to the user. */
 export function importedCount(imported: EnergyImport): number {
   return (
-    (imported.solar ? 1 : 0) +
+    (imported.solar?.units?.length ?? 0) +
     (imported.grid ? 1 : 0) +
-    (imported.battery ? 1 : 0) +
+    (imported.battery?.units?.length ?? 0) +
     (imported.devices ?? []).reduce((acc, d) => acc + 1 + (d.devices?.length ?? 0), 0)
   );
 }
 
 /**
- * Merges an import into an existing configuration: imported sources replace the configured ones,
+ * Merges an import into an existing configuration: the imported grid replaces the configured one,
+ * inverters and batteries are added as units next to the existing ones,
  * new devices are appended after the existing ones (same entity = same device).
  */
 export function mergeEnergyImport(
@@ -241,8 +249,13 @@ export function mergeEnergyImport(
   imported: EnergyImport,
 ): LiveEnergyCardConfig {
   const next: LiveEnergyCardConfig = { ...config };
-  for (const key of ['solar', 'grid', 'battery'] as const) {
-    if (imported[key]) next[key] = { ...stripEntities(config[key]), ...imported[key] } as never;
+  if (imported.grid) next.grid = { ...stripEntities(config.grid), ...imported.grid };
+  // Solar and battery: the options of the node are kept, its units too, and the new ones are added.
+  for (const key of ['solar', 'battery'] as const) {
+    const incoming = imported[key];
+    if (!incoming) continue;
+    const { units, ...options } = incoming;
+    next[key] = { ...options, ...config[key], units: mergeUnits(config[key]?.units, units) } as never;
   }
   // Prices configured by the user are kept.
   if (imported.cost && !config.cost) next.cost = imported.cost;
@@ -263,6 +276,21 @@ export function mergeEnergyImport(
   return next;
 }
 
+/** What identifies a unit: the power entities it reads. */
+const unitKey = (u: BatteryUnitConfig): string =>
+  [u.entity, u.discharge_entity, u.charge_entity].filter(Boolean).join(',');
+
+/** Existing units are kept as they are (with the energy counter they lack), new ones are appended. */
+function mergeUnits<T extends BatteryUnitConfig>(existing: T[] = [], imported: T[] = []): T[] {
+  const byKey = new Map(imported.map((u) => [unitKey(u), u]));
+  const known = new Set(existing.map(unitKey));
+  const complete = (u: T): T => {
+    const energy = u.energy_entity ?? byKey.get(unitKey(u))?.energy_entity;
+    return energy ? { ...u, energy_entity: energy } : u;
+  };
+  return [...existing.map(complete), ...imported.filter((u) => !known.has(unitKey(u)))];
+}
+
 /** Keeps the display options of a node (name, color…) but drops its power entities. */
 function stripEntities<T extends object>(node: T | undefined): Partial<T> {
   if (!node) return {};
@@ -271,8 +299,6 @@ function stripEntities<T extends object>(node: T | undefined): Partial<T> {
     'entity',
     'import_entity',
     'export_entity',
-    'charge_entity',
-    'discharge_entity',
     'energy_entity',
     'export_energy_entity',
     'invert',
@@ -310,9 +336,9 @@ export function guessConfig(hass: HomeAssistant | undefined): Partial<LiveEnergy
     .map((s) => ({ entity: s.entity_id }));
   const fallback = !solar && !grid && !battery && devices.length === 0 ? power[0] : undefined;
   return {
-    ...(solar ? { solar: { entity: solar.entity_id } } : {}),
+    ...(solar ? { solar: { units: [{ entity: solar.entity_id }] } } : {}),
     ...(grid ? { grid: { entity: grid.entity_id } } : {}),
-    ...(battery ? { battery: { entity: battery.entity_id } } : {}),
+    ...(battery ? { battery: { units: [{ entity: battery.entity_id }] } } : {}),
     ...(fallback ? { home: { entity: fallback.entity_id } } : {}),
     devices,
   };

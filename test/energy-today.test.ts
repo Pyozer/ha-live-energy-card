@@ -4,7 +4,12 @@ import type { HomeAssistant, LiveEnergyCardConfig } from '../src/types';
 
 const config: LiveEnergyCardConfig = {
   type: 'x',
-  solar: { entity: 'sensor.s', energy_entity: ['sensor.pv1_kwh', 'sensor.pv2_kwh'] },
+  solar: {
+    units: [
+      { entity: 'sensor.s1', energy_entity: 'sensor.pv1_kwh' },
+      { entity: 'sensor.s2', energy_entity: 'sensor.pv2_kwh' },
+    ],
+  },
   grid: { entity: 'sensor.g', energy_entity: 'sensor.grid_kwh' },
   devices: [
     { entity: 'sensor.tv' },
@@ -18,12 +23,67 @@ const config: LiveEnergyCardConfig = {
 
 describe('energyStatistics', () => {
   it('lists the energy counters of each node, by node id', () => {
-    expect([...energyStatistics(config)]).toEqual([
-      ['solar', ['sensor.pv1_kwh', 'sensor.pv2_kwh']],
-      ['grid', ['sensor.grid_kwh']],
-      ['device:1', ['sensor.it_kwh']],
-      ['device:1:0', ['sensor.nas_kwh']],
-    ]);
+    expect(Object.fromEntries(energyStatistics(config))).toEqual({
+      solar: ['sensor.pv1_kwh', 'sensor.pv2_kwh'],
+      grid: ['sensor.grid_kwh'],
+      'device:1': ['sensor.it_kwh'],
+      'device:1:0': ['sensor.nas_kwh'],
+    });
+  });
+});
+
+describe('energy statistics of units', () => {
+  it('lists the counters of each unit, and the total of the node from them', () => {
+    const stats = energyStatistics({
+      type: 'x',
+      solar: {
+        separate: true,
+        units: [
+          { entity: 'sensor.a', energy_entity: 'sensor.a_kwh' },
+          { entity: 'sensor.b', energy_entity: 'sensor.b_kwh' },
+        ],
+      },
+    });
+    expect(Object.fromEntries(stats)).toEqual({
+      'solar:0': ['sensor.a_kwh'],
+      'solar:1': ['sensor.b_kwh'],
+      solar: ['sensor.a_kwh', 'sensor.b_kwh'],
+    });
+  });
+
+  it('a single bubble only needs the total, not the counter of each unit', () => {
+    const stats = energyStatistics({
+      type: 'x',
+      battery: {
+        units: [
+          { entity: 'sensor.a', energy_entity: 'sensor.a_kwh' },
+          { entity: 'sensor.b', energy_entity: 'sensor.b_kwh' },
+        ],
+      },
+    });
+    expect([...stats.keys()]).toEqual(['battery']);
+  });
+
+  it('gives no total when a unit lacks its own counter', () => {
+    const stats = energyStatistics({
+      type: 'x',
+      solar: {
+        separate: true,
+        units: [{ entity: 'sensor.a', energy_entity: 'sensor.a_kwh' }, { entity: 'sensor.b' }],
+      },
+    });
+    expect([...stats.keys()]).toEqual(['solar:0']);
+  });
+
+  it('keeps the unit ids when a row in the list reads nothing', () => {
+    const stats = energyStatistics({
+      type: 'x',
+      solar: {
+        separate: true,
+        units: [{}, { entity: 'sensor.b', energy_entity: 'sensor.b_kwh' }],
+      },
+    });
+    expect(stats.get('solar:1')).toEqual(['sensor.b_kwh']);
   });
 });
 
@@ -45,12 +105,12 @@ describe('todayByNode', () => {
       ['sensor.pv2_kwh', 1.5],
       ['sensor.it_kwh', 0.4],
     ]);
-    expect([...todayByNode(stats, values)]).toEqual([
-      ['solar', 4.5],
-      ['grid', null],
-      ['device:1', 0.4],
-      ['device:1:0', null],
-    ]);
+    expect(Object.fromEntries(todayByNode(stats, values))).toEqual({
+      solar: 4.5,
+      grid: null,
+      'device:1': 0.4,
+      'device:1:0': null,
+    });
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { batteryEta, formatDuration } from '../src/battery';
+import { batteryEta, combinePacks, formatDuration } from '../src/battery';
 
 describe('batteryEta', () => {
   it('estimates the time to full while charging', () => {
@@ -24,6 +24,61 @@ describe('batteryEta', () => {
   it('hides estimates beyond 48 h and clamps an out-of-range charge level', () => {
     expect(batteryEta(50, 50, 0, 10)).toBeNull();
     expect(batteryEta(120, 1000, 0, 10)).toEqual({ until: 'full', hours: 0 });
+  });
+});
+
+describe('combinePacks', () => {
+  it('has no level without any sensor', () => {
+    expect(combinePacks([])).toEqual({ soc: undefined });
+    expect(combinePacks([{ soc: undefined, capacity: 10 }])).toEqual({ soc: undefined });
+  });
+
+  it('is unreadable as soon as one level is', () => {
+    expect(combinePacks([{ soc: 50 }, { soc: null }])).toEqual({ soc: null });
+  });
+
+  it('averages the levels, weighted by the capacities when they are all known', () => {
+    expect(combinePacks([{ soc: 80 }, { soc: 20 }]).soc).toBe(50);
+    expect(combinePacks([{ soc: 80, capacity: 10 }, { soc: 20 }]).soc).toBe(50);
+    expect(
+      combinePacks([
+        { soc: 80, capacity: 10 },
+        { soc: 20, capacity: 5 },
+      ]).soc,
+    ).toBeCloseTo(60);
+  });
+
+  it('adds the capacities and weights the reserve, when every battery has a level and a capacity', () => {
+    expect(
+      combinePacks([
+        { soc: 80, capacity: 10, min_soc: 10 },
+        { soc: 20, capacity: 5, min_soc: 40 },
+      ]),
+    ).toEqual({ soc: expect.closeTo(60), capacity: 15, min_soc: 20 });
+    expect(
+      combinePacks([
+        { soc: 80, capacity: 10 },
+        { soc: 20, capacity: 5 },
+      ]).min_soc,
+    ).toBe(0);
+  });
+
+  it('gives no capacity, so no estimate, on part of the batteries', () => {
+    const noCapacity = combinePacks([{ soc: 80, capacity: 10 }, { soc: 20 }]);
+    expect(noCapacity.capacity).toBeUndefined();
+    const noLevel = combinePacks([
+      { soc: 80, capacity: 10 },
+      { soc: undefined, capacity: 5 },
+    ]);
+    expect(noLevel).toEqual({ soc: 80 });
+  });
+
+  it('a single battery is itself', () => {
+    expect(combinePacks([{ soc: 42, capacity: 8, min_soc: 5 }])).toEqual({
+      soc: 42,
+      capacity: 8,
+      min_soc: 5,
+    });
   });
 });
 

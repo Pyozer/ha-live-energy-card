@@ -11,6 +11,7 @@ import { computeLayout, type Layout } from './layout';
 import { localize, resolveLanguage } from './localize/localize';
 import {
   applyDeviceTree,
+  applyUnitPaths,
   buildModel,
   DEFAULTS,
   type CardModel,
@@ -27,6 +28,9 @@ declare const __VERSION__: string;
 const VERSION = typeof __VERSION__ !== 'undefined' ? __VERSION__ : 'dev';
 
 export const CARD_TAG = 'live-energy-card';
+
+/** Below this diameter (px), a unit only shows its icon and value: no room for a name. */
+const SMALL_UNIT = 60;
 
 let instances = 0;
 
@@ -183,8 +187,20 @@ export class LiveEnergyCard extends LitElement {
       devices: this._model.devicesOrder.filter((id) => visible.has(id)),
       devicesLayout: this._config.devices_layout,
       devicesColumns: this._config.devices_columns,
+      solarUnits: this._unitIds('solar', visible),
+      batteryUnits: this._unitIds('battery', visible),
     });
-    this._model.flows = applyDeviceTree(this._model, this._layout, this._config);
+    this._model.flows = applyUnitPaths(
+      applyDeviceTree(this._model, this._layout, this._config),
+      this._layout,
+      this._config,
+    );
+  }
+
+  /** Visible units of a source shown unit by unit, `undefined` for a source shown as one node. */
+  private _unitIds(group: 'solar' | 'battery', visible: ReadonlySet<string>): string[] | undefined {
+    const units = this._model!.nodes.filter((n) => n.unit === group);
+    return units.length ? units.filter((n) => visible.has(n.id)).map((n) => n.id) : undefined;
   }
 
   /** Number formatting follows the Home Assistant locale. */
@@ -254,7 +270,7 @@ export class LiveEnergyCard extends LitElement {
               )}
             </svg>
             ${repeat(
-              model.nodes,
+              model.nodes.filter((n) => !n.hub),
               (n) => n.id,
               (n) => this._renderNode(n),
             )}
@@ -309,6 +325,8 @@ export class LiveEnergyCard extends LitElement {
       n.group ? 'is-group' : '',
       n.group?.expanded ? 'is-expanded' : '',
       n.parent ? 'is-member' : '',
+      n.unit ? 'is-unit' : '',
+      n.unit && (this._layout?.units[n.unit]?.size ?? Infinity) < SMALL_UNIT ? 'is-small' : '',
       n.alert ? 'is-alert' : '',
     ].join(' ');
     return html`
@@ -356,10 +374,11 @@ export class LiveEnergyCard extends LitElement {
           ? html`<div class="caption">
               ${
                 n.soc !== undefined && n.soc !== null
-                  ? html`<strong>${Math.round(n.soc)} %</strong><span class="dot"></span>`
+                  ? html`<strong>${Math.round(n.soc)} %</strong
+                      >${n.unit ? nothing : html`<span class="dot"></span>`}`
                   : nothing
               }
-              <span>${n.status}</span>
+              ${n.unit ? nothing : html`<span>${n.status}</span>`}
             </div>`
           : nothing
       }
