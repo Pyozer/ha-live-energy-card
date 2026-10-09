@@ -82,3 +82,68 @@ export function addDevice(
   next[group] = { ...next[group], devices: members };
   return { devices: next, path: [group, members.length - 1] };
 }
+
+export type DropPosition = 'before' | 'after' | 'into';
+
+/** Where a dragged device lands: next to the device at `path`, or at the end of a group. */
+export interface DropTarget {
+  path: DevicePath;
+  position: DropPosition;
+}
+
+/** Path of a device (by identity), `undefined` when it is not in the list. */
+export function findDevice(devices: readonly DeviceConfig[], device: DeviceConfig): DevicePath | undefined {
+  for (let i = 0; i < devices.length; i++) {
+    if (devices[i] === device) return [i];
+    const j = (devices[i].devices ?? []).indexOf(device);
+    if (j >= 0) return [i, j];
+  }
+  return undefined;
+}
+
+/**
+ * Drops a device next to another one (`before` / `after`, at the top level or among a group's
+ * members) or at the end of a group (`into`). Returns the new list and the device's new path, or
+ * `null` when the drop is not allowed or would change nothing. A group stays at the top level (the
+ * list has two levels), and only a group takes members.
+ */
+export function dropDevice(
+  devices: readonly DeviceConfig[],
+  source: DevicePath,
+  target: DropTarget,
+): { devices: DeviceConfig[]; path: DevicePath } | null {
+  const dragged = deviceAt(devices, source);
+  const destination = deviceAt(devices, target.path);
+  if (!dragged || !destination || pathKey(source) === pathKey(target.path)) return null;
+  if (target.position === 'into') {
+    if (target.path.length !== 1 || !isGroup(destination) || isGroup(dragged)) return null;
+  } else if (isGroup(dragged) && target.path.length !== 1) {
+    return null;
+  }
+
+  // The target's indices are those of the list before the removal: shift them when the removed
+  // device was ahead of it in the same list.
+  const next = removeDevice(devices, source);
+  const to = [...target.path];
+  if (source.length === 1 && to[0] > source[0]) to[0]--;
+  else if (source.length === 2 && to.length === 2 && to[0] === source[0] && to[1] > source[1]) to[1]--;
+
+  let path: DevicePath;
+  if (target.position === 'into') {
+    const members = [...(next[to[0]].devices ?? []), dragged];
+    next[to[0]] = { ...next[to[0]], devices: members };
+    path = [to[0], members.length - 1];
+  } else {
+    const index = to[to.length - 1] + (target.position === 'after' ? 1 : 0);
+    if (to.length === 1) {
+      next.splice(index, 0, dragged);
+      path = [index];
+    } else {
+      const members = [...(next[to[0]].devices ?? [])];
+      members.splice(index, 0, dragged);
+      next[to[0]] = { ...next[to[0]], devices: members };
+      path = [to[0], index];
+    }
+  }
+  return pathKey(path) === pathKey(source) ? null : { devices: next, path };
+}

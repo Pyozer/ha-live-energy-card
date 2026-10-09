@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 
-const BUDGETS = [{ file: 'dist/live-energy-card.js', maxGzipKb: 40 }];
+const BUDGETS = [{ file: 'dist/live-energy-card.js', maxGzipKb: 43 }];
 
 let failed = false;
 for (const { file, maxGzipKb } of BUDGETS) {

@@ -134,6 +134,11 @@ A group is shown as a single device with the total power of its members. Tap it 
 group stays as a header and its members appear after it, each with its own flow. Tap again to
 collapse it.
 
+In the visual editor, **drag a device by its handle** (mouse, touch or pen) to reorder the list,
+move it into a group (drop it on the group's header), take it out of a group or move it to another
+one. A group can be reordered among the top-level devices, but not placed inside another group. With
+the keyboard, focus the handle and use the up and down arrows.
+
 ```yaml
 type: custom:live-energy-card
 grid:

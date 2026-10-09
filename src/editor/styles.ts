@@ -46,6 +46,63 @@ export const editorStyles = css`
     gap: 4px;
     padding: 4px 4px 4px 12px;
   }
+  .handle {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 36px;
+    margin-left: -8px;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    color: var(--secondary-text-color);
+    cursor: grab;
+    /* Touch: the handle drags, the rest of the list still scrolls. */
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .handle:hover,
+  .handle:focus-visible {
+    color: var(--primary-text-color);
+    background: var(--secondary-background-color);
+  }
+  .devices {
+    position: relative;
+  }
+  /* The lifted block floats above the list and follows the pointer (left and top are set while dragging). */
+  .device.lifted {
+    position: absolute;
+    z-index: 10;
+    box-sizing: border-box;
+    background: var(--card-background-color, var(--ha-card-background, #fff));
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+    cursor: grabbing;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .lifted .handle {
+    cursor: grabbing;
+  }
+  /* No horizontal scrollbar while the block follows the pointer sideways. */
+  .devices.lifting {
+    overflow-x: clip;
+  }
+  /* The gap showing where the dragged device would land: the others move aside to make room. */
+  .drop-slot {
+    box-sizing: border-box;
+    flex: none;
+    border: 2px dashed var(--primary-color);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--primary-color) 8%, transparent);
+  }
+  .device.drop-into {
+    border-color: var(--primary-color);
+    background: color-mix(in srgb, var(--primary-color) 8%, transparent);
+  }
   .device-head > ha-icon {
     color: var(--secondary-text-color);
     flex: none;
@@ -117,7 +174,7 @@ export const editorStyles = css`
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding: 8px 8px 10px 20px;
+    padding: 8px 8px 16px 20px;
     border-top: 1px solid var(--divider-color);
   }
   .issues {

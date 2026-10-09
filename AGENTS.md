@@ -65,12 +65,13 @@ hass + config ─► model/   ─► layout.ts ─► tree.ts ─► live-energy
 | `src/live-energy-card.ts` | Lit element: Lovelace lifecycle, rendering, width measurement, registration. |
 | `src/styles.ts` | Styles and palette (`--lec-*` variables, light / dark). |
 | `src/actions.ts` | `tap_action`, `hold_action`, `double_tap_action` (`hass-action` event). |
-| `src/editor/editor.ts` | Visual editor element: renders the forms and the device list, emits `config-changed`. |
+| `src/editor/editor.ts` | Visual editor element: renders the forms and the device list (pointer-event drag and drop on a handle, arrow keys as keyboard alternative), emits `config-changed`. |
 | `src/editor/schema.ts` | `ha-form` schemas (card, nodes, devices) and field labels. |
 | `src/editor/form.ts` | Config ↔ form data. Only writes values that differ from the defaults. |
 | `src/editor/validation.ts` | Entity checks shown by the editor: missing entities and entities of the wrong kind. |
 | `src/editor/styles.ts` | Editor styles. |
-| `src/editor/device-list.ts` | Immutable operations on the two-level device list (devices and group members). |
+| `src/editor/device-list.ts` | Immutable operations on the two-level device list (devices and group members), including `dropDevice` (drag and drop). |
+| `src/editor/drag.ts` | Pure geometry of the device drag and drop: the drop target (before, after, into a group) for a pointer height. |
 | `src/localize/` | `en.ts` is the reference; `fr.ts` is typed against it (a missing key fails to compile). `resolveLanguage` picks the card `language` option, then the HA user language. |
 | `demo/` | Demo page: simulated `hass`, scenarios, sliders, YAML editor. Stubs for `ha-card` and `ha-icon`. |
 | `test/` | Vitest tests, running in Node (no DOM). |
