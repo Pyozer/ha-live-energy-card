@@ -1,6 +1,6 @@
 {
   "name": "live-energy-card",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Modern animated energy flow card for Home Assistant",
   "type": "module",
   "license": "MIT",
