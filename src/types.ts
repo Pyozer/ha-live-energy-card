@@ -48,6 +48,10 @@ export interface BatteryConfig extends BaseNodeConfig {
   /** State of charge in %. Several entities are averaged. */
   soc_entity?: EntityRef;
   charge_color?: string;
+  /** Usable capacity in kWh: with `soc_entity`, shows the time to full or to the reserve. */
+  capacity?: number;
+  /** Reserve kept by the battery (%), the discharge estimate stops there. */
+  min_soc?: number;
 }
 
 export type HomeConfig = BaseNodeConfig;

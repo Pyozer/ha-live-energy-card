@@ -238,7 +238,10 @@ Specific options:
 - `grid`: `import_entity` / `export_entity` (alternative to a signed entity), `export_color`,
   `max_import` (import limit in W, e.g. the subscribed power: above it, the grid node turns red and
   shows *Over limit*).
-- `battery`: `charge_entity` / `discharge_entity`, `soc_entity` (charge level in %; a list is averaged), `charge_color`.
+- `battery`: `charge_entity` / `discharge_entity`, `soc_entity` (charge level in %; a list is averaged), `charge_color`,
+  `capacity` (usable capacity in kWh) and `min_soc` (reserve in %, default 0): with a charge level,
+  the caption shows the time to full or down to the reserve at the current power (*Full in 2 h 05*),
+  up to 48 h.
 - `home`: `entity` is optional. Without it, consumption is computed from the sources.
 - `devices` groups: `devices` (members, same options as a device), `expanded` (initially
   expanded), `entity` optional. A group's default tap action expands or collapses it.

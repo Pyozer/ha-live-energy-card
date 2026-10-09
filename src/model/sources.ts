@@ -1,3 +1,4 @@
+import { batteryEta, formatDuration } from '../battery';
 import { DEFAULT_COLORS, resolveColor } from '../colors';
 import { splitSigned, type FlowResult, type SourceInputs } from '../compute';
 import type {
@@ -182,6 +183,9 @@ export function sourceNodes(
     const soc = hasEntity(cfg.soc_entity) ? readPercentAverage(hass.states, cfg.soc_entity) : undefined;
     const net = result.batteryDischarge - result.batteryCharge;
     const active = net !== 0;
+    const eta = available
+      ? batteryEta(soc, result.batteryCharge, result.batteryDischarge, cfg.capacity, cfg.min_soc)
+      : null;
     nodes.push({
       id: 'battery',
       kind: 'battery',
@@ -193,11 +197,13 @@ export function sourceNodes(
       active,
       // With a charge level configured, an idle battery stays visible unless explicitly hidden.
       visible: !(available && !active && (cfg.hide_when_zero ?? (globalHide && soc === undefined))),
-      status: charging
-        ? t('state.charging')
-        : result.batteryDischarge > 0
-          ? t('state.discharging')
-          : t('state.idle'),
+      status: eta
+        ? t(eta.until === 'full' ? 'state.full_in' : 'state.empty_in', { time: formatDuration(eta.hours) })
+        : charging
+          ? t('state.charging')
+          : result.batteryDischarge > 0
+            ? t('state.discharging')
+            : t('state.idle'),
       soc,
       secondary: formatSecondary(hass, cfg.secondary_entity),
       actions: actionsFor(cfg, cfg.entity ?? cfg.discharge_entity ?? cfg.charge_entity),

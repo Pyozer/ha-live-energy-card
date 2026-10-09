@@ -49,7 +49,7 @@ export function validateConfig(input: unknown): LiveEnergyCardConfig {
   }
 
   // Numbers nested in a section: coerced (YAML or the editor may give strings), empty ones removed.
-  const numbers = <K extends 'cost' | 'grid'>(section: K, fields: string[]) => {
+  const numbers = <K extends 'cost' | 'grid' | 'battery'>(section: K, fields: string[]) => {
     if (!config[section]) return;
     const copy = { ...config[section] } as Record<string, unknown>;
     for (const field of fields) {
@@ -63,6 +63,7 @@ export function validateConfig(input: unknown): LiveEnergyCardConfig {
   };
   numbers('cost', ['price', 'export_price']);
   numbers('grid', ['max_import']);
+  numbers('battery', ['capacity', 'min_soc']);
 
   // An unknown line style falls back to the default instead of breaking the card.
   if (config.line_style !== undefined && !LINE_STYLES.includes(config.line_style)) delete config.line_style;

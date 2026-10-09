@@ -19,6 +19,8 @@ export const en = {
     discharging: 'Discharging',
     idle: 'Idle',
     over_limit: 'Over limit',
+    full_in: 'Full in {time}',
+    empty_in: 'Empty in {time}',
     unavailable: 'Unavailable',
   },
   ratio: {
@@ -76,6 +78,8 @@ export const en = {
       color: 'Color',
       export_color: 'Export color',
       max_import: 'Import limit (W), e.g. the subscribed power',
+      capacity: 'Usable capacity (kWh)',
+      min_soc: 'Reserve (%)',
       charge_color: 'Charging color',
       invert: 'Invert sign',
       exclude_from_untracked: 'Not part of the home consumption (not subtracted from Other)',

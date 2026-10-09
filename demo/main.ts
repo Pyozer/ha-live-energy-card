@@ -74,7 +74,7 @@ const DEFAULT_CONFIG: LiveEnergyCardConfig = {
   max_power: 4000,
   solar: { entity: ENT.solar, secondary_entity: ENT.solarDay },
   grid: { entity: ENT.grid },
-  battery: { entity: ENT.battery, soc_entity: ENT.soc },
+  battery: { entity: ENT.battery, soc_entity: ENT.soc, capacity: 10, min_soc: 10 },
   devices: [
     ...DEVICES.filter((_, i) => !IT_GROUP.includes(i)).map(({ entity, name, icon }) => ({
       entity,

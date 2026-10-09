@@ -73,6 +73,16 @@ export class EditorSchema {
     if (kind === 'battery') {
       entities.push(
         { name: 'soc_entity', selector: this.entity('percent', cfg.soc_entity) },
+        grid([
+          {
+            name: 'capacity',
+            selector: { number: { min: 0, step: 0.1, mode: 'box', unit_of_measurement: 'kWh' } },
+          },
+          {
+            name: 'min_soc',
+            selector: { number: { min: 0, max: 100, mode: 'box', unit_of_measurement: '%' } },
+          },
+        ]),
         grid([power('charge_entity'), power('discharge_entity')]),
       );
     }

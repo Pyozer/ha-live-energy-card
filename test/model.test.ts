@@ -110,3 +110,13 @@ describe('grid import alert', () => {
     expect(grid('unavailable', 3000).alert).toBe(false);
   });
 });
+
+describe('battery estimate', () => {
+  it('replaces the battery status when capacity and charge level are known', () => {
+    const config = cfg({ battery: { entity: 'sensor.b', soc_entity: 'sensor.soc', capacity: 10 } });
+    const hass = hassWith(state('sensor.b', -2000), state('sensor.soc', 50, '%'));
+    const src = readSources(config, hass);
+    const nodes = sourceNodes(modelContext(config, hass), src, computeFlows(src.inputs), sourceColors(src));
+    expect(nodes.find((n) => n.id === 'battery')?.status).toBe('Full in 2 h 30');
+  });
+});

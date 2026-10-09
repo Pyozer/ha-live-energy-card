@@ -23,6 +23,8 @@ export const fr: DeepStrings<typeof en> = {
     discharging: 'Décharge',
     idle: 'Au repos',
     over_limit: 'Dépassement',
+    full_in: 'Pleine dans {time}',
+    empty_in: 'Vide dans {time}',
     unavailable: 'Indisponible',
   },
   ratio: {
@@ -80,6 +82,8 @@ export const fr: DeepStrings<typeof en> = {
       color: 'Couleur',
       export_color: "Couleur d'injection",
       max_import: 'Limite de soutirage (W), ex. la puissance souscrite',
+      capacity: 'Capacité utile (kWh)',
+      min_soc: 'Réserve (%)',
       charge_color: 'Couleur de charge',
       invert: 'Inverser le signe',
       exclude_from_untracked: 'Hors consommation de la maison (non déduit de Autres)',
