@@ -13,7 +13,8 @@ power.
   `dist/live-energy-card.js`. This is the file Home Assistant loads.
 - Element `custom:live-energy-card` and visual editor `live-energy-card-editor` (built on `ha-form`).
 - Runtime dependencies are limited to `lit` and `@mdi/js`. Do not add more without a real need:
-  everything ends up in the bundle loaded by every HA client.
+  everything ends up in the bundle loaded by every HA client. `npm run size` enforces a gzip budget
+  on it.
 - **Everything is written in English**: documentation, code comments, test names and commits.
   Only the UI is translated (English and French, see `src/localize/`).
 
@@ -27,7 +28,8 @@ npm run coverage      # tests + coverage thresholds (report in coverage/index.ht
 npm run lint          # ESLint
 npm run format        # Prettier (src, demo, test)
 npm run build         # type check + dist/live-energy-card.js
-npm run check         # lint + format:check + coverage + build: run before every commit
+npm run size          # bundle size against its budget (scripts/check-size.mjs)
+npm run check         # lint + format:check + coverage + build + size: run before every commit
 ```
 
 ## Architecture

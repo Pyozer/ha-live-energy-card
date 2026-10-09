@@ -11,10 +11,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
-    "lint": "eslint src demo test",
-    "format": "prettier --write src demo test",
-    "format:check": "prettier --check src demo test",
-    "check": "npm run lint && npm run format:check && npm run coverage && npm run build"
+    "size": "node scripts/check-size.mjs",
+    "lint": "eslint src demo test scripts",
+    "format": "prettier --write src demo test scripts",
+    "format:check": "prettier --check src demo test scripts",
+    "check": "npm run lint && npm run format:check && npm run coverage && npm run build && npm run size"
   },
   "dependencies": {
     "@mdi/js": "^7.4.47",
