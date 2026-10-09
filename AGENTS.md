@@ -136,7 +136,10 @@ Every code change comes with the matching documentation update, in the same comm
 - `dist/` is not versioned.
 - Release: bump `package.json`, commit `chore: release x.y.z`, then push a `vx.y.z` tag. The
   `Release` workflow checks that the tag matches `package.json`, runs `npm run check` and publishes
-  a GitHub release with `live-energy-card.js` attached (what HACS installs).
+  a GitHub release with `live-energy-card.js` attached (what HACS installs). The release notes are
+  built from the Conventional Commits since the previous tag (`scripts/release-notes.mjs`), so a
+  commit pushed straight to `main` appears in them: write its type and summary for a user
+  (`feat`, `fix`, `perf`, `refactor`, `docs`, `build`, `ci`; `chore`, `test` and `style` are left out).
 
 ## Continuous integration
 

@@ -1,6 +1,7 @@
 name: Release
 
-# Pushing a `vX.Y.Z` tag publishes a GitHub release with the bundle attached (used by HACS).
+# Pushing a `vX.Y.Z` tag publishes a GitHub release with the bundle attached (used by HACS) and
+# notes built from the Conventional Commits since the previous tag.
 on:
   push:
     tags: ['v*']
@@ -13,6 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The whole history and the tags, to list the commits since the previous release.
+          fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
@@ -26,7 +30,10 @@ jobs:
             exit 1
           fi
       - run: npm run check
+      # GitHub's generated notes only list merged pull requests: build them from the commits instead.
+      - name: Write the release notes
+        run: node scripts/release-notes.mjs "$GITHUB_REF_NAME" > release-notes.md
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/live-energy-card.js --title "$GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" dist/live-energy-card.js --title "$GITHUB_REF_NAME" --notes-file release-notes.md

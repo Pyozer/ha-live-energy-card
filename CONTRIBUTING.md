@@ -45,6 +45,13 @@ Messages follow [Conventional Commits](https://www.conventionalcommits.org/) and
 A change that breaks existing configurations is marked with `!` after the type (`feat!: …`) and a
 `BREAKING CHANGE: …` line in the body.
 
+### Release notes
+
+The notes of a release are built from these messages: the summary of each `feat`, `fix`, `perf`,
+`refactor`, `docs`, `build` and `ci` commit since the previous tag, grouped by type (`chore`, `test`
+and `style` are left out). Write the summary for someone who uses the card. A breaking change (`!`
+or a `BREAKING CHANGE:` line) gets its own heading.
+
 ### Common scopes
 
 `card`, `editor`, `layout`, `animation`, `model`, `demo`, `i18n`.
