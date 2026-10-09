@@ -55,11 +55,23 @@ describe('release notes', () => {
       commit('refactor!: rename the card', 'BREAKING CHANGE: the type is now custom:live-energy-card'),
       commit('feat(cost)!: price sources'),
     ]);
-    expect(text).toContain('## Breaking changes\n\n- The type is now custom:live-energy-card');
+    expect(text).toContain(
+      '## Breaking changes\n\n- Rename the card: the type is now custom:live-energy-card',
+    );
     expect(text).toContain('- **cost:** Price sources');
     expect(text).not.toContain('## Refactoring');
     expect(text).not.toContain('## Features');
     expect(parseCommit(commit('fix: a'))?.breaking).toBeUndefined();
+  });
+
+  it('keeps the whole footer of a breaking change, even wrapped, and stops at the next paragraph', () => {
+    const body = 'A body.\n\nBREAKING CHANGE: the option `a`\nmoved to `b`,\nsee the README.\n\nRefs: #1';
+    expect(parseCommit(commit('feat!: move an option', body))?.breaking).toBe(
+      'the option `a` moved to `b`, see the README.',
+    );
+    expect(notes([commit('feat!: move an option', body)])).toContain(
+      '- Move an option: the option `a` moved to `b`, see the README. (',
+    );
   });
 
   it('ends with a link to the full comparison, or to the history for a first release', () => {

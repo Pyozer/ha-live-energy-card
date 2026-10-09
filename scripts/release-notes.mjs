@@ -28,13 +28,15 @@ export function parseCommit({ hash, subject, body = '' }) {
   // A message that is not a conventional commit is kept, rather than silently lost.
   const type = match ? match[1].toLowerCase() : 'other';
   if (SKIPPED.has(type)) return null;
-  const breaking = /^BREAKING[ -]CHANGE:\s*(.+)$/m.exec(body);
+  // The footer runs until the next blank line, and may be wrapped.
+  const breaking = /^BREAKING[ -]CHANGE:\s*([\s\S]*?)(?:\n\s*\n|(?![\s\S]))/m.exec(body);
   return {
     hash,
     type,
     scope: match?.[2],
     summary: match ? match[4] : subject,
-    breaking: match?.[3] === '!' || !!breaking ? (breaking?.[1] ?? '') : undefined,
+    breaking:
+      match?.[3] === '!' || !!breaking ? (breaking?.[1] ?? '').replace(/\s*\n\s*/g, ' ').trim() : undefined,
   };
 }
 
@@ -53,7 +55,9 @@ export function buildNotes(commits, { repoUrl, from, to }) {
   for (const { title, types } of SECTIONS) {
     const lines =
       title === 'Breaking changes'
-        ? entries.filter((e) => e.breaking !== undefined).map((e) => line(e, e.breaking || e.summary))
+        ? entries
+            .filter((e) => e.breaking !== undefined)
+            .map((e) => line(e, e.breaking ? `${e.summary}: ${e.breaking}` : e.summary))
         : entries
             // A breaking change is listed once, under its own heading.
             .filter((e) => e.breaking === undefined)
