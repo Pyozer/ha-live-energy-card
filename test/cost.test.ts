@@ -3,6 +3,7 @@ import { computeFlows } from '../src/compute';
 import {
   computeStats,
   dailyAmounts,
+  statActions,
   formatCarbonRate,
   formatMoney,
   formatMoneyRate,
@@ -107,6 +108,103 @@ describe('computeStats', () => {
         cost: { price: 0.2, period: 'week' },
       } as never);
       expect(config.cost?.period).toBeUndefined();
+    });
+  });
+
+  describe('entity behind an indicator (more-info on tap)', () => {
+    const states = [
+      ent('sensor.cost_rate', 0.5, '€/h'),
+      ent('sensor.earn_rate', 0.1, '€/h'),
+      ent('sensor.sav_rate', 0.2, '€/h'),
+      ent('sensor.co2', 100, 'g/kWh'),
+    ];
+
+    it('is none for computed indicators', () => {
+      const stats = computeStats(importing, hass(), { price: 0.2 }, undefined)!;
+      expect(stats.entities).toEqual({});
+    });
+
+    it('is the ready-made entity of each indicator', () => {
+      const stats = computeStats(
+        importing,
+        hass(...states),
+        { cost_entity: 'sensor.cost_rate', savings_entity: 'sensor.sav_rate' },
+        'sensor.co2',
+      )!;
+      expect(stats.entities).toEqual({
+        cost: 'sensor.cost_rate',
+        savings: 'sensor.sav_rate',
+        carbon: 'sensor.co2',
+      });
+    });
+
+    it('is the earnings entity when the earnings are shown instead of the cost', () => {
+      const cost = { cost_entity: 'sensor.cost_rate', earnings_entity: 'sensor.earn_rate' };
+      // Cost 0.5 − earnings 0.1 > 0: the cost is shown.
+      expect(computeStats(importing, hass(...states), cost, undefined)!.entities.cost).toBe(
+        'sensor.cost_rate',
+      );
+      // A larger earnings entity makes the cost negative.
+      const big = hass(ent('sensor.cost_rate', 0.1, '€/h'), ent('sensor.earn_rate', 0.5, '€/h'));
+      expect(computeStats(importing, big, cost, undefined)!.entities.cost).toBe('sensor.earn_rate');
+    });
+
+    it('stays the cost entity when only it can explain a negative cost', () => {
+      const negative = hass(ent('sensor.cost_rate', -0.3, '€/h'));
+      const stats = computeStats(importing, negative, { cost_entity: 'sensor.cost_rate' }, undefined)!;
+      expect(stats.cost).toBeLessThan(0);
+      expect(stats.entities.cost).toBe('sensor.cost_rate');
+    });
+
+    it('is none for a cost computed from prices when only the earnings are an entity', () => {
+      const stats = computeStats(
+        importing,
+        hass(...states),
+        { price: 0.2, earnings_entity: 'sensor.earn_rate' },
+        undefined,
+      )!;
+      expect(stats.cost).toBeGreaterThan(0);
+      expect(stats.entities.cost).toBeUndefined();
+    });
+  });
+
+  describe('actions of an indicator', () => {
+    it('opens the more-info of its entity by default', () => {
+      expect(statActions('cost', 'sensor.c', undefined, undefined)).toEqual({
+        entity: 'sensor.c',
+        tap_action: { action: 'more-info' },
+        hold_action: undefined,
+        double_tap_action: undefined,
+      });
+    });
+
+    it('does nothing for a calculated indicator', () => {
+      expect(statActions('savings', undefined, { price: 0.2 }, undefined).tap_action).toEqual({
+        action: 'none',
+      });
+    });
+
+    it('takes the configured actions of each indicator, over the default', () => {
+      const cost = {
+        cost_actions: { tap_action: { action: 'navigate', navigation_path: '/energy' } },
+        savings_actions: { hold_action: { action: 'more-info' } },
+      };
+      const carbon = { actions: { double_tap_action: { action: 'url', url_path: 'https://x.test' } } };
+      expect(statActions('cost', 'sensor.c', cost, carbon).tap_action).toEqual(cost.cost_actions.tap_action);
+      // Another indicator's actions do not leak.
+      const savings = statActions('savings', 'sensor.s', cost, carbon);
+      expect(savings.tap_action).toEqual({ action: 'more-info' });
+      expect(savings.hold_action).toEqual(cost.savings_actions.hold_action);
+      expect(statActions('carbon', 'sensor.co2', cost, carbon).double_tap_action).toEqual(
+        carbon.actions.double_tap_action,
+      );
+    });
+
+    it('can act without an entity: a calculated indicator that navigates', () => {
+      const cost = { cost_actions: { tap_action: { action: 'navigate', navigation_path: '/energy' } } };
+      expect(statActions('cost', undefined, cost, undefined).tap_action).toEqual(
+        cost.cost_actions.tap_action,
+      );
     });
   });
 

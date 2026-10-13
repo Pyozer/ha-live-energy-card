@@ -31,7 +31,7 @@ colors reserved for icons and flows. Each flow's animation follows its power.
 - **Battery ring**: state of charge.
 - Automatic unit conversion (W, kW, MW), animated counters, tabular figures.
 - `unavailable` / `unknown` entities are reported cleanly: never `NaN`.
-- `tap_action`, `hold_action`, `double_tap_action` on every node (more-info by default).
+- `tap_action`, `hold_action`, `double_tap_action` on every node and on the cost, savings and CO₂ indicators (more-info by default).
 - Automatic light and dark themes, `prefers-reduced-motion` support, animation paused off-screen,
   **eco mode** for low-power devices.
 - **Import from the Energy dashboard**: solar, grid, battery and devices in one click.
@@ -394,6 +394,37 @@ If several sources are set in YAML, the strongest wins and the others are ignore
 it): cost entity, then price entity, then fixed value. In the visual editor, pick the source
 (*None*, *Fixed value*, *Price entity* or *Cost entity*) and only the matching field is shown;
 switching source drops the other fields.
+
+**Tap an indicator to see its details**: when it comes from an entity (a cost, earnings or savings
+entity, or the carbon intensity entity), tapping it opens that entity's more-info dialog (history,
+graph), like a bubble. An indicator that is calculated from prices and flows has no entity behind it
+and is not tappable. When the earnings are shown instead of the cost (a negative cost), the earnings
+entity is the one that opens.
+
+Like on a bubble, each indicator can have its own `tap_action`, `hold_action` and `double_tap_action`
+(standard Home Assistant actions), which replace the default more-info. They also work on a calculated
+indicator, which makes it tappable:
+
+| Indicator | Option | Default |
+| --- | --- | --- |
+| Cost / export earnings | `cost.cost_actions` | more-info of `cost_entity` (or `earnings_entity` for the earnings) |
+| Solar savings | `cost.savings_actions` | more-info of `savings_entity` |
+| Grid CO₂ | `carbon.actions` | more-info of `intensity_entity` |
+
+```yaml
+cost:
+  period: day
+  price_entity: sensor.electricity_price
+  cost_actions:
+    tap_action:
+      action: navigate
+      navigation_path: /energy
+carbon:
+  intensity_entity: sensor.electricity_maps_co2_intensity
+  actions:
+    tap_action:
+      action: none # not tappable
+```
 
 Prices are per kWh; price entities in €/MWh or €/Wh are converted. Without an export price (*None*), the
 exported energy is not counted. The Energy dashboard import fills in the prices when the grid has

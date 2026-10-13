@@ -191,7 +191,19 @@ export function fromFormData(
   delete cost.savings_mode;
   if (savings !== undefined && savings !== 'savings') delete cost.savings_entity;
   if (cost.period === 'hour') delete cost.period;
+  // Unset actions are left as `undefined` by the form: drop them, and a group left empty.
+  const dropEmpty = (section: Record<string, unknown>, key: string) => {
+    const cleaned = clean((section[key] ?? {}) as Record<string, unknown>);
+    if (Object.keys(cleaned).length) section[key] = cleaned;
+    else delete section[key];
+  };
+  dropEmpty(cost, 'cost_actions');
+  dropEmpty(cost, 'savings_actions');
   next.cost = cost;
+  if (next.carbon) {
+    next.carbon = { ...(next.carbon as Record<string, unknown>) };
+    dropEmpty(next.carbon as Record<string, unknown>, 'actions');
+  }
 
   for (const key of ['cost', 'carbon'] as const) {
     const cleaned = clean((next[key] ?? {}) as Record<string, unknown>);

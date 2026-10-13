@@ -140,13 +140,26 @@ export interface CostConfig {
    * today's energy counters (grid import and export, solar production).
    */
   period?: 'hour' | 'day';
+  /** Actions of the cost (or earnings) indicator. */
+  cost_actions?: StatActionsConfig;
+  /** Actions of the solar savings indicator. */
+  savings_actions?: StatActionsConfig;
   /** ISO code (EUR) or symbol. Defaults to the price entity's unit, then the Home Assistant currency. */
   currency?: string;
+}
+
+/** What tapping an indicator does. More-info of its entity by default, when it has one. */
+export interface StatActionsConfig {
+  tap_action?: ActionConfig;
+  hold_action?: ActionConfig;
+  double_tap_action?: ActionConfig;
 }
 
 export interface CarbonConfig {
   /** Carbon intensity of the grid (gCO2eq/kWh), e.g. from the Electricity Maps integration. */
   intensity_entity?: string;
+  /** Actions of the grid CO₂ indicator. */
+  actions?: StatActionsConfig;
 }
 
 export type PowerCurve = 'linear' | 'sqrt' | 'log';

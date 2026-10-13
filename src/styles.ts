@@ -482,6 +482,29 @@ export const cardStyles = css`
     stroke: var(--lec-fill-strong);
   }
 
+  .ratio.interactive {
+    cursor: pointer;
+    border-radius: 12px;
+    margin: -4px -8px;
+    padding: 4px 8px;
+    transition: background-color 0.2s ease;
+  }
+
+  .ratio.interactive:active {
+    background-color: color-mix(in srgb, var(--lec-text) 10%, transparent);
+  }
+
+  @media (hover: hover) {
+    .ratio.interactive:hover {
+      background-color: color-mix(in srgb, var(--lec-text) 7%, transparent);
+    }
+  }
+
+  .ratio.interactive:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--lec-grid) 45%, transparent);
+  }
+
   .stat-icon {
     width: 30px;
     height: 30px;

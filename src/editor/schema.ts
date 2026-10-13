@@ -53,11 +53,12 @@ const watts = (name: string, min = 0): Schema => ({
   selector: { number: { min, mode: 'box', unit_of_measurement: 'W' } },
 });
 
-const actionsSchema = (t: Translate): Schema => ({
+/** The three actions, flattened into the form of a node, or nested under `name` for an indicator. */
+const actionsSchema = (t: Translate, name = '', title: LocalizeKey = 'editor.field.tap_action'): Schema => ({
   type: 'expandable',
-  name: '',
-  flatten: true,
-  title: t('editor.field.tap_action'),
+  name,
+  ...(name ? {} : { flatten: true }),
+  title: t(title),
   icon: 'mdi:gesture-tap',
   schema: [
     { name: 'tap_action', selector: { ui_action: {} } },
@@ -264,6 +265,8 @@ export class EditorSchema {
           this.price(config, 'export_price', modes),
           this.savings(config, modes),
           { name: 'currency', selector: { text: {} } },
+          actionsSchema(this.t, 'cost_actions', 'editor.field.cost_actions'),
+          actionsSchema(this.t, 'savings_actions', 'editor.field.savings_actions'),
         ],
       },
       {
@@ -273,6 +276,7 @@ export class EditorSchema {
         icon: 'mdi:molecule-co2',
         schema: [
           { name: 'intensity_entity', selector: this.entity('carbon', config.carbon?.intensity_entity) },
+          actionsSchema(this.t, 'actions', 'editor.field.carbon_actions'),
         ],
       },
       {

@@ -160,6 +160,9 @@ export const fr: DeepStrings<typeof en> = {
       tap_action: 'Action au toucher',
       hold_action: 'Action en appui long',
       double_tap_action: 'Action au double toucher',
+      cost_actions: 'Actions du coût',
+      savings_actions: "Actions de l'économie solaire",
+      carbon_actions: 'Actions du CO₂',
     },
     option: {
       auto: 'Automatique',

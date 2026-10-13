@@ -82,6 +82,27 @@ describe('editor form', () => {
     expect('cost' in next).toBe(false);
     expect('carbon' in next).toBe(false);
   });
+
+  it('keeps the actions of the indicators, and drops the unset ones', () => {
+    const tap = { action: 'navigate', navigation_path: '/energy' };
+    const next = roundTrip(base, (d) => {
+      d.cost = { cost_actions: { tap_action: tap, hold_action: undefined }, savings_actions: {} };
+      d.carbon = { actions: { double_tap_action: tap } };
+    });
+    expect(next.cost).toEqual({ cost_actions: { tap_action: tap } });
+    expect(next.carbon).toEqual({ actions: { double_tap_action: tap } });
+  });
+
+  it('has an actions group for each indicator, nested under its own key', () => {
+    const t = (key: Parameters<typeof localize>[1]) => localize('en', key);
+    const sections = new EditorSchema(t, undefined).card(base) as Schema[];
+    const groupsOf = (name: string) =>
+      ((sections.find((s) => s.name === name)?.schema ?? []) as Schema[])
+        .filter((s) => s.type === 'expandable')
+        .map((s) => s.name);
+    expect(groupsOf('cost')).toEqual(['cost_actions', 'savings_actions']);
+    expect(groupsOf('carbon')).toEqual(['actions']);
+  });
 });
 
 describe('editor price source', () => {

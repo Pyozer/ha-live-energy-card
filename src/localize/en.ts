@@ -154,6 +154,9 @@ export const en = {
       tap_action: 'Tap action',
       hold_action: 'Hold action',
       double_tap_action: 'Double tap action',
+      cost_actions: 'Cost actions',
+      savings_actions: 'Solar savings actions',
+      carbon_actions: 'CO₂ actions',
     },
     option: {
       auto: 'Automatic',

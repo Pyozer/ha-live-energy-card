@@ -1,6 +1,7 @@
 import type { FlowResult } from './compute';
 import { COST_STATISTIC, EARNINGS_STATISTIC, EXPORT_STATISTIC, SAVINGS_STATISTIC } from './energy-today';
-import type { CostConfig, HassEntity, HomeAssistant } from './types';
+import type { NodeActions } from './model/types';
+import type { CarbonConfig, CostConfig, HassEntity, HomeAssistant } from './types';
 import { numberFormat } from './units';
 
 /**
@@ -24,6 +25,36 @@ export interface Price {
   currency?: string;
 }
 
+/** The entity behind each indicator, when it has one: what a tap opens in its more-info dialog. */
+export interface StatEntities {
+  /** Cost, or earnings when the cost is negative (the entity of the amount that is shown). */
+  cost?: string;
+  savings?: string;
+  carbon?: string;
+}
+
+export type StatKey = keyof StatEntities;
+
+/**
+ * What an indicator does when tapped: its own actions, else the more-info of its entity. An indicator
+ * with neither (a calculated one) does nothing.
+ */
+export function statActions(
+  key: StatKey,
+  entity: string | undefined,
+  cost: CostConfig | undefined,
+  carbon: CarbonConfig | undefined,
+): NodeActions {
+  const cfg =
+    key === 'cost' ? cost?.cost_actions : key === 'savings' ? cost?.savings_actions : carbon?.actions;
+  return {
+    entity,
+    tap_action: cfg?.tap_action ?? (entity ? { action: 'more-info' } : { action: 'none' }),
+    hold_action: cfg?.hold_action,
+    double_tap_action: cfg?.double_tap_action,
+  };
+}
+
 export interface Stats {
   /** `hour`: rate per hour. `day`: total of the day. */
   period: 'hour' | 'day';
@@ -31,6 +62,8 @@ export interface Stats {
   savings: number | null;
   carbon: number | null;
   currency?: string;
+  /** Computed indicators have none: there is no detail to show. */
+  entities: StatEntities;
 }
 
 /** Energy unit in the denominator of a price → factor to a price per kWh. */
@@ -160,6 +193,11 @@ export function computeStats(
   const costTotal =
     amounts.importCost === null || amounts.earnings === null ? null : amounts.importCost - amounts.earnings;
 
+  // The earnings are shown instead of the cost when it is negative: tap the entity of that amount
+  // (without an earnings entity, a negative cost entity is the one that shows it).
+  const costEntity =
+    costTotal !== null && costTotal < 0 ? (cost?.earnings_entity ?? cost?.cost_entity) : cost?.cost_entity;
+
   const kw = (w: number) => w / 1000;
   let carbon: number | null = null;
   if (carbonEntity) {
@@ -173,6 +211,7 @@ export function computeStats(
     savings: amounts.savings,
     carbon,
     currency: cost?.currency ?? currency ?? importPrice?.currency ?? hass.config?.currency,
+    entities: { cost: costEntity, savings: cost?.savings_entity, carbon: carbonEntity },
   };
 }
 

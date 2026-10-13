@@ -3,7 +3,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { actionHandlers, isInteractive } from './actions';
 import { ECO_FPS, FlowAnimator } from './animator';
 import { DEFAULT_COLORS } from './colors';
-import { formatCarbonRate, formatMoney, formatMoneyRate } from './cost';
+import { formatCarbonRate, formatMoney, formatMoneyRate, statActions, type StatKey } from './cost';
 import { configFromEnergyPrefs, fetchEnergyPrefs, guessConfig, importedCount } from './energy';
 import { energyStatistics, fetchToday, TODAY_REFRESH_MS, todayByNode } from './energy-today';
 import { validateConfig, watchedEntities } from './config';
@@ -16,6 +16,7 @@ import {
   DEFAULTS,
   type CardModel,
   type FlowModel,
+  type NodeActions,
   type NodeModel,
   TOGGLE_GROUP,
 } from './model';
@@ -64,6 +65,7 @@ export class LiveEnergyCard extends LitElement {
   private _resize?: ResizeObserver;
   private _intersection?: IntersectionObserver;
   private _handlers = new Map<string, Handlers>();
+  private _statHandlers = new Map<string, Handlers>();
   /** Energy statistics by node, and the timer refreshing their daily totals. */
   private _statistics = new Map<string, string[]>();
   private _todayTimer?: number;
@@ -94,6 +96,7 @@ export class LiveEnergyCard extends LitElement {
     this._config = validateConfig(config);
     this._watched = watchedEntities(this._config);
     this._handlers.clear();
+    this._statHandlers.clear();
     this._statistics = energyStatistics(this._config);
     this._stopToday();
     this._expanded = new Set(
@@ -304,6 +307,20 @@ export class LiveEnergyCard extends LitElement {
     return h;
   }
 
+  private _statHandlersFor(key: StatKey): Handlers {
+    let h = this._statHandlers.get(key);
+    if (!h) {
+      h = actionHandlers(this, () => this._statActions(key));
+      this._statHandlers.set(key, h);
+    }
+    return h;
+  }
+
+  private _statActions(key: StatKey): NodeActions {
+    const cfg = this._config;
+    return statActions(key, this._model?.stats?.entities[key], cfg?.cost, cfg?.carbon);
+  }
+
   private _renderNode(n: NodeModel): TemplateResult {
     const interactive = isInteractive(n.actions);
     const h = this._handlersFor(n.id);
@@ -461,15 +478,32 @@ export class LiveEnergyCard extends LitElement {
         </div>
       </div>
     `;
-    const stat = (label: string, value: string, icon: string, color: string) => html`
-      <div class="ratio stat" style="--c: ${color}">
-        <div class="stat-icon"><ha-icon .icon=${icon}></ha-icon></div>
-        <div>
-          <div class="label">${label}</div>
-          <div class="pct">${value}</div>
+    // With an entity behind it, the indicator opens its more-info dialog like a node does.
+    const stat = (key: StatKey, label: string, value: string, icon: string, color: string) => {
+      const interactive = isInteractive(this._statActions(key));
+      const h = interactive ? this._statHandlersFor(key) : undefined;
+      return html`
+        <div
+          class="ratio stat ${interactive ? 'interactive' : ''}"
+          style="--c: ${color}"
+          role=${interactive ? 'button' : nothing}
+          tabindex=${interactive ? 0 : nothing}
+          aria-label=${interactive ? `${label} : ${value}` : nothing}
+          @pointerdown=${h?.pointerdown}
+          @pointermove=${h?.pointermove}
+          @pointercancel=${h?.pointercancel}
+          @pointerleave=${h?.pointerleave}
+          @click=${h?.click}
+          @keydown=${h?.keydown}
+        >
+          <div class="stat-icon"><ha-icon .icon=${icon}></ha-icon></div>
+          <div>
+            <div class="label">${label}</div>
+            <div class="pct">${value}</div>
+          </div>
         </div>
-      </div>
-    `;
+      `;
+    };
     const r = model.ratios;
     const st = model.stats;
     const day = st?.period === 'day';
@@ -486,12 +520,14 @@ export class LiveEnergyCard extends LitElement {
           ? // A negative cost means the export earns more than the import costs.
             st.cost < 0
             ? stat(
+                'cost',
                 localize(lang, day ? 'stat.earnings_day' : 'stat.earnings'),
                 money(-st.cost, st.currency, this._lang),
                 'mdi:cash-plus',
                 DEFAULT_COLORS.gridExport,
               )
             : stat(
+                'cost',
                 localize(lang, day ? 'stat.cost_day' : 'stat.cost'),
                 money(st.cost, st.currency, this._lang),
                 'mdi:cash',
@@ -502,6 +538,7 @@ export class LiveEnergyCard extends LitElement {
       ${
         st?.savings != null && model.nodes.some((n) => n.kind === 'solar')
           ? stat(
+              'savings',
               localize(lang, day ? 'stat.savings_day' : 'stat.savings'),
               money(st.savings, st.currency, this._lang),
               'mdi:piggy-bank-outline',
@@ -512,6 +549,7 @@ export class LiveEnergyCard extends LitElement {
       ${
         st?.carbon != null
           ? stat(
+              'carbon',
               localize(lang, 'stat.carbon'),
               formatCarbonRate(st.carbon, this._lang),
               'mdi:molecule-co2',
