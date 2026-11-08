@@ -29,6 +29,7 @@ npm run lint          # ESLint
 npm run format        # Prettier (src, demo, test)
 npm run build         # type check + dist/live-energy-card.js
 npm run size          # bundle size against its budget (scripts/check-size.mjs)
+npm run build:demo    # the demo page as a static site in dist-demo/ (vite.demo.config.ts)
 npm run check         # lint + format:check + coverage + build + size: run before every commit
 ```
 
@@ -164,6 +165,11 @@ Every code change comes with the matching documentation update, in the same comm
 - `.github/workflows/ci.yml` runs `npm run check` on every push to `main` and every pull request,
   and keeps the coverage report and the bundle as artifacts.
 - `.github/workflows/release.yml`: see above.
+- `.github/workflows/hacs.yml`: the HACS validation (`hacs/action`, category `plugin`) on every push,
+  pull request and weekly. It needs a repository description, topics and a release.
+- `.github/workflows/pages.yml`: builds the demo (`npm run build:demo`) and publishes it on GitHub
+  Pages at every push to `main` (Settings → Pages → Source: GitHub Actions). The README links to it.
+- `docs/` holds the README screenshots, taken from the demo page: refresh them when the look changes.
 - Dependabot opens monthly update PRs for npm (dev dependencies grouped) and the GitHub actions.
 - The Node version is pinned in `.nvmrc`, shared by CI and local development.
 

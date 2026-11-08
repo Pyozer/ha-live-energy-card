@@ -10,6 +10,17 @@ colors reserved for icons and flows. Each flow's animation follows its power.
            Battery          └── …
 ```
 
+**[Try the live demo](https://pyozer.github.io/ha-live-energy-card/)**: the card with simulated data,
+sliders for every source and device, scenarios, and a YAML editor. No Home Assistant needed.
+
+<p align="center">
+  <img src="docs/card-dark.png" alt="The card in dark mode, with a consumption peak" width="49%" />
+  <img src="docs/card-light-units.png" alt="The card in light mode, with two solar units and two batteries" width="49%" />
+</p>
+<p align="center">
+  <img src="docs/card-narrow.png" alt="The card on a narrow screen, with the devices below the diagram" width="30%" />
+</p>
+
 ## Features
 
 - **Animated flows** whose speed, thickness, particle density and glow depend on the power. Each
@@ -47,7 +58,7 @@ colors reserved for icons and flows. Each flow's animation follows its power.
 1. Copy `dist/live-energy-card.js` to `/config/www/live-energy-card.js` (via the Samba add-on,
    File editor or SSH).
 2. **Settings → Dashboards → ⋮ → Resources → Add resource**:
-   - URL: `/local/live-energy-card.js?v=0.1.0`
+   - URL: `/local/live-energy-card.js?v=1` (any value: change it after each update, see below)
    - Type: *JavaScript module*
 3. Reload the page without cache (Ctrl/Cmd + Shift + R).
 4. Add the card: **Edit dashboard → Add card → Live Energy Card**.
@@ -474,6 +485,7 @@ npm test           # unit tests (Vitest)
 npm run coverage   # tests with coverage thresholds
 npm run lint
 npm run build      # produces dist/live-energy-card.js
+npm run build:demo # produces the demo page as a static site in dist-demo/
 npm run check      # lint, formatting, tests with coverage and build (before every commit)
 ```
 
@@ -492,3 +504,9 @@ The demo page works **without Home Assistant**. It simulates `hass` and provides
 Code changes are hot-reloaded.
 
 The visual editor (`ha-form`) only works inside Home Assistant.
+
+The online demo is rebuilt and published on GitHub Pages at every push to `main`.
+
+## License
+
+[MIT](LICENSE)
