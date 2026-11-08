@@ -49,6 +49,9 @@ export interface LayoutInput {
 export const EDGE_INSET = 3;
 export const HUB_SIZE = 2 * EDGE_INSET;
 
+/** Share of the feeder length between the hub and the segment shared by the feeders (the stub). */
+const STUB_SHARE = 0.6;
+
 /** Where the feeders of a source shown unit by unit run side by side. */
 export interface UnitsLayout {
   /** Diameter of the units. */
@@ -174,7 +177,9 @@ function placeSources(
         h: plan.size,
       };
     });
-    units[group] = { size: plan.size, trunk: y + (side * feeder) / 2 };
+    // A little past the middle of the feeder: the stub between the hub and the shared segment must
+    // leave room for the flows of the hub to turn off it with a visible curve.
+    units[group] = { size: plan.size, trunk: y + side * feeder * STUB_SHARE };
   };
   if (input.solar) place('solar', input.solarUnits, yMid - V, -1);
   if (input.battery) place('battery', input.batteryUnits, yMid + V, 1);
@@ -452,12 +457,28 @@ export function elbowBetween(
 /** Corner radius of the source flows, proportional to the node size. */
 export const sourceCornerRadius = (size: number): number => clamp(size * 0.3, 12, 26);
 
+/**
+ * Where the flows of a hub meet the stub, the vertical segment between the hub and the segment
+ * shared by its feeders (`trunk`). The flows turn off the stub (or onto it) through a curve that
+ * takes the half of the stub nearest the hub, the corner of the feeders taking the other half, so
+ * that no right angle is left at the hub. `point` is the end of that curve on the stub: where the
+ * feeders end and where the flows of the hub start (or end). With a null radius (square lines),
+ * it is the hub itself.
+ */
+export function hubJunction(hub: Rect, trunk: number, radius: number): { point: Point; r: number } {
+  const stub = trunk - hub.y;
+  const r = Math.min(radius, Math.abs(stub) / 2);
+  return { point: { x: hub.x, y: hub.y + Math.sign(stub) * r }, r };
+}
+
 export function sourceFlowPath(
   id: SourceFlowId,
   nodes: Record<string, Rect>,
   style: LineStyle = 'rounded',
   /** Diameter of the source nodes (a hub has none): the corner radius follows it. */
   size = nodes[SOURCE_FLOWS[id][0]]?.w,
+  /** The units of the sources shown unit by unit: their hubs join the flows to their stub. */
+  units?: Layout['units'],
 ): PathGeometry | null {
   const [a, aAngle, b, bAngle] = SOURCE_FLOWS[id];
   const ra = nodes[a];
@@ -473,25 +494,55 @@ export function sourceFlowPath(
   const from = edgePoint(ra, aAngle, 'circle');
   const to = edgePoint(rb, bAngle, 'circle');
   if (style === 'curved') return curveBetween(from, aAngle, to, bAngle);
-  return elbowBetween(from, aAngle, to, bAngle, style === 'square' ? 0 : sourceCornerRadius(size));
+  const radius = style === 'square' ? 0 : sourceCornerRadius(size);
+
+  // A hub is a point: its flows start on (or end on) the stub of its feeders, not on the hub.
+  const pt = (p: Point): string => `${f(p.x)},${f(p.y)}`;
+  const stub = (node: string, rect: Rect, angle: number) => {
+    const trunk = units?.[node as UnitGroup]?.trunk;
+    const j = trunk === undefined ? null : hubJunction(rect, trunk, radius);
+    if (!j || !j.r) return null;
+    // Leaving (or reaching) the hub sideways: a curve off the stub. Along the stub: the stub itself.
+    const side = Math.sign(Math.round(dir(angle).x));
+    return {
+      point: j.point,
+      inner: side ? { x: rect.x + side * j.r, y: rect.y } : j.point,
+      curve: side ? `Q${pt(rect)} ` : '',
+    };
+  };
+  const ja = stub(a, ra, aAngle);
+  const jb = stub(b, rb, bAngle);
+  const elbow = elbowBetween(ja?.inner ?? from, aAngle, jb?.inner ?? to, bAngle, radius);
+  if (!ja && !jb) return elbow;
+  // With a curve at the start, the elbow's own `M` is dropped: the path begins on the stub.
+  const head = ja?.curve ? `M${pt(ja.point)} ${ja.curve}${pt(ja.inner)} ` : '';
+  return {
+    d:
+      (head ? head + elbow.d.slice(elbow.d.indexOf(' ') + 1) : elbow.d) +
+      (jb?.curve ? ` ${jb.curve}${pt(jb.point)}` : ''),
+    from: ja?.point ?? from,
+    to: jb?.point ?? to,
+  };
 }
 
 /**
  * Vertical, horizontal then vertical path, with rounded corners: from a unit down (or up) to the
- * segment shared by the feeders at height `trunk`, along it, then to the hub.
+ * segment shared by the feeders at height `trunk`, along it, then to the stub of the hub. Each
+ * corner takes the room its end leaves it, so the one at the hub is as small as the stub is short.
  */
 function zigzag(from: Point, to: Point, trunk: number, radius: number): PathGeometry {
   const dx = to.x - from.x;
   if (Math.abs(dx) < 0.5) return { d: `M${f(from.x)},${f(from.y)} L${f(to.x)},${f(to.y)}`, from, to };
-  const r = Math.max(0, Math.min(radius, Math.abs(dx) / 2, Math.abs(trunk - from.y), Math.abs(to.y - trunk)));
+  const r1 = Math.max(0, Math.min(radius, Math.abs(dx) / 2, Math.abs(trunk - from.y)));
+  const r2 = Math.max(0, Math.min(radius, Math.abs(dx) / 2, Math.abs(to.y - trunk)));
   const sx = Math.sign(dx);
   const sy1 = Math.sign(trunk - from.y);
   const sy2 = Math.sign(to.y - trunk);
   return {
     d:
-      `M${f(from.x)},${f(from.y)} L${f(from.x)},${f(trunk - sy1 * r)} ` +
-      `Q${f(from.x)},${f(trunk)} ${f(from.x + sx * r)},${f(trunk)} L${f(to.x - sx * r)},${f(trunk)} ` +
-      `Q${f(to.x)},${f(trunk)} ${f(to.x)},${f(trunk + sy2 * r)} L${f(to.x)},${f(to.y)}`,
+      `M${f(from.x)},${f(from.y)} L${f(from.x)},${f(trunk - sy1 * r1)} ` +
+      `Q${f(from.x)},${f(trunk)} ${f(from.x + sx * r1)},${f(trunk)} L${f(to.x - sx * r2)},${f(trunk)} ` +
+      `Q${f(to.x)},${f(trunk)} ${f(to.x)},${f(trunk + sy2 * r2)} L${f(to.x)},${f(to.y)}`,
     from,
     to,
   };
@@ -513,12 +564,19 @@ export function unitFlowPath(
   // Angle, seen from the unit, of the side facing the hub.
   const facing = hub.y > unit.y ? 90 : -90;
   const edge = edgePoint(unit, facing, 'circle');
-  const center = { x: hub.x, y: hub.y };
-  const [from, to] = towardHub ? [edge, center] : [center, edge];
   const [fromAngle, toAngle] = towardHub ? [facing, facing + 180] : [facing + 180, facing];
-  if (style === 'straight') return { d: `M${f(from.x)},${f(from.y)} L${f(to.x)},${f(to.y)}`, from, to };
-  if (style === 'curved') return curveBetween(from, fromAngle, to, toAngle);
-  return zigzag(from, to, trunk, style === 'square' ? 0 : sourceCornerRadius(size));
+  if (style === 'straight' || style === 'curved') {
+    const center = { x: hub.x, y: hub.y };
+    const [from, to] = towardHub ? [edge, center] : [center, edge];
+    return style === 'curved'
+      ? curveBetween(from, fromAngle, to, toAngle)
+      : { d: `M${f(from.x)},${f(from.y)} L${f(to.x)},${f(to.y)}`, from, to };
+  }
+  // Rounded lines: the feeder ends on the stub of the hub, where its flows start.
+  const radius = style === 'square' ? 0 : sourceCornerRadius(size);
+  const { point } = hubJunction(hub, trunk, radius);
+  const [from, to] = towardHub ? [edge, point] : [point, edge];
+  return zigzag(from, to, trunk, radius);
 }
 
 /**

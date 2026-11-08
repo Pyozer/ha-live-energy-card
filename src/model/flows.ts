@@ -1,6 +1,13 @@
 import { thresholded, type Flows } from '../compute';
 import { resolveToggles } from '../intensity';
-import { busCornerRadius, unitFlowPath, usesBus, type Layout, type SourceFlowId } from '../layout';
+import {
+  busCornerRadius,
+  sourceFlowPath,
+  unitFlowPath,
+  usesBus,
+  type Layout,
+  type SourceFlowId,
+} from '../layout';
 import type { UnitGroup } from '../source-units';
 import { buildDeviceTree } from '../tree';
 import { DEFAULT_COLORS, resolveColor } from '../colors';
@@ -279,7 +286,16 @@ export function applyUnitPaths(
   const style = config.line_style ?? DEFAULTS.line_style;
   return flows.map((flow) => {
     const group = flow.feeds;
-    if (!group) return flow;
+    if (!group) {
+      // The flows of a hub start on (or end on) the stub of its feeders.
+      const source = flow.source;
+      if (!source || !(layout.units[flow.from as UnitGroup] || layout.units[flow.to as UnitGroup]))
+        return flow;
+      return {
+        ...flow,
+        geometry: (rects) => sourceFlowPath(source, rects, style, layout.size, layout.units),
+      };
+    }
     const trunk = layout.units[group]?.trunk;
     const towardHub = flow.to === group;
     const unitId = towardHub ? flow.from : flow.to;

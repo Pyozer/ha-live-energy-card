@@ -855,17 +855,23 @@ describe('unit flow paths', () => {
   const unit: Rect = { x: 40, y: 20, w: 60, h: 60 };
   const hub: Rect = { x: 120, y: 100, w: 6, h: 6 };
 
-  it('runs from the side of the unit facing the hub to the hub itself', () => {
+  it('runs from the side of the unit facing the hub to the stub of the hub', () => {
     const path = unitFlowPath(unit, hub, 90, 'rounded', 74, true);
     expect(path.from).toEqual({ x: 40, y: 20 + 30 - 3 });
-    expect(path.to).toEqual({ x: 120, y: 100 });
+    // Half of the 10 px stub, on the side of the shared segment.
+    expect(path.to).toEqual({ x: 120, y: 95 });
     expect(path.d).toContain('Q');
   });
 
   it('runs the other way for a unit that receives power', () => {
     const path = unitFlowPath(unit, hub, 90, 'rounded', 74, false);
-    expect(path.from).toEqual({ x: 120, y: 100 });
+    expect(path.from).toEqual({ x: 120, y: 95 });
     expect(path.to).toEqual({ x: 40, y: 47 });
+  });
+
+  it('ends on the hub itself for the other line styles', () => {
+    expect(unitFlowPath(unit, hub, 90, 'straight', 74, true).to).toEqual({ x: 120, y: 100 });
+    expect(unitFlowPath(unit, hub, 90, 'curved', 74, false).from).toEqual({ x: 120, y: 100 });
   });
 
   it('goes straight down when the unit is above the hub', () => {
@@ -893,7 +899,124 @@ describe('unit flow paths', () => {
     expect(straight.d).toMatch(/^M[\d.]+,[\d.]+ L[\d.]+,[\d.]+$/);
   });
 
-  it('applyUnitPaths gives the feeders a path, and only them', () => {
+  describe('junction of the hub', () => {
+    const ids = (group: string, n: number) => Array.from({ length: n }, (_, i) => `${group}:${i}`);
+    const layout = computeLayout({
+      width: 860,
+      solar: true,
+      grid: true,
+      battery: true,
+      devices: [],
+      solarUnits: ids('solar', 2),
+      batteryUnits: ids('battery', 2),
+    });
+    const path = (id: Parameters<typeof sourceFlowPath>[0]) =>
+      sourceFlowPath(id, layout.nodes, 'rounded', layout.size, layout.units)!;
+    // The paths are written with one decimal.
+    const r1 = (v: number): number => Math.round(v * 10) / 10;
+
+    /** Two straight segments meeting without a curve between them are a bare right angle. */
+    const hasSharpCorner = (d: string): boolean => /L[\d.]+,[\d.]+ L/.test(d);
+
+    it('rounds the flows out of the solar stub, leaving no right angle at the hub', () => {
+      const hub = layout.nodes.solar;
+      const trunk = layout.units.solar!.trunk;
+      const home = path('solar_home');
+      // Starts on the stub between the shared segment and the hub, and turns before the hub's height.
+      expect(home.from.x).toBe(hub.x);
+      expect(home.from.y).toBeGreaterThan(trunk);
+      expect(home.from.y).toBeLessThan(hub.y);
+      expect(home.d).toMatch(new RegExp(`^M${r1(hub.x)},[\\d.]+ Q${r1(hub.x)},${r1(hub.y)} `));
+      expect(path('solar_grid').d).toMatch(new RegExp(`^M${r1(hub.x)},[\\d.]+ Q${r1(hub.x)},${r1(hub.y)} `));
+      expect(hasSharpCorner(home.d)).toBe(false);
+    });
+
+    it('meets the battery stub with a curve, from the grid', () => {
+      const hub = layout.nodes.battery;
+      const grid = path('grid_battery');
+      expect(grid.to.x).toBe(hub.x);
+      expect(grid.to.y).toBeGreaterThan(hub.y);
+      expect(grid.to.y).toBeLessThan(layout.units.battery!.trunk);
+      expect(grid.d).toMatch(new RegExp(`Q${r1(hub.x)},${r1(hub.y)} ${r1(hub.x)},[\\d.]+$`));
+      for (const id of ['battery_home', 'battery_grid'] as const) {
+        expect(path(id).d, id).toMatch(new RegExp(`^M${r1(hub.x)},[\\d.]+ Q${r1(hub.x)},${r1(hub.y)} `));
+      }
+    });
+
+    it('starts the feeders where the flows of the hub start', () => {
+      const feeder = unitFlowPath(
+        layout.nodes['solar:0'],
+        layout.nodes.solar,
+        layout.units.solar!.trunk,
+        'rounded',
+        layout.size,
+        true,
+      );
+      expect(feeder.to).toEqual(path('solar_home').from);
+      const charge = unitFlowPath(
+        layout.nodes['battery:0'],
+        layout.nodes.battery,
+        layout.units.battery!.trunk,
+        'rounded',
+        layout.size,
+        false,
+      );
+      expect(charge.from).toEqual(path('grid_battery').to);
+    });
+
+    it('keeps the flow between the two hubs straight, from stub to stub', () => {
+      const flow = path('solar_battery');
+      expect(flow.d).not.toMatch(/[QC]/);
+      expect(flow.from).toEqual(path('solar_home').from);
+      expect(flow.to).toEqual(path('grid_battery').to);
+    });
+
+    it('leaves room on the stub for a visible curve', () => {
+      const hub = layout.nodes.solar;
+      const stub = hub.y - layout.units.solar!.trunk;
+      expect(stub).toBeGreaterThan(10);
+      expect(hub.y - path('solar_home').from.y).toBeCloseTo(stub / 2);
+    });
+
+    it('is left alone for square lines, other styles and sources without units', () => {
+      const centre = { x: layout.nodes.solar.x, y: layout.nodes.solar.y };
+      const square = sourceFlowPath('solar_home', layout.nodes, 'square', layout.size, layout.units)!;
+      expect(square.from).toEqual(centre);
+      expect(sourceFlowPath('solar_home', layout.nodes, 'curved', layout.size, layout.units)!.from).toEqual(
+        centre,
+      );
+      expect(sourceFlowPath('solar_home', layout.nodes, 'rounded', layout.size)!.from).toEqual(centre);
+      const plain = sourceFlowPath('grid_home', layout.nodes, 'rounded', layout.size, layout.units)!;
+      expect(plain.from.x).toBeCloseTo(layout.nodes.grid.x + layout.nodes.grid.w / 2 - 3);
+    });
+  });
+
+  it('applyUnitPaths gives the flows of a hub the path that meets its stub', () => {
+    const config: LiveEnergyCardConfig = {
+      type: 'x',
+      solar: { separate: true, units: [{ entity: 'sensor.a' }, { entity: 'sensor.b' }] },
+      grid: { entity: 'sensor.g' },
+    };
+    const model = buildModel(
+      config,
+      hassWith([state('sensor.a', 800), state('sensor.b', 400), state('sensor.g', 0)]),
+    );
+    const layout = computeLayout({
+      width: 700,
+      solar: true,
+      grid: true,
+      battery: false,
+      devices: [],
+      solarUnits: ['solar:0', 'solar:1'],
+    });
+    const flows = applyUnitPaths(model.flows, layout, config);
+    const hubFlow = flows.find((f) => f.id === 'solar_home')!;
+    expect(hubFlow.geometry?.(layout.nodes)?.from.y).toBeLessThan(layout.nodes.solar.y);
+    // A flow between two plain nodes keeps the default path.
+    expect(flows.find((f) => f.id === 'grid_home')?.geometry).toBeUndefined();
+  });
+
+  it('applyUnitPaths gives the feeders a path', () => {
     const config: LiveEnergyCardConfig = {
       type: 'x',
       solar: { separate: true, units: [{ entity: 'sensor.a' }, { entity: 'sensor.b' }] },
@@ -914,7 +1037,7 @@ describe('unit flow paths', () => {
     const flows = applyUnitPaths(model.flows, layout, config);
     const feeder = flows.find((f) => f.id === 'feed:solar:0')!;
     expect(feeder.geometry?.(layout.nodes)?.d).toMatch(/^M/);
-    expect(flows.find((f) => f.id === 'solar_home')!.geometry).toBeUndefined();
+    expect(flows.find((f) => f.id === 'grid_home')!.geometry).toBeUndefined();
     // Without the unit on screen, no path.
     expect(feeder.geometry?.({ solar: layout.nodes.solar })).toBeNull();
   });
