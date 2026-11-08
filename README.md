@@ -53,10 +53,28 @@ sliders for every source and device, scenarios, and a YAML editor. No Home Assis
 
 ## Installation
 
+### HACS (recommended)
+
+With [HACS](https://hacs.xyz), the card is installed in a few clicks, and updates are offered as new
+versions come out.
+
+1. Click the button, which opens this repository in HACS on your Home Assistant instance (it asks
+   for its address the first time):
+
+   [![Open your Home Assistant instance and open this repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Pyozer&repository=ha-live-energy-card&category=plugin)
+
+   Or add it by hand: **HACS → ⋮ → Custom repositories**, with
+   `https://github.com/Pyozer/ha-live-energy-card` and the *Dashboard* type.
+2. Click **Download** on **Live Energy Card**. HACS fetches `live-energy-card.js` from the latest
+   GitHub release and registers it as a dashboard resource.
+3. Reload the page without cache (Ctrl/Cmd + Shift + R).
+4. Add the card: **Edit dashboard → Add card → Live Energy Card**.
+
 ### Manual
 
-1. Copy `dist/live-energy-card.js` to `/config/www/live-energy-card.js` (via the Samba add-on,
-   File editor or SSH).
+1. Download `live-energy-card.js` from the
+   [latest release](https://github.com/Pyozer/ha-live-energy-card/releases/latest) and copy it to
+   `/config/www/live-energy-card.js` (via the Samba add-on, File editor or SSH).
 2. **Settings → Dashboards → ⋮ → Resources → Add resource**:
    - URL: `/local/live-energy-card.js?v=1` (any value: change it after each update, see below)
    - Type: *JavaScript module*
@@ -65,12 +83,6 @@ sliders for every source and device, scenarios, and a YAML editor. No Home Assis
 
 For each new version, copy the file again and increment `?v=` to bypass the browser and mobile app
 caches.
-
-### HACS (custom repository)
-
-**HACS → ⋮ → Custom repositories**: add `https://github.com/Pyozer/ha-live-energy-card` with the
-*Dashboard* type, then install **Live Energy Card**. HACS downloads `live-energy-card.js` from the
-latest GitHub release and keeps it up to date.
 
 ## Configuration
 
