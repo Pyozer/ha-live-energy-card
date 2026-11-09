@@ -52,12 +52,12 @@ hass + config ─► model/   ─► layout.ts ─► tree.ts ─► live-energy
 | `src/compute.ts` | Energy balance and flow allocation (solar → home → battery → grid…), ratios. `batterySolar`: the part of the battery charge known to come from solar (what a battery unit's `grid_charge_entity` does not account for), taken from the solar before the home. |
 | `src/model/index.ts` | `buildModel`: readings → energy balance → nodes → flows. Re-exports the model API. |
 | `src/model/context.ts` | Defaults (`DEFAULTS`), per-update context, flow intensity scale. |
-| `src/model/sources.ts` | Source readings (signed entity or positive pair) and the solar, grid, battery and home nodes. A solar unit's peak power (`peak_power` in Wc, or `peak_power_entity`, which wins while readable) gives the solar bubble a `peakRatio`; a single bubble needs the peak of every unit (sum), a partial sum would mislead. |
+| `src/model/sources.ts` | Source readings (signed entity or positive pair) and the solar, grid, battery and home nodes. A solar unit's maximum power (`max_power` in W, or `max_power_entity`, which wins while readable; the former `peak_power*` names are renamed in `validateConfig`) is what its ring fills up to: it gives the solar bubble a `powerRatio`; a single bubble needs the maximum of every unit (sum), a partial sum would mislead. |
 | `src/source-units.ts` | The units of the solar and battery sources (`units`: an inverter, a battery pack…), those that read something, with their node id (`solar:0`, `battery:1`…: the position in the list). |
 | `src/unit-layout.ts` | Pure geometry of the bubbles of a source shown one per unit: one row, or two staggered rows when they get too small (`planUnits`, `unitOffsets`). |
 | `src/model/devices.ts` | Device nodes, groups, the "untracked" node and device sorting (hysteresis). |
 | `src/model/flows.ts` | Source and device flows, effects (`flowToggles`), distribution bus (`applyDeviceTree`). |
-| `src/model/format.ts` | Node helpers: entity name cleanup, secondary value (`gridSecondary`: energy bought ↓ and sent back ↑ on the grid bubble), default actions, battery icon, `ringValue` (what fills the ring of a bubble: the charge of a battery, the share of its peak power for solar). |
+| `src/model/format.ts` | Node helpers: entity name cleanup, secondary value (`gridSecondary`: energy bought ↓ and sent back ↑ on the grid bubble), default actions, battery icon, `ringValue` (what fills the ring of a bubble: the charge of a battery, the share of its maximum power for solar). |
 | `src/layout.ts` | Node positions for a given width and source flow paths (right angles with rounded corners, like the bus). Device modes: `column`, `grid`, `stack` (narrow screens, `Layout.narrow`). Two independent options: `compact` (`LayoutInput.compact`) tightens the spacing (row spacing, stack gaps; its paddings are in `styles.ts`, `ha-card.compact`), `small_bubbles` (`LayoutInput.smallBubbles`) caps the node size and shrinks the stacked pills. A source shown unit by unit gets a hub (a point) where its node would be, with its units in rows next to it, and `unitFlowPath` for the feeders. The feeders join the hub by a short vertical stub; the flows of the hub (`sourceFlowPath` given `layout.units`) start on, or end on, that stub through a curve (`hubJunction`), so no right angle is left at the hub. |
 | `src/tree.ts` | Paths of the distribution bus feeding devices in grid / stack modes (and column mode with the `rounded` / `square` line styles). |
 | `src/energy-today.ts` | Today's energy per node from the statistics (`recorder/statistic_during_period`), refreshed by the card every 5 minutes. |
@@ -119,7 +119,7 @@ Every change or new feature must be **testable and tested**:
 
 - Add or extend tests in `test/` (`*.test.ts`), one file per area: `compute`, `units-intensity`,
   `layout-model`, `model`, `config`, `battery`, `energy-today`, `colors-format`, `actions`, `localize`, `entities`, `energy`,
-  `device-list`, `editor`, `cost`, `source-units`, `drag-controller`, `peak-power`. Create a new file when a new module appears.
+  `device-list`, `editor`, `cost`, `source-units`, `drag-controller`, `max-power`. Create a new file when a new module appears.
 - Design for testing: extract logic into an exported pure function instead of leaving it in the
   component or the animator.
 - A bug fix starts with a test that reproduces the bug.

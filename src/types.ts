@@ -53,11 +53,12 @@ export interface SolarUnitConfig extends BubbleConfig {
   /** Cumulative energy counter in kWh (today's energy of the unit). */
   energy_entity?: string;
   /**
-   * Peak power of the panels in Wc: the bubble then shows a ring filling with the share of it that
-   * is produced. `peak_power_entity` (W, kW, Wc…) takes over while it is readable.
+   * Power (W) at which the bubble's ring is full: what the unit can give at most, the peak power of
+   * its panels or the limit of its inverter, whichever is lower. `max_power_entity` (W, kW, Wc…)
+   * takes over while it is readable.
    */
-  peak_power?: number;
-  peak_power_entity?: string;
+  max_power?: number;
+  max_power_entity?: string;
 }
 
 /**

@@ -21,7 +21,7 @@ export const en = {
     over_limit: 'Over limit',
     full_in: 'Full in {time}',
     empty_in: 'Empty in {time}',
-    peak_ratio: '{percent} % of peak power',
+    max_power_ratio: '{percent} % of maximum power',
     unavailable: 'Unavailable',
   },
   ratio: {
@@ -110,8 +110,7 @@ export const en = {
       color: 'Color',
       export_color: 'Export color',
       max_import: 'Import limit',
-      peak_power: 'Peak power of the panels (Wc): the bubble shows how much is produced',
-      peak_power_entity: 'Peak power entity (optional, replaces the value)',
+      max_power_entity: 'Maximum power entity',
       capacity: 'Usable capacity',
       min_soc: 'Reserve',
       charge_color: 'Charging color',

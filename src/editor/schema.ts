@@ -101,10 +101,10 @@ export class EditorSchema {
             power('entity'),
             grid([
               {
-                name: 'peak_power',
-                selector: { number: { min: 0, mode: 'box', unit_of_measurement: 'Wc' } },
+                name: 'max_power',
+                selector: { number: { min: 0, mode: 'box', unit_of_measurement: 'W' } },
               },
-              power('peak_power_entity'),
+              power('max_power_entity'),
             ]),
           ]
         : [

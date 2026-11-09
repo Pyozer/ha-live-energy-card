@@ -12,12 +12,12 @@ const NAME_SUFFIXES = [
 ];
 
 /**
- * Fill (0 to 100) of the ring around a bubble: the charge of a battery, or the share of its peak
+ * Fill (0 to 100) of the ring around a bubble: the charge of a battery, or the share of its maximum
  * power a solar source produces. `null` when unavailable, `undefined` when the bubble has no ring.
  */
-export function ringValue(node: Pick<NodeModel, 'kind' | 'soc' | 'peakRatio'>): number | null | undefined {
+export function ringValue(node: Pick<NodeModel, 'kind' | 'soc' | 'powerRatio'>): number | null | undefined {
   if (node.kind === 'battery') return node.soc;
-  if (node.kind === 'solar') return node.peakRatio == null ? node.peakRatio : node.peakRatio * 100;
+  if (node.kind === 'solar') return node.powerRatio == null ? node.powerRatio : node.powerRatio * 100;
   return undefined;
 }
 

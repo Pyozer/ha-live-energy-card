@@ -39,7 +39,10 @@ sliders for every source and device, scenarios, and a YAML editor. No Home Assis
   of the card.
 - **Live cost, solar savings and grid CO₂**, calculated or read from your own entities.
 - **Home ring**: share of solar, battery and grid in the consumption.
-- **Battery ring**: state of charge.
+- **Gauge rings**: the battery's state of charge, and the share of a solar unit's maximum power
+  being produced (`max_power`).
+- **Compact mode** (`compact`, `small_bubbles`): a shorter card, with the rows and columns of
+  bubbles closer together and/or smaller bubbles.
 - Automatic unit conversion (W, kW, MW), animated counters, tabular figures.
 - `unavailable` / `unknown` entities are reported cleanly: never `NaN`.
 - `tap_action`, `hold_action`, `double_tap_action` on every node and on the cost, savings and CO₂ indicators (more-info by default).
@@ -235,7 +238,7 @@ other loses nothing.
 
 | On the unit | On the node (single bubble), or on each unit (`separate`) |
 | --- | --- |
-| `entity`, `invert`, `energy_entity`, solar: `peak_power`, `peak_power_entity` | `name`, `icon`, `color`, `hide_when_zero`, `secondary_entity`, `animation`, `tap_action`, `hold_action`, `double_tap_action` |
+| `entity`, `invert`, `energy_entity`, solar: `max_power`, `max_power_entity` | `name`, `icon`, `color`, `hide_when_zero`, `secondary_entity`, `animation`, `tap_action`, `hold_action`, `double_tap_action` |
 | battery: `charge_entity`, `discharge_entity`, `grid_charge_entity`, `soc_entity`, `capacity`, `min_soc` | battery: `charge_color` |
 
 - A unit's `entity` is a single entity: one sensor per unit. A battery unit has a signed `entity`
@@ -249,7 +252,8 @@ other loses nothing.
   count. A unit's bubble shows its icon and value, plus its name and daily energy when there is
   room. Units that do not fit on one row wrap on a second one, and shrink with the width of the card.
   A battery unit can charge while another one discharges, the source keeping the net balance.
-- A solar unit can tell its peak power (see [Peak power of the panels](#peak-power-of-the-panels)).
+- A solar unit can tell its maximum power, for a gauge on its bubble (see
+  [Maximum power of a solar unit](#maximum-power-of-a-solar-unit)).
 - A battery unit can say what it draws from the grid, with `grid_charge_entity` (see
   [Battery charged by its own panels](#battery-charged-by-its-own-panels)).
 - The flows to the home, the grid and the other source carry the total, whatever the display, so
@@ -260,29 +264,33 @@ other loses nothing.
 - The visual editor lists the units under the form of the source, where they can be added, removed
   and reordered (drag the handle, or use the arrow keys on it).
 
-#### Peak power of the panels
+#### Maximum power of a solar unit
 
-Give a solar unit its peak power and its bubble gets a ring, like a battery's charge level, that fills
-with the share of that power being produced: you see at a glance whether the panels give much or
-little compared to what they can. Both options are optional, without them nothing changes.
+Give a solar unit its maximum power and its bubble gets a ring, like a battery's charge level, that
+fills with the share of that power being produced: you see at a glance whether the unit gives much or
+little compared to what it can. Both options are optional, without them nothing changes.
 
 ```yaml
 solar:
   units:
-    - entity: sensor.inverter_roof_power
-      peak_power: 4200 # Wc: 10 panels of 420 Wc
+    - entity: sensor.micro_inverter_roof_power
+      max_power: 800 # W: two 435 Wc panels on an 800 W micro-inverter
     - entity: sensor.inverter_garage_power
-      peak_power_entity: sensor.garage_peak_power # W, kW, Wc or kWc
+      max_power_entity: sensor.garage_max_power # W, kW, Wc or kWc
 ```
 
-- `peak_power` is in **Wc** (watts-peak). `peak_power_entity` is read in W, kW, Wc or kWc. When both are
-  set, the entity is used while it is readable and positive, otherwise `peak_power`.
-- **A single bubble** uses the sum of the peaks of its units, and has no ring as soon as one unit has
-  no peak: a partial sum would give a wrong share. **A bubble per unit** has a ring on each unit
-  that has a peak.
-- The ring never goes beyond full: a production above the peak (cold, clear sky) shows a full ring.
-- The share (`62 % of peak power`) is in the tooltip and in the accessible label of the bubble. The
+- Put what the unit can give **at most**: the peak power of its panels (Wc), or the limit of its
+  inverter when that is lower. With two 435 Wc panels on an 800 W micro-inverter, 800 fills the ring
+  while the panels' 870 Wc would never reach it.
+- `max_power` is in W. `max_power_entity` is read in W, kW, Wc or kWc. When both are set, the entity
+  is used while it is readable and positive, otherwise `max_power`.
+- **A single bubble** uses the sum of the maximums of its units, and has no ring as soon as one unit
+  has none: a partial sum would give a wrong share. **A bubble per unit** has a ring on each unit
+  that has one.
+- The ring never goes beyond full: a production above the maximum shows a full ring.
+- The share (`62 % of maximum power`) is in the tooltip and in the accessible label of the bubble. The
   ring adds no height, so it works with `compact`.
+- `peak_power` and `peak_power_entity`, the former names of these options, are still accepted.
 
 #### Battery charged by its own panels
 

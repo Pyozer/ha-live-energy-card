@@ -29,6 +29,12 @@ const MOVED_TO_UNITS = {
   ],
 } as const;
 
+/** Options of the units that were renamed: the old name is still accepted, the new one wins. */
+const RENAMED_UNIT_OPTIONS: Record<'solar' | 'battery', Record<string, string>> = {
+  solar: { peak_power: 'max_power', peak_power_entity: 'max_power_entity' },
+  battery: {},
+};
+
 /** Copy of an object with its numeric fields coerced (YAML or the editor may give strings), empty ones removed. */
 function withNumbers(obj: object, fields: readonly string[], l: string): Record<string, unknown> {
   const copy = { ...obj } as Record<string, unknown>;
@@ -37,6 +43,16 @@ function withNumbers(obj: object, fields: readonly string[], l: string): Record<
     if (value === undefined || value === null || value === '') delete copy[field];
     else if (!Number.isFinite(Number(value))) throw new Error(localize(l, 'error.invalid_power', { field }));
     else copy[field] = Number(value);
+  }
+  return copy;
+}
+
+function renamed(obj: object, names: Record<string, string>): object {
+  const copy = { ...obj } as Record<string, unknown>;
+  for (const [old, current] of Object.entries(names)) {
+    if (!(old in copy)) continue;
+    copy[current] ??= copy[old];
+    delete copy[old];
   }
   return copy;
 }
@@ -98,10 +114,12 @@ export function validateConfig(input: unknown): LiveEnergyCardConfig {
     }
     if (node.units === undefined) continue;
     if (!Array.isArray(node.units)) throw new Error(localize(l, 'error.invalid_units', { field: section }));
-    const numeric = section === 'battery' ? ['capacity', 'min_soc'] : ['peak_power'];
+    const numeric = section === 'battery' ? ['capacity', 'min_soc'] : ['max_power'];
     (config as Record<string, unknown>)[section] = {
       ...node,
-      units: node.units.filter((u) => u && typeof u === 'object').map((u) => withNumbers(u, numeric, l)),
+      units: node.units
+        .filter((u) => u && typeof u === 'object')
+        .map((u) => withNumbers(renamed(u, RENAMED_UNIT_OPTIONS[section]), numeric, l)),
     };
   }
 
@@ -144,7 +162,7 @@ export function watchedEntities(config: LiveEnergyCardConfig): string[] {
     add((unit as BatteryUnitConfig).discharge_entity);
     add((unit as BatteryUnitConfig).grid_charge_entity);
     add((unit as BatteryUnitConfig).soc_entity);
-    add((unit as SolarUnitConfig).peak_power_entity);
+    add((unit as SolarUnitConfig).max_power_entity);
   }
   add(config.solar?.secondary_entity);
   add(config.battery?.secondary_entity);
