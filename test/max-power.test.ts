@@ -268,3 +268,24 @@ describe('maximum power of a device', () => {
     expect(issues).toMatchObject([{ field: 'max_power_entity', problem: 'kind', expected: 'power' }]);
   });
 });
+
+describe('battery under its reserve', () => {
+  const battery = (soc: number, min_soc?: number) =>
+    nodes(
+      {
+        type: 'x',
+        battery: { units: [{ entity: 'sensor.b', soc_entity: 'sensor.s', capacity: 10, min_soc }] },
+      },
+      hassWith([state('sensor.b', 500), state('sensor.s', soc, '%')]),
+    ).battery;
+
+  it('flags the battery at or under its reserve, which turns its ring to the alert color', () => {
+    expect(battery(10, 10).low).toBe(true);
+    expect(battery(5, 10).low).toBe(true);
+    expect(battery(11, 10).low).toBe(false);
+  });
+
+  it('has no alert without a reserve', () => {
+    expect(battery(0).low).toBe(false);
+  });
+});

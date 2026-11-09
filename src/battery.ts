@@ -42,6 +42,10 @@ export interface BatteryPack {
   min_soc?: number;
 }
 
+/** Whether a battery is at or under its reserve. Without a reserve, or a readable level, it is not. */
+export const belowReserve = (pack: BatteryPack): boolean =>
+  pack.soc != null && (pack.min_soc ?? 0) > 0 && pack.soc <= pack.min_soc!;
+
 /**
  * The charge of several batteries seen as one. The level is the average of the levels, weighted by
  * the capacities when they are all known. The capacity and the reserve (weighted by capacity) are

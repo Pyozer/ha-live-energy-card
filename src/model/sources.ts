@@ -1,4 +1,4 @@
-import { batteryEta, combinePacks, formatDuration, type BatteryPack } from '../battery';
+import { batteryEta, belowReserve, combinePacks, formatDuration, type BatteryPack } from '../battery';
 import { DEFAULT_COLORS, resolveColor } from '../colors';
 import { splitSigned, thresholded, type FlowResult, type SourceInputs } from '../compute';
 import {
@@ -256,6 +256,7 @@ function batteryNode(
           ? t('state.discharging')
           : t('state.idle'),
     soc: pack.soc,
+    low: belowReserve(pack),
     secondary: nodeSecondary(ctx.hass, bubble, ctx.todayEnergy.get(id)),
     actions: actionsFor(bubble, entity),
   };

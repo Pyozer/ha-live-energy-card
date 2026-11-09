@@ -39,7 +39,7 @@ sliders for every source and device, scenarios, and a YAML editor. No Home Assis
   of the card.
 - **Live cost, solar savings and grid CO₂**, calculated or read from your own entities.
 - **Home ring**: share of solar, battery and grid in the consumption.
-- **Gauges**: a ring for the battery's state of charge, for the share of a
+- **Gauges**: a ring for the battery's state of charge (red under its reserve), for the share of a
   solar unit's maximum power being produced (`max_power`), and for the grid import against its limit
   (`max_import`, red once reached); a bar along the bottom of a device's pill for its share of its
   own `max_power`.
@@ -413,7 +413,9 @@ Specific options:
   `charge_entity` / `discharge_entity` (alternative to a signed `entity`), `soc_entity` (charge level
   in %), `charge_color`, `capacity` (usable capacity in kWh) and `min_soc` (reserve in %, default 0):
   with a charge level and a capacity, the caption shows the time to full or down to the reserve at
-  the current power (*Full in 2 h 05*), up to 48 h.
+  the current power (*Full in 2 h 05*), up to 48 h. With a reserve, the ring turns red once the
+  charge is at or under it (for a single bubble, when every unit has a level and a capacity, like
+  the estimate).
 - `home`: `entity` is optional. Without it, consumption is computed from the sources.
 - `devices`: `max_power` (W) and `max_power_entity` (W, kW…, read first while it is readable) give the
   pill a gauge, a bar along its bottom edge that fills with the share of that power being drawn, for

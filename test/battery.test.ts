@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { batteryEta, combinePacks, formatDuration } from '../src/battery';
+import { batteryEta, belowReserve, combinePacks, formatDuration } from '../src/battery';
 
 describe('batteryEta', () => {
   it('estimates the time to full while charging', () => {
@@ -89,5 +89,20 @@ describe('formatDuration', () => {
     expect(formatDuration(3)).toBe('3 h');
     expect(formatDuration(10.6)).toBe('11 h');
     expect(formatDuration(0.999)).toBe('1 h');
+  });
+});
+
+describe('belowReserve', () => {
+  it('is on at the reserve and under it', () => {
+    expect(belowReserve({ soc: 10, min_soc: 10 })).toBe(true);
+    expect(belowReserve({ soc: 4, min_soc: 10 })).toBe(true);
+    expect(belowReserve({ soc: 10.5, min_soc: 10 })).toBe(false);
+  });
+
+  it('is off without a reserve, without a level, or when the level is unreadable', () => {
+    expect(belowReserve({ soc: 0 })).toBe(false);
+    expect(belowReserve({ soc: 0, min_soc: 0 })).toBe(false);
+    expect(belowReserve({ soc: undefined, min_soc: 10 })).toBe(false);
+    expect(belowReserve({ soc: null, min_soc: 10 })).toBe(false);
   });
 });

@@ -420,7 +420,7 @@ export class LiveEnergyCard extends LitElement {
           r="47"
           stroke-width="2.6"
           pathLength="100"
-          stroke=${n.alert ? 'var(--lec-alert)' : n.color}
+          stroke=${n.alert || n.low ? 'var(--lec-alert)' : n.color}
           stroke-dasharray="${level} 100"
         ></circle>
       </svg>`;
