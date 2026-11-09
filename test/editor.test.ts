@@ -442,7 +442,7 @@ describe('editor units', () => {
   });
 
   it('explains the switch', () => {
-    expect(fieldHelper(t, 'separate')).toContain('One bubble per unit');
+    expect(fieldHelper(t, 'separate')).toContain('each inverter or battery');
   });
 
   it('puts the switch in the form data, without the units, and drops it when it is off', () => {
