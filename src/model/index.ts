@@ -10,7 +10,7 @@ import type { CardModel } from './types';
 export { DEFAULTS, flowScale } from './context';
 export { sortWithHysteresis } from './devices';
 export { applyDeviceTree, applyUnitPaths, flowToggles } from './flows';
-export { cleanName } from './format';
+export { cleanName, ringValue } from './format';
 export * from './types';
 
 export interface BuildOptions {

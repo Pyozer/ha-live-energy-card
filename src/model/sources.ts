@@ -31,6 +31,8 @@ export interface SolarUnitReading {
   unit: SourceUnit<SolarUnitConfig>;
   value: number;
   available: boolean;
+  /** Peak power of the unit's panels (W), `undefined` when it is not configured or unreadable. */
+  peak?: number;
 }
 
 /** Reading of one battery unit, as a net charge or discharge (W), and its charge. */
@@ -91,10 +93,24 @@ const sum = (values: number[]): number => values.reduce((acc, v) => acc + v, 0);
 const readable = (units: { available: boolean }[], separate: boolean | undefined): boolean =>
   units.length > 0 && (separate ? units.some((u) => u.available) : units.every((u) => u.available));
 
+/**
+ * Peak power of a solar unit: its entity while it is readable and positive, otherwise the fixed
+ * value. `undefined` when neither gives a positive power.
+ */
+function readPeak(hass: HomeAssistant, unit: SolarUnitConfig): number | undefined {
+  const live = readRef(hass, unit.peak_power_entity);
+  const watts = live?.available && (live.value ?? 0) > 0 ? live.value! : unit.peak_power;
+  return (watts ?? 0) > 0 ? watts : undefined;
+}
+
+/** Peak power of a source shown as a single bubble: known only when every unit has one. */
+const totalPeak = (units: SolarUnitReading[]): number | undefined =>
+  units.every((u) => u.peak !== undefined) ? sum(units.map((u) => u.peak!)) : undefined;
+
 export function readSources(config: LiveEnergyCardConfig, hass: HomeAssistant): SourceReadings {
   const solarList: SolarUnitReading[] = solarUnits(config.solar).map((unit) => {
     const r = readRef(hass, unit.config.entity, unit.config.invert)!;
-    return { unit, available: r.available, value: r.value ?? 0 };
+    return { unit, available: r.available, value: r.value ?? 0, peak: readPeak(hass, unit.config) };
   });
   const batteryList: BatteryUnitReading[] = batteryUnits(config.battery).map((unit) => {
     const { discharge_entity, charge_entity, soc_entity, capacity, min_soc } = unit.config;
@@ -191,8 +207,12 @@ function solarNode(
   watts: number,
   available: boolean,
   look: NodeLook,
+  /** Peak power (W) of the panels, for the ring. */
+  peak?: number,
 ): NodeModel {
   const active = watts > 0;
+  const peakRatio =
+    peak === undefined ? undefined : available ? Math.min(1, Math.max(0, watts / peak)) : null;
   return {
     id,
     kind: 'solar',
@@ -203,6 +223,11 @@ function solarNode(
     available,
     active,
     visible: !(available && !active && (bubble.hide_when_zero ?? ctx.globalHide)),
+    peakRatio,
+    status:
+      peakRatio == null
+        ? undefined
+        : ctx.t('state.peak_ratio', { percent: String(Math.round(peakRatio * 100)) }),
     secondary: nodeSecondary(ctx.hass, bubble, ctx.todayEnergy.get(id)),
     actions: actionsFor(bubble, entity),
   };
@@ -270,6 +295,7 @@ function solarSingle(ctx: ModelContext, src: SourceReadings, result: FlowResult,
     result.solar,
     src.solarAvailable,
     { color, name: ctx.t('node.solar') },
+    totalPeak(src.solarUnits),
   );
 }
 
@@ -306,7 +332,7 @@ function unitNodes(
 ): NodeModel[] {
   const units =
     group === 'solar'
-      ? src.solarUnits.map(({ unit, value, available }) =>
+      ? src.solarUnits.map(({ unit, value, available, peak }) =>
           solarNode(
             ctx,
             unit.id,
@@ -318,6 +344,7 @@ function unitNodes(
               color: resolveColor(unit.config.color, DEFAULT_COLORS.solar),
               name: unitName(ctx, group, unit),
             },
+            peak,
           ),
         )
       : src.batteryUnits.map(({ unit, charge, discharge, available, pack }) =>

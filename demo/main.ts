@@ -494,6 +494,23 @@ toggle(
   (v) => withConfig((c) => (v ? (c.transparent = true) : delete c.transparent)),
 );
 toggle(
+  'Solar peak power',
+  () => !!config.solar?.units?.some((u) => u.peak_power),
+  (v) =>
+    withConfig((c) => {
+      const units = c.solar?.units ?? [];
+      c.solar = {
+        ...c.solar,
+        units: units.map((u) => {
+          const unit = { ...u };
+          if (v) unit.peak_power = Math.round(SOLAR_PEAK / units.length);
+          else delete unit.peak_power;
+          return unit;
+        }),
+      };
+    }),
+);
+toggle(
   'Compact',
   () => !!config.compact,
   (v) => withConfig((c) => (v ? (c.compact = true) : delete c.compact)),
@@ -587,6 +604,9 @@ toggle(
   (v) => withConfig((c) => (v ? (c.title = 'Live energy') : delete c.title)),
 );
 
+/** Peak power (Wc) of the simulated panels, shared by the solar units. */
+const SOLAR_PEAK = 6000;
+
 /** The solar source with `count` units (the one real sensor for a single unit), summed or one bubble each. */
 function withSolarUnits(
   solar: LiveEnergyCardConfig['solar'],
@@ -597,9 +617,12 @@ function withSolarUnits(
   const node = { ...solar };
   delete node.units;
   delete node.separate;
+  // The peak power (6 kWc shared by the units) is kept when the number of units changes.
+  const peak = solar?.units?.some((u) => u.peak_power);
   const units = Array.from({ length: count }, (_, i) => ({
     entity: count === 1 ? ENT.solar : solarUnitId(i),
     name: SOLAR_UNITS[i],
+    ...(peak ? { peak_power: Math.round(SOLAR_PEAK / count) } : {}),
     ...(withEnergy ? { energy_entity: count === 1 ? ENT.solarDay : solarUnitEnergy(i) } : {}),
   }));
   return { ...node, ...(separate ? { separate } : {}), units };

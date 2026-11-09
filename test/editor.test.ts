@@ -418,7 +418,7 @@ describe('editor units', () => {
 
   it('a unit reads one entity, and has a bubble only when it is shown on its own', () => {
     const single = names(schema.unit('solar', {}, false));
-    expect(single).toEqual(['entity', 'invert', 'energy_entity']);
+    expect(single).toEqual(['entity', 'peak_power', 'peak_power_entity', 'invert', 'energy_entity']);
     expect(names(schema.unit('solar', {}, true))).toEqual(
       expect.arrayContaining([...single, 'name', 'icon', 'color', 'hide_when_zero', 'secondary_entity']),
     );

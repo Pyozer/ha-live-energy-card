@@ -25,6 +25,7 @@ export const fr: DeepStrings<typeof en> = {
     over_limit: 'Dépassement',
     full_in: 'Pleine dans {time}',
     empty_in: 'Vide dans {time}',
+    peak_ratio: '{percent} % de la puissance crête',
     unavailable: 'Indisponible',
   },
   ratio: {
@@ -108,6 +109,8 @@ export const fr: DeepStrings<typeof en> = {
       color: 'Couleur',
       export_color: "Couleur d'injection",
       max_import: 'Limite de soutirage (W), ex. la puissance souscrite',
+      peak_power: 'Puissance crête des panneaux (Wc) : la bulle montre la part produite',
+      peak_power_entity: 'Entité de la puissance crête (facultative, remplace la valeur)',
       capacity: 'Capacité utile (kWh)',
       min_soc: 'Réserve (%)',
       charge_color: 'Couleur de charge',

@@ -1,6 +1,6 @@
 import { localize } from './localize/localize';
 import { batteryUnits, solarUnits } from './source-units';
-import type { BatteryUnitConfig, EntityRef, LineStyle, LiveEnergyCardConfig } from './types';
+import type { BatteryUnitConfig, EntityRef, LineStyle, LiveEnergyCardConfig, SolarUnitConfig } from './types';
 import { entityIds } from './units';
 
 export const LINE_STYLES: LineStyle[] = ['rounded', 'square', 'curved', 'straight'];
@@ -98,7 +98,7 @@ export function validateConfig(input: unknown): LiveEnergyCardConfig {
     }
     if (node.units === undefined) continue;
     if (!Array.isArray(node.units)) throw new Error(localize(l, 'error.invalid_units', { field: section }));
-    const numeric = section === 'battery' ? ['capacity', 'min_soc'] : [];
+    const numeric = section === 'battery' ? ['capacity', 'min_soc'] : ['peak_power'];
     (config as Record<string, unknown>)[section] = {
       ...node,
       units: node.units.filter((u) => u && typeof u === 'object').map((u) => withNumbers(u, numeric, l)),
@@ -144,6 +144,7 @@ export function watchedEntities(config: LiveEnergyCardConfig): string[] {
     add((unit as BatteryUnitConfig).discharge_entity);
     add((unit as BatteryUnitConfig).grid_charge_entity);
     add((unit as BatteryUnitConfig).soc_entity);
+    add((unit as SolarUnitConfig).peak_power_entity);
   }
   add(config.solar?.secondary_entity);
   add(config.battery?.secondary_entity);

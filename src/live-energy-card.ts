@@ -14,6 +14,7 @@ import {
   applyUnitPaths,
   buildModel,
   DEFAULTS,
+  ringValue,
   type CardModel,
   type FlowModel,
   type NodeActions,
@@ -329,10 +330,11 @@ export class LiveEnergyCard extends LitElement {
     const interactive = isInteractive(n.actions);
     const h = this._handlersFor(n.id);
     const shape = n.kind === 'device' ? 'pill' : 'circle';
-    const label =
+    const reading =
       n.watts === null
         ? `${n.name} : ${localize(this._labelLang, 'state.unavailable')}`
         : `${n.name} : ${Object.values(this._format(n.watts)).join(' ')}`;
+    const label = n.status ? `${reading} · ${n.status}` : reading;
     const classes = [
       'node',
       shape,
@@ -342,7 +344,7 @@ export class LiveEnergyCard extends LitElement {
       n.available ? '' : 'is-unavailable',
       interactive ? 'interactive' : '',
       n.secondary ? 'has-secondary' : '',
-      n.kind === 'battery' && n.soc !== undefined ? 'has-ring' : '',
+      ringValue(n) !== undefined ? 'has-ring' : '',
       n.group ? 'is-group' : '',
       n.group?.expanded ? 'is-expanded' : '',
       n.parent ? 'is-member' : '',
@@ -407,8 +409,9 @@ export class LiveEnergyCard extends LitElement {
   }
 
   private _renderRing(n: NodeModel): TemplateResult | typeof nothing {
-    if (n.kind === 'battery' && n.soc !== undefined) {
-      const soc = n.soc ?? 0;
+    const fill = ringValue(n);
+    if (fill !== undefined) {
+      const level = fill ?? 0;
       return html`<svg class="ring" viewBox="0 0 100 100">
         <circle class="ring-track" cx="50" cy="50" r="47" stroke-width="2.6"></circle>
         <circle
@@ -418,7 +421,7 @@ export class LiveEnergyCard extends LitElement {
           stroke-width="2.6"
           pathLength="100"
           stroke=${n.color}
-          stroke-dasharray="${soc} 100"
+          stroke-dasharray="${level} 100"
         ></circle>
       </svg>`;
     }

@@ -6,6 +6,11 @@ export const POWER_UNITS: Record<string, number> = {
   kW: 1_000,
   MW: 1_000_000,
   GW: 1_000_000_000,
+  // Peak power of the panels (Wc, or Wp), read by the `peak_power_entity` of a solar unit.
+  Wc: 1,
+  Wp: 1,
+  kWc: 1_000,
+  kWp: 1_000,
 };
 
 /** Conversion factor to watts. `MW` (mega) and `mW` (milli) only differ by case. */

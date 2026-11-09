@@ -235,7 +235,7 @@ other loses nothing.
 
 | On the unit | On the node (single bubble), or on each unit (`separate`) |
 | --- | --- |
-| `entity`, `invert`, `energy_entity` | `name`, `icon`, `color`, `hide_when_zero`, `secondary_entity`, `animation`, `tap_action`, `hold_action`, `double_tap_action` |
+| `entity`, `invert`, `energy_entity`, solar: `peak_power`, `peak_power_entity` | `name`, `icon`, `color`, `hide_when_zero`, `secondary_entity`, `animation`, `tap_action`, `hold_action`, `double_tap_action` |
 | battery: `charge_entity`, `discharge_entity`, `grid_charge_entity`, `soc_entity`, `capacity`, `min_soc` | battery: `charge_color` |
 
 - A unit's `entity` is a single entity: one sensor per unit. A battery unit has a signed `entity`
@@ -249,6 +249,7 @@ other loses nothing.
   count. A unit's bubble shows its icon and value, plus its name and daily energy when there is
   room. Units that do not fit on one row wrap on a second one, and shrink with the width of the card.
   A battery unit can charge while another one discharges, the source keeping the net balance.
+- A solar unit can tell its peak power (see [Peak power of the panels](#peak-power-of-the-panels)).
 - A battery unit can say what it draws from the grid, with `grid_charge_entity` (see
   [Battery charged by its own panels](#battery-charged-by-its-own-panels)).
 - The flows to the home, the grid and the other source carry the total, whatever the display, so
@@ -258,6 +259,30 @@ other loses nothing.
   that is what the daily solar savings need.
 - The visual editor lists the units under the form of the source, where they can be added, removed
   and reordered (drag the handle, or use the arrow keys on it).
+
+#### Peak power of the panels
+
+Give a solar unit its peak power and its bubble gets a ring, like a battery's charge level, that fills
+with the share of that power being produced: you see at a glance whether the panels give much or
+little compared to what they can. Both options are optional, without them nothing changes.
+
+```yaml
+solar:
+  units:
+    - entity: sensor.inverter_roof_power
+      peak_power: 4200 # Wc: 10 panels of 420 Wc
+    - entity: sensor.inverter_garage_power
+      peak_power_entity: sensor.garage_peak_power # W, kW, Wc or kWc
+```
+
+- `peak_power` is in **Wc** (watts-peak). `peak_power_entity` is read in W, kW, Wc or kWc. When both are
+  set, the entity is used while it is readable and positive, otherwise `peak_power`.
+- **A single bubble** uses the sum of the peaks of its units, and has no ring as soon as one unit has
+  no peak: a partial sum would give a wrong share. **A bubble per unit** has a ring on each unit
+  that has a peak.
+- The ring never goes beyond full: a production above the peak (cold, clear sky) shows a full ring.
+- The share (`62 % of peak power`) is in the tooltip and in the accessible label of the bubble. The
+  ring adds no height, so it works with `compact`.
 
 #### Battery charged by its own panels
 

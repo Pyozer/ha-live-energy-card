@@ -1,7 +1,7 @@
 import { formatEnergy } from '../energy-today';
 import type { BaseNodeConfig, EntityRef, GridConfig, HomeAssistant } from '../types';
 import { entityIds, numberFormat } from '../units';
-import type { NodeActions } from './types';
+import type { NodeActions, NodeModel } from './types';
 
 const NAME_SUFFIXES = [
   /\s+puissance$/i,
@@ -10,6 +10,16 @@ const NAME_SUFFIXES = [
   /\s+current consumption$/i,
   /^puissance\s+/i,
 ];
+
+/**
+ * Fill (0 to 100) of the ring around a bubble: the charge of a battery, or the share of its peak
+ * power a solar source produces. `null` when unavailable, `undefined` when the bubble has no ring.
+ */
+export function ringValue(node: Pick<NodeModel, 'kind' | 'soc' | 'peakRatio'>): number | null | undefined {
+  if (node.kind === 'battery') return node.soc;
+  if (node.kind === 'solar') return node.peakRatio == null ? node.peakRatio : node.peakRatio * 100;
+  return undefined;
+}
 
 /** Readable entity name, without suffixes such as "Power". */
 export function cleanName(friendly: string | undefined, fallback: string): string {

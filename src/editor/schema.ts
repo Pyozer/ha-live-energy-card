@@ -97,7 +97,16 @@ export class EditorSchema {
     const power = (name: string): Schema => ({ name, selector: this.entity('power', cfg[name]) });
     const reads: Schema[] =
       group === 'solar'
-        ? [power('entity')]
+        ? [
+            power('entity'),
+            grid([
+              {
+                name: 'peak_power',
+                selector: { number: { min: 0, mode: 'box', unit_of_measurement: 'Wc' } },
+              },
+              power('peak_power_entity'),
+            ]),
+          ]
         : [
             power('entity'),
             grid([power('charge_entity'), power('discharge_entity')]),

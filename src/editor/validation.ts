@@ -42,6 +42,7 @@ const NODE_FIELDS: [string, EntityKind | undefined][] = [
   ['charge_entity', 'power'],
   ['discharge_entity', 'power'],
   ['grid_charge_entity', 'power'],
+  ['peak_power_entity', 'power'],
   ['soc_entity', 'percent'],
   ['energy_entity', 'energy'],
   ['export_energy_entity', 'energy'],

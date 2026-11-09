@@ -38,6 +38,11 @@ export interface NodeModel {
   status?: string;
   secondary?: string;
   soc?: number | null;
+  /**
+   * Solar bubble with a known peak power: the share of it produced (0 to 1), `null` when
+   * unavailable. Drives the ring, like the charge of a battery.
+   */
+  peakRatio?: number | null;
   /** Above a configured limit (grid import over `max_import`). */
   alert?: boolean;
   /** Home source mix, for the ring. */
