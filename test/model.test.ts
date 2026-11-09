@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeFlows } from '../src/compute';
-import { buildModel } from '../src/model';
+import { buildModel, ringValue } from '../src/model';
 import { modelContext } from '../src/model/context';
 import { buildDevices } from '../src/model/devices';
 import { sourceFlows } from '../src/model/flows';
@@ -173,6 +173,17 @@ describe('grid import alert', () => {
     const over = grid(3000, 3000);
     expect(over.alert).toBe(true);
     expect(over.status).toBe('Over limit');
+  });
+
+  it('fills a ring up to the limit: empty while exporting, full when over, none without a limit', () => {
+    expect(grid(1500, 3000).powerRatio).toBeCloseTo(0.5);
+    expect(grid(2999, 3000).powerRatio).toBeLessThan(1);
+    expect(grid(3000, 3000).powerRatio).toBe(1);
+    expect(grid(9000, 3000).powerRatio).toBe(1);
+    expect(grid(-500, 3000).powerRatio).toBe(0);
+    expect(grid('unavailable', 3000).powerRatio).toBeNull();
+    expect(grid(2000).powerRatio).toBeUndefined();
+    expect(ringValue(grid(1500, 3000))).toBeCloseTo(50);
   });
 
   it('stays off without a limit, when exporting or when unavailable', () => {

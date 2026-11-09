@@ -410,7 +410,8 @@ export function sourceNodes(
     const importing = result.gridImport > 0;
     const net = result.gridImport - result.gridExport;
     const active = net !== 0;
-    const alert = available && !!cfg.max_import && result.gridImport >= cfg.max_import;
+    const limit = cfg.max_import !== undefined && cfg.max_import > 0 ? cfg.max_import : undefined;
+    const alert = available && limit !== undefined && result.gridImport >= limit;
     nodes.push({
       id: 'grid',
       kind: 'grid',
@@ -430,6 +431,8 @@ export function sourceNodes(
       // The grid stays visible at zero unless explicitly hidden.
       visible: !(available && !active && (cfg.hide_when_zero ?? false)),
       alert,
+      // With an import limit, a ring fills up to it: full means over the limit (the alert).
+      powerRatio: limit === undefined ? undefined : available ? Math.min(1, result.gridImport / limit) : null,
       status: alert
         ? t('state.over_limit')
         : exporting

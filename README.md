@@ -39,8 +39,9 @@ sliders for every source and device, scenarios, and a YAML editor. No Home Assis
   of the card.
 - **Live cost, solar savings and grid CO₂**, calculated or read from your own entities.
 - **Home ring**: share of solar, battery and grid in the consumption.
-- **Gauge rings**: the battery's state of charge, and the share of a solar unit's maximum power
-  being produced (`max_power`).
+- **Gauge rings**: the battery's state of charge, the share of a solar unit's maximum power being
+  produced (`max_power`), and the grid import against its limit (`max_import`), which turns red once
+  reached.
 - **Compact mode** (`compact`, `small_bubbles`): a shorter card, with the rows and columns of
   bubbles closer together and/or smaller bubbles.
 - Automatic unit conversion (W, kW, MW), animated counters, tabular figures.
@@ -403,8 +404,8 @@ Specific options:
   values), `export_energy_entity` (energy counter(s) in kWh of the energy sent to the grid: shown on
   the bubble next to the energy bought, `↓6.88 ↑0.99 kWh`, and used by the daily cost),
   `export_color`,
-  `max_import` (import limit in W, e.g. the subscribed power: above it, the grid node turns red and
-  shows *Over limit*). The grid node shows a signed value: positive when importing, **negative when
+  `max_import` (import limit in W, e.g. the subscribed power: a ring around the grid bubble fills as
+  the import approaches it, and once it is reached the bubble turns red and shows *Over limit*). The grid node shows a signed value: positive when importing, **negative when
   exporting** (a signed entity keeps its sign, an export entity is shown as negative).
 - `solar` and `battery`: `separate` and `units`, see
   [Several inverters and batteries](#several-inverters-and-batteries). On a battery unit:
