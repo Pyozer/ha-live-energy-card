@@ -49,7 +49,7 @@ hass + config ─► model/   ─► layout.ts ─► tree.ts ─► live-energy
 | `src/energy.ts` | Import from the Energy dashboard (`energy/get_prefs` → config), merge into an existing config, name-based fallback for the stub config. |
 | `src/entities.ts` | Entity kinds (power, %, energy, price, CO2) used to filter the editor's entity pickers. |
 | `src/units.ts` | Entity reading (W, kW, mW, MW…), unavailable states, localized formatting. |
-| `src/compute.ts` | Energy balance and flow allocation (solar → home → battery → grid…), ratios. |
+| `src/compute.ts` | Energy balance and flow allocation (solar → home → battery → grid…), ratios. `batterySolar`: the part of the battery charge known to come from solar (what a battery unit's `grid_charge_entity` does not account for), taken from the solar before the home. |
 | `src/model/index.ts` | `buildModel`: readings → energy balance → nodes → flows. Re-exports the model API. |
 | `src/model/context.ts` | Defaults (`DEFAULTS`), per-update context, flow intensity scale. |
 | `src/model/sources.ts` | Source readings (signed entity or positive pair) and the solar, grid, battery and home nodes. |

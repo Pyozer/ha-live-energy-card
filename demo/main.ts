@@ -16,6 +16,7 @@ const ENT = {
   grid: 'sensor.shelly_pro_3em_energy_meter_1_puissance',
   battery: 'sensor.batterie_puissance',
   soc: 'sensor.batterie_niveau',
+  batteryGridCharge: 'sensor.batterie_puissance_depuis_reseau',
   price: 'sensor.electricity_price',
   co2: 'sensor.co2_intensity',
 };
@@ -166,6 +167,13 @@ function buildHass(): HomeAssistant {
     [ENT.grid]: entity(ENT.grid, grid, 'W', 'Grid power'),
     [ENT.battery]: entity(ENT.battery, state.battery, 'W', 'Battery power'),
     [ENT.soc]: entity(ENT.soc, state.soc, '%', 'Battery level'),
+    // What a hybrid battery draws from the grid: the solar charges it first, the grid does the rest.
+    [ENT.batteryGridCharge]: entity(
+      ENT.batteryGridCharge,
+      Math.max(0, -state.battery - state.solar),
+      'W',
+      'Battery grid input power',
+    ),
     [ENT.price]: entity(ENT.price, 0.2516, 'EUR/kWh', 'Electricity price'),
     [ENT.co2]: entity(ENT.co2, 56, 'gCO2eq/kWh', 'Grid CO2 intensity'),
     // Ready-made cost entities: a rate, and a cumulative cost counter (change of the day: 1.31).
@@ -749,6 +757,15 @@ const PRESETS: Record<string, () => void> = {
     Object.assign(state, { solar: 0, battery: -2500, soc: 20, baseLoad: 100, devices: standby() }),
   'Battery → grid': () =>
     Object.assign(state, { solar: 0, battery: 2800, soc: 90, baseLoad: 80, devices: standby() }),
+  // A hybrid battery that reports what it draws from the grid (like a SolarFlow): the solar covers
+  // its 40 W charge, so it is not shown as charged by the grid while the grid covers the home.
+  'Battery charged by its panels': () => {
+    withConfig((c) => {
+      c.solar = withSolarUnits(c.solar, 2, true, false);
+      c.battery!.units![0].grid_charge_entity = ENT.batteryGridCharge;
+    });
+    Object.assign(state, { solar: 120, battery: -40, soc: 16, baseLoad: 175, devices: devicesOff() });
+  },
   'All zero': () =>
     Object.assign(state, { solar: 0, battery: 0, soc: 50, baseLoad: 0, devices: devicesOff() }),
 };

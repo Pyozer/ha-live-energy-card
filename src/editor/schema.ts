@@ -101,6 +101,7 @@ export class EditorSchema {
         : [
             power('entity'),
             grid([power('charge_entity'), power('discharge_entity')]),
+            power('grid_charge_entity'),
             { name: 'soc_entity', selector: this.entity('percent', cfg.soc_entity) },
             grid([
               {

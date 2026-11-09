@@ -3,7 +3,9 @@
  * (home, battery, grid). All values are positive watts.
  *
  * Priorities:
- *  1. solar feeds the home first, then the battery (if charging), then the grid (surplus);
+ *  0. the part of the battery charge known to come from solar (`batterySolar`, deduced from what the
+ *     battery says it draws from the grid) is taken from the solar first;
+ *  1. the rest of the solar feeds the home, then the battery (if still charging), then the grid (surplus);
  *  2. a discharging battery feeds the home before the grid;
  *  3. the grid covers the remaining home demand, then the battery charge.
  */
@@ -11,6 +13,12 @@
 export interface SourceInputs {
   /** Solar production (W). Ignored when not configured. */
   solar?: number;
+  /**
+   * Part of `batteryCharge` known to come from solar, when the battery reports what it draws from
+   * the grid (panels on a hybrid battery, or the battery choosing to store a small surplus). It is
+   * taken from the solar before the home. Unknown by default: solar then feeds the home first.
+   */
+  batterySolar?: number;
   gridImport?: number;
   gridExport?: number;
   batteryCharge?: number;
@@ -81,12 +89,14 @@ export function computeFlows(inputs: SourceInputs, threshold = 0): FlowResult {
   const computedHome = solar + gridImport + batteryDischarge - gridExport - batteryCharge;
   const home = homeMeasured ? pos(inputs.home) : Math.max(0, computedHome);
 
-  // 1. Solar: home → battery → grid.
-  let solarLeft = solar;
+  // 1. Solar: the battery charge known to be solar, then home → battery → grid.
+  const knownSolarCharge = Math.min(clean(inputs.batterySolar), solar, batteryCharge);
+  let solarLeft = solar - knownSolarCharge;
   const solarToHome = Math.min(solarLeft, home);
   solarLeft -= solarToHome;
-  const solarToBattery = Math.min(solarLeft, batteryCharge);
-  solarLeft -= solarToBattery;
+  const otherSolarCharge = Math.min(solarLeft, batteryCharge - knownSolarCharge);
+  const solarToBattery = knownSolarCharge + otherSolarCharge;
+  solarLeft -= otherSolarCharge;
   const solarToGrid = Math.min(solarLeft, gridExport);
 
   // 2. Battery: home → grid.

@@ -424,6 +424,7 @@ describe('editor units', () => {
         'entity',
         'charge_entity',
         'discharge_entity',
+        'grid_charge_entity',
         'soc_entity',
         'capacity',
         'min_soc',

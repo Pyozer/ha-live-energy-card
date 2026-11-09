@@ -142,6 +142,7 @@ export function watchedEntities(config: LiveEnergyCardConfig): string[] {
     add(unit.secondary_entity);
     add((unit as BatteryUnitConfig).charge_entity);
     add((unit as BatteryUnitConfig).discharge_entity);
+    add((unit as BatteryUnitConfig).grid_charge_entity);
     add((unit as BatteryUnitConfig).soc_entity);
   }
   add(config.solar?.secondary_entity);
