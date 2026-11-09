@@ -2,7 +2,7 @@ import { DEFAULT_COLORS, resolveColor } from '../colors';
 import { untrackedPower } from '../compute';
 import type { DeviceConfig } from '../types';
 import { entityIds, readPowerSum, type Reading } from '../units';
-import type { ModelContext } from './context';
+import { powerShare, readMaxPower, shareStatus, type ModelContext } from './context';
 import { actionsFor, cleanName, nodeSecondary } from './format';
 import { TOGGLE_GROUP, UNTRACKED_ID, type NodeModel } from './types';
 
@@ -69,6 +69,7 @@ export function buildDevices(
     const watts = reading.available ? Math.max(0, reading.value ?? 0) : null;
     const value = watts !== null && watts >= threshold ? watts : 0;
     const active = value > 0;
+    const powerRatio = powerShare(value, readMaxPower(hass, dev), reading.available);
     configs.set(id, dev);
     return {
       id,
@@ -83,6 +84,8 @@ export function buildDevices(
       available: reading.available,
       active,
       visible: !(reading.available && !active && (dev.hide_when_zero ?? globalHide)),
+      powerRatio,
+      status: shareStatus(ctx, powerRatio),
       secondary: nodeSecondary(hass, dev, ctx.todayEnergy.get(id)),
       actions: actionsFor(dev, dev.entity),
     };

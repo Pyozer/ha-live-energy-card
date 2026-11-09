@@ -203,3 +203,68 @@ describe('maximum power of a solar unit', () => {
     }
   });
 });
+
+describe('maximum power of a device', () => {
+  const hass = (watts: number, extra: HassEntity[] = []) =>
+    hassWith([state('sensor.heater', watts), state('sensor.a', 200), state('sensor.b', 400), ...extra]);
+  const device = (config: LiveEnergyCardConfig, h: HomeAssistant) => nodes(config, h)['device:0'];
+
+  it('shows a gauge with the share of its maximum power, and says it in its status', () => {
+    const heater = device({ type: 'x', devices: [{ entity: 'sensor.heater', max_power: 3000 }] }, hass(1500));
+    expect(heater.powerRatio).toBeCloseTo(0.5);
+    expect(heater.status).toBe('50 % of maximum power');
+  });
+
+  it('has no gauge without a maximum power', () => {
+    const heater = device({ type: 'x', devices: [{ entity: 'sensor.heater' }] }, hass(1500));
+    expect(heater.powerRatio).toBeUndefined();
+    expect(heater.status).toBeUndefined();
+  });
+
+  it('stays full above the maximum, empty at zero, and empty when unavailable', () => {
+    const config: LiveEnergyCardConfig = {
+      type: 'x',
+      hide_when_zero: false,
+      devices: [{ entity: 'sensor.heater', max_power: 3000 }],
+    };
+    expect(device(config, hass(5000)).powerRatio).toBe(1);
+    expect(device(config, hass(0)).powerRatio).toBe(0);
+    expect(device(config, hassWith([state('sensor.heater', 'unavailable')])).powerRatio).toBeNull();
+  });
+
+  it('reads the maximum power from an entity while it is readable, like a solar unit', () => {
+    const config: LiveEnergyCardConfig = {
+      type: 'x',
+      devices: [{ entity: 'sensor.heater', max_power: 3000, max_power_entity: 'sensor.rating' }],
+    };
+    expect(device(config, hass(1500, [state('sensor.rating', 6, 'kW')])).powerRatio).toBeCloseTo(0.25);
+    expect(device(config, hass(1500, [state('sensor.rating', 'unknown')])).powerRatio).toBeCloseTo(0.5);
+  });
+
+  it('ignores a maximum power that is not a positive number', () => {
+    for (const max_power of [0, -5, 'abc' as unknown as number]) {
+      const config: LiveEnergyCardConfig = { type: 'x', devices: [{ entity: 'sensor.heater', max_power }] };
+      expect(device(config, hass(1500)).powerRatio).toBeUndefined();
+    }
+  });
+
+  it('gives a group a gauge of its own, over the sum of its members', () => {
+    const config: LiveEnergyCardConfig = {
+      type: 'x',
+      devices: [{ max_power: 1200, devices: [{ entity: 'sensor.a' }, { entity: 'sensor.b' }] }],
+    };
+    const model = nodes(config, hass(0));
+    expect(model['device:0'].powerRatio).toBeCloseTo(0.5);
+    expect(model['device:0:0'].powerRatio).toBeUndefined();
+  });
+
+  it('watches the maximum power entity, and the editor checks its kind', () => {
+    const config: LiveEnergyCardConfig = {
+      type: 'x',
+      devices: [{ entity: 'sensor.heater', max_power_entity: 'sensor.rating' }],
+    };
+    expect(watchedEntities(config)).toContain('sensor.rating');
+    const issues = entityIssues(config, hass(1, [state('sensor.rating', 5, 'kWh')]));
+    expect(issues).toMatchObject([{ field: 'max_power_entity', problem: 'kind', expected: 'power' }]);
+  });
+});

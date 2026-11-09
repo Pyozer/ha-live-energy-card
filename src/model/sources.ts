@@ -22,7 +22,7 @@ import type {
 } from '../types';
 import { readPercentAverage, type Reading } from '../units';
 import { EXPORT_STATISTIC } from '../energy-today';
-import { hasEntity, readRef, type ModelContext } from './context';
+import { hasEntity, powerShare, readMaxPower, readRef, shareStatus, type ModelContext } from './context';
 import { actionsFor, batteryIcon, cleanName, gridSecondary, nodeSecondary } from './format';
 import type { NodeModel } from './types';
 
@@ -92,16 +92,6 @@ const sum = (values: number[]): number => values.reduce((acc, v) => acc + v, 0);
  */
 const readable = (units: { available: boolean }[], separate: boolean | undefined): boolean =>
   units.length > 0 && (separate ? units.some((u) => u.available) : units.every((u) => u.available));
-
-/**
- * Maximum power of a solar unit: its entity while it is readable and positive, otherwise the fixed
- * value. `undefined` when neither gives a positive power.
- */
-function readMaxPower(hass: HomeAssistant, unit: SolarUnitConfig): number | undefined {
-  const live = readRef(hass, unit.max_power_entity);
-  const watts = live?.available && (live.value ?? 0) > 0 ? live.value! : unit.max_power;
-  return (watts ?? 0) > 0 ? watts : undefined;
-}
 
 /** Maximum power of a source shown as a single bubble: known only when every unit has one. */
 const totalMaxPower = (units: SolarUnitReading[]): number | undefined =>
@@ -211,8 +201,7 @@ function solarNode(
   maxPower?: number,
 ): NodeModel {
   const active = watts > 0;
-  const powerRatio =
-    maxPower === undefined ? undefined : available ? Math.min(1, Math.max(0, watts / maxPower)) : null;
+  const powerRatio = powerShare(watts, maxPower, available);
   return {
     id,
     kind: 'solar',
@@ -224,10 +213,7 @@ function solarNode(
     active,
     visible: !(available && !active && (bubble.hide_when_zero ?? ctx.globalHide)),
     powerRatio,
-    status:
-      powerRatio == null
-        ? undefined
-        : ctx.t('state.max_power_ratio', { percent: String(Math.round(powerRatio * 100)) }),
+    status: shareStatus(ctx, powerRatio),
     secondary: nodeSecondary(ctx.hass, bubble, ctx.todayEnergy.get(id)),
     actions: actionsFor(bubble, entity),
   };
@@ -432,7 +418,7 @@ export function sourceNodes(
       visible: !(available && !active && (cfg.hide_when_zero ?? false)),
       alert,
       // With an import limit, a ring fills up to it: full means over the limit (the alert).
-      powerRatio: limit === undefined ? undefined : available ? Math.min(1, result.gridImport / limit) : null,
+      powerRatio: powerShare(result.gridImport, limit, available),
       status: alert
         ? t('state.over_limit')
         : exporting

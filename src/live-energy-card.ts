@@ -460,6 +460,13 @@ export class LiveEnergyCard extends LitElement {
           ${n.secondary ? html`<div class="secondary">${n.secondary}</div>` : nothing}
         </div>
         ${this._renderValue(n)}
+        ${
+          n.powerRatio !== undefined
+            ? html`<div class="gauge">
+                <div class="gauge-fill" style="width: ${(n.powerRatio ?? 0) * 100}%"></div>
+              </div>`
+            : nothing
+        }
         <ha-icon class="warn" icon="mdi:alert-circle"></ha-icon>
       </div>
     `;

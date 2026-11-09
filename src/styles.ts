@@ -393,6 +393,23 @@ export const cardStyles = css`
     transform: rotate(180deg);
   }
 
+  /* Gauge of a device with a maximum power: a bar along the bottom edge of the pill. */
+  .pill .gauge {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 3px;
+    background: var(--lec-fill-strong);
+  }
+
+  .pill .gauge-fill {
+    height: 100%;
+    border-radius: 0 2px 2px 0;
+    background: var(--c);
+    transition: width 0.8s var(--lec-ease);
+  }
+
   .pill.is-member .node-inner {
     background: color-mix(in srgb, var(--lec-fill) 55%, transparent);
   }
@@ -548,6 +565,7 @@ export const cardStyles = css`
   @media (prefers-reduced-motion: reduce) {
     .node-inner,
     .ring circle,
+    .gauge-fill,
     .ratio circle {
       transition: none;
     }

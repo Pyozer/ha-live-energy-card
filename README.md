@@ -39,9 +39,10 @@ sliders for every source and device, scenarios, and a YAML editor. No Home Assis
   of the card.
 - **Live cost, solar savings and grid CO₂**, calculated or read from your own entities.
 - **Home ring**: share of solar, battery and grid in the consumption.
-- **Gauge rings**: the battery's state of charge, the share of a solar unit's maximum power being
-  produced (`max_power`), and the grid import against its limit (`max_import`), which turns red once
-  reached.
+- **Gauges**: a ring for the battery's state of charge, for the share of a
+  solar unit's maximum power being produced (`max_power`), and for the grid import against its limit
+  (`max_import`, red once reached); a bar along the bottom of a device's pill for its share of its
+  own `max_power`.
 - **Compact mode** (`compact`, `small_bubbles`): a shorter card, with the rows and columns of
   bubbles closer together and/or smaller bubbles.
 - Automatic unit conversion (W, kW, MW), animated counters, tabular figures.
@@ -414,6 +415,10 @@ Specific options:
   with a charge level and a capacity, the caption shows the time to full or down to the reserve at
   the current power (*Full in 2 h 05*), up to 48 h.
 - `home`: `entity` is optional. Without it, consumption is computed from the sources.
+- `devices`: `max_power` (W) and `max_power_entity` (W, kW…, read first while it is readable) give the
+  pill a gauge, a bar along its bottom edge that fills with the share of that power being drawn, for
+  instance the rating of a water heater. A group has its own, over the sum of its members. Both are
+  optional: without them the pill is unchanged. The share is in the tooltip and the accessible label.
 - `devices` groups: `devices` (members, same options as a device), `expanded` (initially
   expanded), `entity` optional. A group's default tap action expands or collapses it.
 - `devices`: `exclude_from_untracked: true` for a device that is not part of the home consumption

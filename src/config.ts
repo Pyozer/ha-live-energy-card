@@ -1,6 +1,13 @@
 import { localize } from './localize/localize';
 import { batteryUnits, solarUnits } from './source-units';
-import type { BatteryUnitConfig, EntityRef, LineStyle, LiveEnergyCardConfig, SolarUnitConfig } from './types';
+import type {
+  BatteryUnitConfig,
+  DeviceConfig,
+  EntityRef,
+  LineStyle,
+  LiveEnergyCardConfig,
+  SolarUnitConfig,
+} from './types';
 import { entityIds } from './units';
 
 export const LINE_STYLES: LineStyle[] = ['rounded', 'square', 'curved', 'straight'];
@@ -153,6 +160,7 @@ export function watchedEntities(config: LiveEnergyCardConfig): string[] {
     if (!node) continue;
     add(node.entity);
     add(node.secondary_entity);
+    add((node as DeviceConfig).max_power_entity);
   }
   for (const unit of [...(config.solar?.units ?? []), ...(config.battery?.units ?? [])]) {
     if (!unit) continue;

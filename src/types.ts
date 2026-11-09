@@ -44,21 +44,24 @@ export interface BaseNodeConfig extends BubbleConfig {
 }
 
 /**
+ * A gauge on a bubble: the power it fills up to, as a value or through an entity (W, kW, Wc…) that
+ * takes over while it is readable. What it is for depends on the bubble: the most a solar unit can
+ * give (its panels' peak power, or its inverter's limit), or the rating of a device.
+ */
+export interface MaxPowerConfig {
+  max_power?: number;
+  max_power_entity?: string;
+}
+
+/**
  * One unit of the solar source (an inverter, a string of panels…): what it reads, and, when the
  * source is `separate`, its own bubble.
  */
-export interface SolarUnitConfig extends BubbleConfig {
+export interface SolarUnitConfig extends BubbleConfig, MaxPowerConfig {
   entity?: string;
   invert?: boolean;
   /** Cumulative energy counter in kWh (today's energy of the unit). */
   energy_entity?: string;
-  /**
-   * Power (W) at which the bubble's ring is full: what the unit can give at most, the peak power of
-   * its panels or the limit of its inverter, whichever is lower. `max_power_entity` (W, kW, Wc…)
-   * takes over while it is readable.
-   */
-  max_power?: number;
-  max_power_entity?: string;
 }
 
 /**
@@ -115,7 +118,7 @@ export interface BatteryConfig extends BubbleConfig {
 
 export type HomeConfig = BaseNodeConfig;
 
-export interface DeviceConfig extends BaseNodeConfig {
+export interface DeviceConfig extends BaseNodeConfig, MaxPowerConfig {
   /** Optional for a group: its power is then the sum of its members. */
   entity?: EntityRef;
   /** Members of a device group, shown when the group is expanded. */

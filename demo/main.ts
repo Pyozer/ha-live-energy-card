@@ -511,6 +511,21 @@ toggle(
     }),
 );
 toggle(
+  'Device gauges',
+  () => !!config.devices?.some((d) => d.max_power),
+  (v) =>
+    withConfig((c) => {
+      c.devices = (c.devices ?? []).map((dev) => {
+        const typical = DEVICES.find((d) => d.entity === dev.entity)?.typical;
+        const device = { ...dev };
+        // A rating a bit above what the device draws when it runs.
+        if (v && typical) device.max_power = Math.round((typical * 1.2) / 10) * 10;
+        else delete device.max_power;
+        return device;
+      });
+    }),
+);
+toggle(
   'Compact',
   () => !!config.compact,
   (v) => withConfig((c) => (v ? (c.compact = true) : delete c.compact)),
@@ -640,7 +655,13 @@ function withBatteryUnits(
   const units = Array.from({ length: count }, (_, i) =>
     count === 1
       ? { entity: ENT.battery, soc_entity: ENT.soc, capacity: 10, min_soc: 10 }
-      : { entity: batteryUnitId(i), soc_entity: batteryUnitSoc(i), capacity: 5, name: BATTERY_UNITS[i] },
+      : {
+          entity: batteryUnitId(i),
+          soc_entity: batteryUnitSoc(i),
+          capacity: 5,
+          min_soc: 10,
+          name: BATTERY_UNITS[i],
+        },
   );
   return { ...node, ...(separate ? { separate } : {}), units };
 }

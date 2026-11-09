@@ -97,16 +97,7 @@ export class EditorSchema {
     const power = (name: string): Schema => ({ name, selector: this.entity('power', cfg[name]) });
     const reads: Schema[] =
       group === 'solar'
-        ? [
-            power('entity'),
-            grid([
-              {
-                name: 'max_power',
-                selector: { number: { min: 0, mode: 'box', unit_of_measurement: 'W' } },
-              },
-              power('max_power_entity'),
-            ]),
-          ]
+        ? [power('entity'), grid([watts('max_power'), power('max_power_entity')])]
         : [
             power('entity'),
             grid([power('charge_entity'), power('discharge_entity')]),
@@ -306,6 +297,10 @@ export class EditorSchema {
     return [
       // A group's entity is optional (a circuit meter); without it, its members are added up.
       { name: group ? 'group_entity' : 'entity', selector: this.entity('power', dev.entity, true) },
+      grid([
+        watts('max_power'),
+        { name: 'max_power_entity', selector: this.entity('power', dev.max_power_entity) },
+      ]),
       grid([
         { name: 'name', selector: { text: {} } },
         { name: 'icon', selector: { icon: {} } },
