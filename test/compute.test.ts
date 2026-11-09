@@ -49,6 +49,106 @@ describe('computeFlows', () => {
     expect(r.flows.batteryToGrid).toBe(2400);
   });
 
+  describe('battery charge known to come from solar (batterySolar)', () => {
+    it('charges the battery before feeding the home, so the grid does not charge it', () => {
+      // Micro-inverter (37 W) feeds the home; the battery charges from its own panels (44 W), 0 W from the grid.
+      const r = computeFlows({ solar: 81, batterySolar: 44, batteryCharge: 44, home: 175, gridImport: 138 });
+      expect(r.flows.solarToBattery).toBe(44);
+      expect(r.flows.solarToHome).toBe(37);
+      expect(r.flows.gridToBattery).toBe(0);
+      expect(r.flows.gridToHome).toBe(138);
+    });
+
+    it('without the information, the same readings show a grid charge (home first)', () => {
+      const r = computeFlows({ solar: 81, batteryCharge: 44, home: 175, gridImport: 138 });
+      expect(r.flows.solarToBattery).toBe(0);
+      expect(r.flows.gridToBattery).toBe(44);
+    });
+
+    it('solar beyond the known charge goes to the home', () => {
+      const r = computeFlows({
+        solar: 300,
+        batterySolar: 300,
+        batteryCharge: 100,
+        home: 500,
+        gridImport: 300,
+      });
+      expect(r.flows.solarToBattery).toBe(100);
+      expect(r.flows.solarToHome).toBe(200);
+      expect(r.flows.gridToHome).toBe(300);
+    });
+
+    it('the other solar and the grid complete the charge, in that order', () => {
+      const r = computeFlows({
+        solar: 1000,
+        batterySolar: 400,
+        batteryCharge: 1000,
+        home: 300,
+        gridImport: 300,
+      });
+      // 400 W known to come from solar; the other 600 W feed the home (300) then the battery (300).
+      expect(r.flows.solarToBattery).toBe(700);
+      expect(r.flows.solarToHome).toBe(300);
+      expect(r.flows.gridToBattery).toBe(300);
+      expect(r.flows.gridToHome).toBe(0);
+    });
+
+    it('a solar surplus still charges the battery, then goes to the grid', () => {
+      // Plain surplus (battery on the AC side, no option): home → battery → grid.
+      const ac = computeFlows({ solar: 1000, batteryCharge: 500, gridExport: 200, home: 300 });
+      expect(ac.flows.solarToHome).toBe(300);
+      expect(ac.flows.solarToBattery).toBe(500);
+      expect(ac.flows.solarToGrid).toBe(200);
+      expect(ac.flows.gridToBattery).toBe(0);
+      // With 300 W of the charge known to be solar, the surplus completes the charge the same way.
+      const dc = computeFlows({
+        solar: 1200,
+        batterySolar: 300,
+        batteryCharge: 700,
+        gridExport: 200,
+        home: 300,
+      });
+      expect(dc.flows.solarToHome).toBe(300);
+      expect(dc.flows.solarToBattery).toBe(700);
+      expect(dc.flows.solarToGrid).toBe(200);
+      expect(dc.flows.gridToBattery).toBe(0);
+    });
+
+    it('does nothing while the battery is not charging', () => {
+      const r = computeFlows({ solar: 500, batterySolar: 200, batteryDischarge: 100, home: 600 });
+      expect(r.flows.solarToHome).toBe(500);
+      expect(r.flows.solarToBattery).toBe(0);
+      expect(r.flows.batteryToHome).toBe(100);
+    });
+
+    it('is capped by the production and the charge, and ignores noise and negative values', () => {
+      expect(
+        computeFlows({ solar: 50, batterySolar: 400, batteryCharge: 300, home: 200 }).flows.solarToBattery,
+      ).toBe(50);
+      expect(
+        computeFlows({ solar: 50, batterySolar: -20, batteryCharge: 30, home: 200 }).flows.solarToBattery,
+      ).toBe(0);
+      expect(
+        computeFlows({ solar: 50, batterySolar: 3, batteryCharge: 30, home: 200 }, 5).flows.solarToBattery,
+      ).toBe(0);
+    });
+
+    it('conserves energy', () => {
+      const r = computeFlows({
+        solar: 900,
+        batterySolar: 600,
+        batteryCharge: 700,
+        gridExport: 0,
+        gridImport: 400,
+        home: 600,
+      });
+      const f = r.flows;
+      expect(f.solarToHome + f.batteryToHome + f.gridToHome).toBeCloseTo(r.home);
+      expect(f.solarToBattery + f.gridToBattery).toBeCloseTo(r.batteryCharge);
+      expect(f.solarToHome + f.solarToBattery + f.solarToGrid).toBeCloseTo(r.solar);
+    });
+  });
+
   it('measured consumption takes precedence', () => {
     const r = computeFlows({ solar: 1000, gridImport: 500, home: 1450 });
     expect(r.homeMeasured).toBe(true);

@@ -48,6 +48,76 @@ describe('readSources', () => {
   });
 });
 
+describe('grid_charge_entity', () => {
+  const bat = (extra: Record<string, unknown> = {}) =>
+    cfg({
+      solar: { units: [{ entity: 'sensor.pv' }, { entity: 'sensor.mppt' }] },
+      battery: { units: [{ entity: 'sensor.bat', grid_charge_entity: 'sensor.grid_in', ...extra }] },
+      grid: { entity: 'sensor.g' },
+    });
+  const states = (gridIn: string | number, grid = 138) => [
+    state('sensor.pv', 37),
+    state('sensor.mppt', 44),
+    state('sensor.bat', -44), // charging 44 W
+    state('sensor.grid_in', gridIn),
+    state('sensor.g', grid),
+  ];
+  const watts = (config: LiveEnergyCardConfig, ...s: HassEntity[]) => {
+    const model = buildModel(config, hassWith(...s));
+    return (id: string) => model.flows.find((f) => f.id === id)?.watts ?? 0;
+  };
+
+  it('deduces the solar part of the charge: what the battery does not draw from the grid', () => {
+    const input = (gridIn: string | number) =>
+      readSources(bat(), hassWith(...states(gridIn))).inputs.batterySolar;
+    expect(input(0)).toBe(44);
+    expect(input(10)).toBe(34);
+    expect(input(100)).toBe(0); // more than the charge: capped
+  });
+
+  it('is unknown without the entity, or while it is unreadable', () => {
+    const noEntity = cfg({ battery: { units: [{ entity: 'sensor.bat' }] } });
+    expect(readSources(noEntity, hassWith(...states(0))).inputs.batterySolar).toBe(0);
+    expect(readSources(bat(), hassWith(...states('unavailable'))).inputs.batterySolar).toBe(0);
+  });
+
+  it('adds up the units that report it, and leaves the others to the default order', () => {
+    const config = cfg({
+      battery: {
+        units: [{ entity: 'sensor.bat', grid_charge_entity: 'sensor.grid_in' }, { entity: 'sensor.bat2' }],
+      },
+    });
+    const src = readSources(config, hassWith(...states(4), state('sensor.bat2', -30)));
+    expect(src.inputs.batteryCharge).toBe(74);
+    expect(src.inputs.batterySolar).toBe(40);
+  });
+
+  it('shows the battery charged by the solar, not by the grid', () => {
+    const flow = watts(bat(), ...states(0));
+    expect(flow('solar_battery')).toBe(44);
+    expect(flow('solar_home')).toBe(37);
+    expect(flow('grid_battery')).toBe(0);
+    expect(flow('grid_home')).toBe(138);
+  });
+
+  it('still shows the part the battery draws from the grid', () => {
+    const flow = watts(bat(), ...states(20));
+    expect(flow('solar_battery')).toBe(24);
+    expect(flow('grid_battery')).toBe(20);
+  });
+
+  it('keeps the previous behavior without the entity (solar feeds the home first)', () => {
+    const config = cfg({
+      solar: { units: [{ entity: 'sensor.pv' }, { entity: 'sensor.mppt' }] },
+      battery: { units: [{ entity: 'sensor.bat' }] },
+      grid: { entity: 'sensor.g' },
+    });
+    const flow = watts(config, ...states(0));
+    expect(flow('solar_battery')).toBe(0);
+    expect(flow('grid_battery')).toBe(44);
+  });
+});
+
 describe('buildDevices', () => {
   const hass = hassWith(state('sensor.a', 100), state('sensor.b', 400), state('sensor.c', 50));
 

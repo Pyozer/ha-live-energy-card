@@ -87,6 +87,8 @@ export const fr: DeepStrings<typeof en> = {
     helper: {
       separate:
         'Une bulle par unité (onduleur, batterie…) au lieu d’une seule pour le total. Son nom, son icône et sa couleur se règlent alors sur chaque unité.',
+      grid_charge_entity:
+        'Pour une batterie qui indique ce qu’elle tire du réseau en charge (ex. la puissance d’entrée réseau d’une SolarFlow). Le reste de sa charge est pris sur le solaire en priorité : une charge alimentée par des panneaux branchés sur la batterie, ou par un petit surplus qu’elle stocke elle-même, n’est pas affichée comme venant du réseau.',
       cost_entity: 'Par heure : un débit (€/h). Par jour : un coût en €, cumulé ou remis à zéro chaque jour.',
       earnings_entity:
         'Par heure : un débit (€/h). Par jour : des gains en €, cumulés ou remis à zéro chaque jour.',
@@ -110,6 +112,7 @@ export const fr: DeepStrings<typeof en> = {
       min_soc: 'Réserve (%)',
       charge_color: 'Couleur de charge',
       invert: 'Inverser le signe',
+      grid_charge_entity: 'Puissance tirée du réseau (optionnel)',
       exclude_from_untracked: 'Hors consommation de la maison (non déduit de Autres)',
       group_entity: 'Entité de puissance du groupe (facultative, sinon somme de ses appareils)',
       expanded: 'Déplié par défaut',

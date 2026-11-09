@@ -72,13 +72,13 @@ describe('validateConfig units', () => {
       solar: { secondary_entity: 'sensor.day', units: [{ entity: 'sensor.a' }] },
       battery: {
         units: [
-          { entity: 'sensor.b', soc_entity: 'sensor.s' },
+          { entity: 'sensor.b', soc_entity: 'sensor.s', grid_charge_entity: 'sensor.gc' },
           { charge_entity: 'sensor.c', discharge_entity: 'sensor.d' },
         ],
       },
     });
     expect(new Set(watchedEntities(config))).toEqual(
-      new Set(['sensor.day', 'sensor.a', 'sensor.b', 'sensor.s', 'sensor.c', 'sensor.d']),
+      new Set(['sensor.day', 'sensor.a', 'sensor.b', 'sensor.s', 'sensor.gc', 'sensor.c', 'sensor.d']),
     );
   });
 });

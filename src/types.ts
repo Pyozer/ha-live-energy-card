@@ -81,6 +81,12 @@ export interface BatteryUnitConfig extends BubbleConfig {
   entity?: string;
   charge_entity?: string;
   discharge_entity?: string;
+  /**
+   * Power (W) the battery draws from the grid while charging, when it reports it (e.g. the grid
+   * input power of a SolarFlow). The rest of its charge is taken from the solar. Without it, solar
+   * feeds the home first and any charge left over is shown as coming from the grid.
+   */
+  grid_charge_entity?: string;
   invert?: boolean;
   /** State of charge in %. */
   soc_entity?: string;

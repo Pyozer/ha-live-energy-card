@@ -40,6 +40,8 @@ export interface BatteryUnitReading {
   discharge: number;
   available: boolean;
   pack: BatteryPack;
+  /** Part of the charge that does not come from the grid, when the unit reports its grid charge. */
+  solarCharge?: number;
 }
 
 /** Configured sources (a node without any entity is left out) and their readings. */
@@ -98,11 +100,17 @@ export function readSources(config: LiveEnergyCardConfig, hass: HomeAssistant): 
     const { discharge_entity, charge_entity, soc_entity, capacity, min_soc } = unit.config;
     const pair = readPair(hass, unit.config, discharge_entity, charge_entity);
     const net = pair.positive - pair.negative;
+    const charge = Math.max(0, -net);
+    // What the unit draws from the grid: the rest of its charge is solar. Unknown if unreadable.
+    const gridCharge = readRef(hass, unit.config.grid_charge_entity);
+    const fromGrid = gridCharge?.available ? gridCharge.value : null;
     return {
       unit,
       available: pair.available,
-      charge: Math.max(0, -net),
+      charge,
       discharge: Math.max(0, net),
+      solarCharge:
+        fromGrid === null || fromGrid === undefined ? undefined : Math.max(0, charge - Math.max(0, fromGrid)),
       pack: {
         soc: hasEntity(soc_entity) ? readPercentAverage(hass.states, soc_entity) : undefined,
         capacity,
@@ -140,6 +148,7 @@ export function readSources(config: LiveEnergyCardConfig, hass: HomeAssistant): 
       gridExport: gridPair?.negative,
       batteryCharge: sum(usable(batteryList, batteryAvailable).map((u) => u.charge)),
       batteryDischarge: sum(usable(batteryList, batteryAvailable).map((u) => u.discharge)),
+      batterySolar: sum(usable(batteryList, batteryAvailable).map((u) => u.solarCharge ?? 0)),
       home: homeReading?.available ? (homeReading.value ?? undefined) : undefined,
     },
   };

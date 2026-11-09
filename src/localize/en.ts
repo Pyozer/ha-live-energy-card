@@ -83,6 +83,8 @@ export const en = {
     helper: {
       separate:
         'One bubble per unit (inverter, battery…) instead of a single one for the total. Its name, icon and color are then set on each unit.',
+      grid_charge_entity:
+        'For a battery that reports what it draws from the grid while charging (e.g. the grid input power of a SolarFlow). The rest of its charge is taken from the solar first, so a charge fed by panels plugged into the battery, or by a small surplus the battery stores itself, is not shown as coming from the grid.',
       cost_entity: 'Per hour: a rate (€/h). Per day: a cost in €, cumulative or reset daily.',
       earnings_entity: 'Per hour: a rate (€/h). Per day: earnings in €, cumulative or reset daily.',
       savings_entity:
@@ -105,6 +107,7 @@ export const en = {
       min_soc: 'Reserve (%)',
       charge_color: 'Charging color',
       invert: 'Invert sign',
+      grid_charge_entity: 'Power drawn from the grid (optional)',
       exclude_from_untracked: 'Not part of the home consumption (not subtracted from Other)',
       group_entity: 'Group power entity (optional, otherwise the sum of its devices)',
       expanded: 'Expanded by default',

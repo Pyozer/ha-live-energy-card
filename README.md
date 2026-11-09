@@ -236,7 +236,7 @@ other loses nothing.
 | On the unit | On the node (single bubble), or on each unit (`separate`) |
 | --- | --- |
 | `entity`, `invert`, `energy_entity` | `name`, `icon`, `color`, `hide_when_zero`, `secondary_entity`, `animation`, `tap_action`, `hold_action`, `double_tap_action` |
-| battery: `charge_entity`, `discharge_entity`, `soc_entity`, `capacity`, `min_soc` | battery: `charge_color` |
+| battery: `charge_entity`, `discharge_entity`, `grid_charge_entity`, `soc_entity`, `capacity`, `min_soc` | battery: `charge_color` |
 
 - A unit's `entity` is a single entity: one sensor per unit. A battery unit has a signed `entity`
   (positive = discharge) or a `charge_entity` and a `discharge_entity`.
@@ -249,6 +249,8 @@ other loses nothing.
   count. A unit's bubble shows its icon and value, plus its name and daily energy when there is
   room. Units that do not fit on one row wrap on a second one, and shrink with the width of the card.
   A battery unit can charge while another one discharges, the source keeping the net balance.
+- A battery unit can say what it draws from the grid, with `grid_charge_entity` (see
+  [Battery charged by its own panels](#battery-charged-by-its-own-panels)).
 - The flows to the home, the grid and the other source carry the total, whatever the display, so
   the energy balance, the ratios, the cost and the carbon do not depend on it. With a bubble per
   unit, they start at the point where the units meet.
@@ -256,6 +258,36 @@ other loses nothing.
   that is what the daily solar savings need.
 - The visual editor lists the units under the form of the source, where they can be added, removed
   and reordered (drag the handle, or use the arrow keys on it).
+
+#### Battery charged by its own panels
+
+By default, solar feeds the home first, then the battery, and the grid covers the rest. That is
+wrong with a hybrid battery (SolarFlow, Marstek, EcoFlow…): its own panels charge it directly, and it
+may store a small surplus rather than send it to the grid. The card would show that charge as coming
+from the grid, while the solar feeds the home.
+
+If the battery reports the power it draws from the grid, give it as `grid_charge_entity`, on the
+battery unit (always positive, in W or kW):
+
+```yaml
+solar:
+  separate: true
+  units:
+    - entity: sensor.microinverter_power # feeds the home
+      name: Micro-inverter
+    - entity: sensor.solarflow_solar_input_power # panels on the battery
+      name: SolarFlow panels
+battery:
+  units:
+    - entity: sensor.solarflow_bat_in_out # negative while charging
+      grid_charge_entity: sensor.solarflow_grid_input_power
+```
+
+Whatever the battery charges beyond that power comes from the solar, and is taken from it before the
+home. The rest of the solar still feeds the home, then the grid (surplus), and the grid covers what
+is missing, plus the part the battery says it draws. The entity is optional and follows the battery
+live: without it, or while it is unavailable, nothing changes. Several units add up, each with its
+own entity (a unit without one follows the default order).
 
 > **Breaking change**: `entity`, `energy_entity`, `invert` (and, for the battery, `soc_entity`,
 > `charge_entity`, `discharge_entity`, `capacity` and `min_soc`) are no longer options of `solar` and
@@ -478,7 +510,8 @@ home = solar + import + discharge − export − charge
 
 Allocation then follows fixed priorities:
 
-1. **Solar** → home, then battery (if charging), then grid (surplus).
+1. **Solar** → the part of the battery charge that does not come from the grid, when the battery
+   reports its `grid_charge_entity`; then home, then battery (if still charging), then grid (surplus).
 2. **Battery** (if discharging) → home, then grid.
 3. **Grid** → remaining home demand, then battery charge.
 
