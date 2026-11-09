@@ -18,6 +18,8 @@ export const DEFAULTS = {
   show_ratios: false,
   eco_mode: false,
   transparent: false,
+  compact: false,
+  small_bubbles: false,
   kilo_threshold: 1000,
   decimals: 0,
   kilo_decimals: 1,

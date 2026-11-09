@@ -494,6 +494,16 @@ toggle(
   (v) => withConfig((c) => (v ? (c.transparent = true) : delete c.transparent)),
 );
 toggle(
+  'Compact',
+  () => !!config.compact,
+  (v) => withConfig((c) => (v ? (c.compact = true) : delete c.compact)),
+);
+toggle(
+  'Small bubbles',
+  () => !!config.small_bubbles,
+  (v) => withConfig((c) => (v ? (c.small_bubbles = true) : delete c.small_bubbles)),
+);
+toggle(
   'Eco mode',
   () => !!config.eco_mode,
   (v) => withConfig((c) => (v ? (c.eco_mode = true) : delete c.eco_mode)),

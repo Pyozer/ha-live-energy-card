@@ -133,6 +133,8 @@ export const fr: DeepStrings<typeof en> = {
       intensity_entity: 'Intensité carbone du réseau (gCO2eq/kWh)',
       eco_mode: 'Mode éco (30 i/s, sans halo) pour les appareils peu puissants',
       transparent: 'Fond transparent (sans cadre de carte)',
+      compact: 'Mode compact (lignes et marges resserrées)',
+      small_bubbles: 'Bulles plus petites',
       hide_when_zero: 'Masquer à zéro',
       energy_entity: 'Énergie du jour : compteur(s) cumulatif(s) en kWh (additionnés)',
       secondary_entity:

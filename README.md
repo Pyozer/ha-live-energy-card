@@ -334,6 +334,8 @@ devices:
 | `inactive_flows` | `hide` | `hide`: zero flows are invisible. `dim`: dimmed grey path. |
 | `animation` | see below | Intensity effects: `speed`, `thickness`, `density` (on), `glow` (off: soft light around particles, stronger as power increases). |
 | `transparent` | `false` | Removes the card background, border and shadow, so the diagram sits directly on the dashboard (or inside a stack / grid card). Nodes keep their own fill and stay readable. |
+| `compact` | `false` | Shorter and narrower diagram: the rows and columns of the grid, solar, home and battery bubbles closer together, and tighter margins. The bubbles keep their size. |
+| `small_bubbles` | `false` | Smaller bubbles (sources, home and device pills). Independent of `compact`: use both for the most space-saving card. |
 | `eco_mode` | `false` | Lighter animation for wall tablets and low-power devices: 30 frames per second instead of the display rate, and no glow (its blur is the most expensive effect). Roughly halves the rendering work. |
 | `devices_layout` | `auto` | `auto`, `column` or `grid`. |
 | `devices_columns` | auto | Number of columns in grid mode. |

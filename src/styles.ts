@@ -64,6 +64,15 @@ export const cardStyles = css`
     padding: 16px 18px 18px;
   }
 
+  /* Compact mode: tighter paddings around the diagram (its own spacing is in layout.ts). */
+  ha-card.compact .header {
+    padding: 10px 14px 0;
+  }
+
+  ha-card.compact .content {
+    padding: 8px 12px 12px;
+  }
+
   .stage {
     position: relative;
     width: 100%;
@@ -457,6 +466,11 @@ export const cardStyles = css`
     margin-top: 16px;
     padding-top: 14px;
     border-top: 1px solid var(--lec-separator);
+  }
+
+  ha-card.compact .ratios {
+    margin-top: 8px;
+    padding-top: 8px;
   }
 
   .ratio {

@@ -128,6 +128,8 @@ export const en = {
       intensity_entity: 'Grid carbon intensity (gCO2eq/kWh)',
       eco_mode: 'Eco mode (30 fps, no glow) for low-power devices',
       transparent: 'Transparent background (no card frame)',
+      compact: 'Compact mode (rows and margins closer together)',
+      small_bubbles: 'Smaller bubbles',
       hide_when_zero: 'Hide when zero',
       energy_entity: 'Energy of the day: cumulative kWh counter(s) (added up)',
       secondary_entity: 'Custom line: any entity shown as is (replaces the energy of the day)',

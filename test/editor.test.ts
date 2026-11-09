@@ -47,6 +47,10 @@ describe('editor form', () => {
   it('writes boolean options only when turned on', () => {
     expect('transparent' in roundTrip(base)).toBe(false);
     expect(roundTrip(base, (d) => (d.transparent = true)).transparent).toBe(true);
+    expect('compact' in roundTrip(base)).toBe(false);
+    expect(roundTrip(base, (d) => (d.compact = true)).compact).toBe(true);
+    expect('small_bubbles' in roundTrip(base)).toBe(false);
+    expect(roundTrip(base, (d) => (d.small_bubbles = true)).small_bubbles).toBe(true);
   });
 
   it('writes the glow when turned on, although its default is false', () => {

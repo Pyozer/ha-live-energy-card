@@ -188,6 +188,10 @@ export interface LiveEnergyCardConfig {
   eco_mode?: boolean;
   /** No card background, border or shadow: the diagram sits directly on the dashboard. */
   transparent?: boolean;
+  /** Shorter card: rows of nodes closer together and tighter margins. */
+  compact?: boolean;
+  /** Smaller bubbles (nodes and device pills). */
+  small_bubbles?: boolean;
   sort_devices?: boolean;
   /** Device arrangement: a column, a grid, or automatic depending on available space. */
   devices_layout?: 'auto' | 'column' | 'grid';

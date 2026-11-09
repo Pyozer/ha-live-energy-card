@@ -52,6 +52,37 @@ describe('computeLayout', () => {
     }
   }
 
+  describe('compact mode and small bubbles', () => {
+    const base = { solar: true, grid: true, battery: true };
+    const options = [{ compact: true }, { smallBubbles: true }, { compact: true, smallBubbles: true }];
+    for (const opts of options) {
+      for (const width of [320, 380, 520, 700, 1000, 1400]) {
+        for (const n of [0, 1, 4, 13]) {
+          it(`${JSON.stringify(opts)}: never taller than the default, no overlap (${width}px, ${n} devices)`, () => {
+            const input = { ...base, width, devices: devices(n) };
+            const layout = computeLayout({ ...input, ...opts });
+            assertNoOverlap(layout);
+            expect(layout.height).toBeLessThanOrEqual(computeLayout(input).height);
+          });
+        }
+      }
+    }
+
+    it('compact brings the rows closer and keeps the bubbles; small bubbles shrink them only', () => {
+      const input = { ...base, width: 700, devices: devices(2) };
+      const full = computeLayout(input);
+      const compact = computeLayout({ ...input, compact: true });
+      const small = computeLayout({ ...input, smallBubbles: true });
+      const gap = (l: Layout) => (l.nodes.home.y - l.nodes.solar.y) / l.size;
+      expect(compact.size).toBe(full.size);
+      expect(gap(compact)).toBeLessThan(gap(full));
+      expect(compact.height).toBeLessThan(full.height);
+      expect(small.size).toBeLessThan(full.size);
+      expect(small.height).toBeLessThan(full.height);
+      expect(gap(small)).toBeCloseTo(gap(full));
+    });
+  });
+
   it('optional sources: the layout rearranges', () => {
     const layout = computeLayout({
       width: 700,
@@ -776,6 +807,23 @@ describe('sources with several units, as a single bubble', () => {
 });
 
 describe('layout with units', () => {
+  it('compact mode and small bubbles keep the units inside a shorter diagram', () => {
+    const input = {
+      width: 700,
+      solar: true,
+      grid: true,
+      battery: true,
+      devices: [],
+      solarUnits: ['solar:0', 'solar:1', 'solar:2'],
+      batteryUnits: ['battery:0', 'battery:1'],
+    };
+    for (const opts of [{ compact: true }, { smallBubbles: true }, { compact: true, smallBubbles: true }]) {
+      const layout = computeLayout({ ...input, ...opts });
+      assertNoOverlap(layout);
+      expect(layout.height).toBeLessThan(computeLayout(input).height);
+    }
+  });
+
   const ids = (group: string, n: number) => Array.from({ length: n }, (_, i) => `${group}:${i}`);
 
   for (const width of [320, 380, 520, 700, 1000]) {

@@ -37,6 +37,10 @@ export interface LayoutInput {
   devicesLayout?: DevicesLayout;
   /** Forced number of columns in grid mode. */
   devicesColumns?: number;
+  /** Compact mode: rows of nodes closer together, for a shorter card. */
+  compact?: boolean;
+  /** Smaller nodes (and device pills). */
+  smallBubbles?: boolean;
   /**
    * Ids of the visible units of the solar and battery nodes, when they are shown unit by unit. The
    * node is then a hub where the units meet (`HUB_SIZE`), with the units in rows next to it.
@@ -77,7 +81,8 @@ export interface Layout {
   nodes: Record<string, Rect>;
   /** Source node diameter. */
   size: number;
-  compact: boolean;
+  /** Narrow screen: the devices are below the diagram. */
+  narrow: boolean;
   devices: DevicesArrangement;
   units: Partial<Record<UnitGroup, UnitsLayout>>;
 }
@@ -99,6 +104,15 @@ interface DiagramMetrics {
   plans: Partial<Record<UnitGroup, UnitPlan>>;
 }
 
+/**
+ * Compact mode, as multiples of the node diameter: distance between the rows of nodes (default 1.3),
+ * and the range of the distance between the columns (default 1.3 to 2.3).
+ */
+const COMPACT_ROW_SPACING = 0.9;
+const COMPACT_COLUMN_SPACING = [1.2, 1.7] as const;
+/** Small bubbles: the nodes stop growing at this diameter (default 92), the stacked device pills shrink. */
+const SMALL_BUBBLE_SIZE = 74;
+
 /** Room a battery caption (charge level) takes under a circle of diameter `size`. */
 const captionHeight = (size: number): number => clamp(size * 0.28, 18, 24);
 
@@ -106,11 +120,13 @@ function diagramMetrics(input: LayoutInput, areaW: number): DiagramMetrics {
   const middle = input.solar || input.battery;
   const cols = (input.grid ? 1 : 0) + (middle ? 1 : 0) + 1;
   const fit = cols === 3 ? 3.9 : cols === 2 ? 2.7 : 1.3;
-  const D = clamp(areaW / fit, 50, 92);
+  const D = clamp(areaW / fit, 50, input.smallBubbles ? SMALL_BUBBLE_SIZE : 92);
   const Dh = Math.min(D * 1.16, 104);
-  const spacing = cols > 1 ? clamp((areaW - D / 2 - Dh / 2) / (cols - 1), D * 1.3, D * 2.3) : 0;
+  const [minSpacing, maxSpacing] = input.compact ? COMPACT_COLUMN_SPACING : ([1.3, 2.3] as const);
+  const spacing = cols > 1 ? clamp((areaW - D / 2 - Dh / 2) / (cols - 1), D * minSpacing, D * maxSpacing) : 0;
   const width = cols > 1 ? D / 2 + spacing * (cols - 1) + Dh / 2 : Dh;
-  const V = D * 1.3;
+  // Distance between the home row and the solar / battery rows, as a multiple of the node diameter.
+  const V = D * (input.compact ? COMPACT_ROW_SPACING : 1.3);
   const pillH = clamp(D * 0.56, 36, 46);
   const plans: DiagramMetrics['plans'] = {};
   if (input.solar && input.solarUnits?.length) plans.solar = planUnits(input.solarUnits.length, width, D);
@@ -191,10 +207,10 @@ export function computeLayout(input: LayoutInput): Layout {
   const W = Math.max(240, input.width);
   const pad = 4;
   const n = input.devices.length;
-  const compact = W < 520;
+  const narrow = W < 520;
   const mode = input.devicesLayout ?? 'auto';
 
-  if (compact && n > 0 && mode !== 'column') return stackLayout(input, W, pad);
+  if (narrow && n > 0 && mode !== 'column') return stackLayout(input, W, pad);
 
   // --- Column arrangement (reference) -----------------------------------------------------------
   let pillW = n > 0 ? clamp(W * 0.31, 112, 230) : 0;
@@ -211,8 +227,8 @@ export function computeLayout(input: LayoutInput): Layout {
     const tooTall = columnH > Math.max(diagramH * 1.2, 4 * (m.pillH + m.pillGap));
     if (mode === 'grid' || tooTall) {
       const gutter = 26;
-      const minTile = compact ? 118 : 136;
-      const areaW = clamp(W * (compact ? 0.52 : 0.47), 250, 460);
+      const minTile = narrow ? 118 : 136;
+      const areaW = clamp(W * (narrow ? 0.52 : 0.47), 250, 460);
       const gap = clamp(W * 0.05, 30, 56);
       const avail = W - 2 * pad - areaW - gap;
       const maxCols = Math.max(1, Math.floor((avail + gutter) / (minTile + gutter)));
@@ -297,7 +313,7 @@ export function computeLayout(input: LayoutInput): Layout {
     height,
     nodes,
     size: D,
-    compact,
+    narrow,
     devices: { mode: gridMode ? 'grid' : 'column', columns, above, bus: 13 },
     units,
   };
@@ -315,11 +331,11 @@ function stackLayout(input: LayoutInput, W: number, pad: number): Layout {
   const bus = 13;
   const gutter = 22;
   const count = Math.min(n, W >= 300 ? 2 : 1, input.devicesColumns ?? 2);
-  const pillH = 46;
-  const pillGap = 8;
+  const pillH = input.smallBubbles ? 40 : 46;
+  const pillGap = input.compact ? 6 : 8;
   const tileW = (W - 2 * pad - bus - (count - 1) * gutter) / count;
   const rows = Math.ceil(n / count);
-  const top = yMid + m.below + 30;
+  const top = yMid + m.below + (input.compact ? 22 : 30);
   const columns: string[][] = [];
   for (let c = 0; c < count; c++) {
     const ids = input.devices.slice(c * rows, (c + 1) * rows);
@@ -335,7 +351,7 @@ function stackLayout(input: LayoutInput, W: number, pad: number): Layout {
     height: top + stackHeight(rows, pillH, pillGap) + pad,
     nodes,
     size: D,
-    compact: true,
+    narrow: true,
     devices: { mode: 'stack', columns, above: columns.map(() => 0), bus },
     units,
   };

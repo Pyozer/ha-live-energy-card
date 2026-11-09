@@ -190,6 +190,8 @@ export class LiveEnergyCard extends LitElement {
       devices: this._model.devicesOrder.filter((id) => visible.has(id)),
       devicesLayout: this._config.devices_layout,
       devicesColumns: this._config.devices_columns,
+      compact: this._config.compact,
+      smallBubbles: this._config.small_bubbles,
       solarUnits: this._unitIds('solar', visible),
       batteryUnits: this._unitIds('battery', visible),
     });
@@ -229,11 +231,13 @@ export class LiveEnergyCard extends LitElement {
     const model = this._model;
     const layout = this._layout;
     return html`
-      <ha-card class=${this._config.transparent ? 'transparent' : ''}>
+      <ha-card
+        class="${this._config.transparent ? 'transparent' : ''} ${this._config.compact ? 'compact' : ''}"
+      >
         ${this._config.title ? html`<div class="header">${this._config.title}</div>` : nothing}
         <div class="content">
           <div
-            class="stage ${layout.compact ? 'compact' : ''} ${layout.devices.mode !== 'column' ? 'grid-devices' : ''}"
+            class="stage ${layout.narrow ? 'narrow' : ''} ${layout.devices.mode !== 'column' ? 'grid-devices' : ''}"
           >
             <svg class="flows" aria-hidden="true">
               <defs>

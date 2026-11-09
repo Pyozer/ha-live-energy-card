@@ -251,6 +251,8 @@ export class EditorSchema {
               'show_ratios',
               'eco_mode',
               'transparent',
+              'compact',
+              'small_bubbles',
             ]),
           ),
         ],
