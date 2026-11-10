@@ -89,6 +89,14 @@ describe('planUnits', () => {
     expect(blockHeight(planUnits(2, 300, 80))).toBe(planUnits(2, 300, 80).size);
   });
 
+  it('never gives the units a size of zero or less, however many they are', () => {
+    for (const count of [30, 40, 100]) {
+      const plan = planUnits(count, 200, 80);
+      expect(plan.size, `${count}`).toBeGreaterThanOrEqual(2);
+      expect(Number.isFinite(plan.width)).toBe(true);
+    }
+  });
+
   for (const span of [200, 300, 450, 700]) {
     for (let count = 1; count <= 14; count++) {
       it(`fits ${count} units in ${span}px: inside, apart, and staggered between rows`, () => {

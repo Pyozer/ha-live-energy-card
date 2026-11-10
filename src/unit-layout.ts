@@ -25,6 +25,8 @@ export interface UnitPlan {
 
 /** Smallest size units are given before they wrap on a second row. */
 export const UNIT_MIN_SIZE = 44;
+/** Size units never go under, however many they are, so the geometry stays valid. */
+export const UNIT_FLOOR_SIZE = 2;
 /** Space between two units of a row. */
 export const UNIT_GAP = 12;
 /** Space between the two rows. */
@@ -44,7 +46,7 @@ export function planUnits(
   // Two rows of the same length are shifted by half a pitch, which takes half a slot more.
   const shifted = rows.length === 2 && rows[0] === rows[1];
   const slots = rows[0] + (shifted ? 0.5 : 0);
-  const size = Math.min(maxSize, (span - (slots - 1) * gap) / slots);
+  const size = Math.max(UNIT_FLOOR_SIZE, Math.min(maxSize, (span - (slots - 1) * gap) / slots));
   return { size, pitch: size + gap, rows, shifted, width: slots * size + (slots - 1) * gap };
 }
 

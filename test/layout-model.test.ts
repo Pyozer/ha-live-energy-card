@@ -129,6 +129,29 @@ describe('computeLayout', () => {
     expect(layout.devices.mode).toBe('column');
   });
 
+  it('keeps the devices inside the card whatever the arrangement, on narrow cards', () => {
+    for (let width = 200; width <= 520; width += 20) {
+      for (const n of [1, 3, 6]) {
+        for (const devicesLayout of ['auto', 'column', 'grid'] as const) {
+          const layout = computeLayout({
+            width,
+            solar: true,
+            grid: true,
+            battery: true,
+            devices: devices(n),
+            devicesLayout,
+          });
+          for (const id of devices(n)) {
+            const r = layout.nodes[id];
+            const label = `${width}px, ${n} devices, ${devicesLayout}: ${id}`;
+            expect(r.x - r.w / 2, label).toBeGreaterThanOrEqual(0);
+            expect(r.x + r.w / 2, label).toBeLessThanOrEqual(layout.width);
+          }
+        }
+      }
+    }
+  });
+
   it('ignores a number of columns below 1 and rounds a fractional one down', () => {
     const base = { solar: true, grid: true, battery: true };
     for (const width of [300, 400, 900]) {
@@ -847,6 +870,21 @@ describe('layout with units', () => {
   });
 
   const ids = (group: string, n: number) => Array.from({ length: n }, (_, i) => `${group}:${i}`);
+
+  it('keeps a valid geometry with a great many units on a narrow card', () => {
+    const layout = computeLayout({
+      width: 240,
+      solar: true,
+      grid: true,
+      battery: true,
+      devices: [],
+      solarUnits: ids('solar', 40),
+    });
+    expect(layout.units.solar!.size).toBeGreaterThan(0);
+    for (const [id, r] of Object.entries(layout.nodes))
+      for (const v of [r.x, r.y, r.w, r.h]) expect(Number.isFinite(v), id).toBe(true);
+    expect(Number.isFinite(layout.height)).toBe(true);
+  });
 
   for (const width of [320, 380, 520, 700, 1000]) {
     for (const [solar, battery] of [

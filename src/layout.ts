@@ -312,6 +312,9 @@ export function computeLayout(input: LayoutInput): Layout {
       above.push(ids.filter((id) => nodes[id].y < yMid - 0.5).length);
     }
   });
+  // A forced column that does not fit a narrow card falls back to the stack, as `auto` does.
+  if (narrow && input.devices.some((id) => nodes[id].x + nodes[id].w / 2 > W))
+    return stackLayout(input, W, pad);
 
   return {
     width: W,
