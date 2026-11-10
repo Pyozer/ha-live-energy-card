@@ -254,6 +254,19 @@ describe('battery estimate', () => {
     const nodes = sourceNodes(modelContext(config, hass), src, computeFlows(src.inputs), sourceColors(src));
     expect(nodes.find((n) => n.id === 'battery')?.status).toBe('Full in 2 h 30');
   });
+
+  it('falls back to charging or discharging once full or at the reserve', () => {
+    const config = cfg({
+      battery: { units: [{ entity: 'sensor.b', soc_entity: 'sensor.soc', capacity: 10, min_soc: 20 }] },
+    });
+    const status = (watts: number, soc: number) =>
+      buildModel(config, hassWith(state('sensor.b', watts), state('sensor.soc', soc, '%'))).nodes.find(
+        (n) => n.id === 'battery',
+      )?.status;
+    expect(status(-40, 100)).toBe('Charging');
+    expect(status(60, 18)).toBe('Discharging');
+    expect(status(60, 18)).not.toMatch(/0 min/);
+  });
 });
 
 describe("today's energy", () => {

@@ -10,7 +10,14 @@ describe('batteryEta', () => {
   it('estimates the time down to the reserve while discharging', () => {
     // 10 kWh at 60 % with a 10 % reserve: 5 kWh at 1 kW.
     expect(batteryEta(60, 0, 1000, 10, 10)).toEqual({ until: 'empty', hours: 5 });
-    expect(batteryEta(5, 0, 1000, 10, 10)).toEqual({ until: 'empty', hours: 0 });
+  });
+
+  it('gives no estimate once the target is reached', () => {
+    expect(batteryEta(100, 40, 0, 10)).toBeNull();
+    expect(batteryEta(120, 1000, 0, 10)).toBeNull();
+    expect(batteryEta(10, 0, 1000, 10, 10)).toBeNull();
+    expect(batteryEta(5, 0, 1000, 10, 10)).toBeNull();
+    expect(batteryEta(0, 0, 1000, 10)).toBeNull();
   });
 
   it('needs a charge level, a capacity and some power', () => {
@@ -23,7 +30,7 @@ describe('batteryEta', () => {
 
   it('hides estimates beyond 48 h and clamps an out-of-range charge level', () => {
     expect(batteryEta(50, 50, 0, 10)).toBeNull();
-    expect(batteryEta(120, 1000, 0, 10)).toEqual({ until: 'full', hours: 0 });
+    expect(batteryEta(-10, 1000, 0, 10)).toEqual({ until: 'full', hours: 10 });
   });
 });
 

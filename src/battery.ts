@@ -22,10 +22,13 @@ export function batteryEta(
   if (socPercent === null || socPercent === undefined || !capacityKwh || capacityKwh <= 0) return null;
   const soc = Math.min(100, Math.max(0, socPercent));
   let eta: BatteryEta;
+  // Once full, or down to the reserve, there is nothing left to estimate.
   if (chargeW > 0) {
+    if (soc >= 100) return null;
     eta = { until: 'full', hours: (((100 - soc) / 100) * capacityKwh * 1000) / chargeW };
   } else if (dischargeW > 0) {
-    const left = Math.max(0, soc - Math.max(0, minSocPercent));
+    const left = soc - Math.max(0, minSocPercent);
+    if (left <= 0) return null;
     eta = { until: 'empty', hours: ((left / 100) * capacityKwh * 1000) / dischargeW };
   } else {
     return null;
