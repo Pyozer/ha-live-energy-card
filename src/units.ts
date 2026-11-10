@@ -121,15 +121,16 @@ export function numberFormat(locale: string | undefined, decimals: number): Intl
 /** Formats a power: `850 W`, `1.2 kW`, `3.4 MW`. */
 export function formatPower(watts: number, opts: FormatOptions = {}): { value: string; unit: string } {
   const kilo = opts.kiloThreshold ?? 1000;
-  const abs = Math.abs(watts);
-  if (abs >= 1_000_000 && kilo <= 1_000_000) {
-    return { value: numberFormat(opts.locale, opts.kiloDecimals ?? 1).format(watts / 1_000_000), unit: 'MW' };
-  }
-  if (abs >= kilo) {
-    return { value: numberFormat(opts.locale, opts.kiloDecimals ?? 1).format(watts / 1000), unit: 'kW' };
-  }
   const decimals = opts.decimals ?? 0;
-  // Avoids displaying "-0 W".
+  const kiloDecimals = opts.kiloDecimals ?? 1;
+  // The unit follows the value as displayed: 999.6 W reads 1.0 kW, not 1,000 W.
   const rounded = Number(watts.toFixed(decimals));
-  return { value: numberFormat(opts.locale, decimals).format(rounded === 0 ? 0 : rounded), unit: 'W' };
+  if (!(Math.abs(rounded) >= kilo)) {
+    // Avoids displaying "-0 W".
+    return { value: numberFormat(opts.locale, decimals).format(rounded === 0 ? 0 : rounded), unit: 'W' };
+  }
+  if (kilo <= 1_000_000 && Math.abs(Number((watts / 1000).toFixed(kiloDecimals))) >= 1000) {
+    return { value: numberFormat(opts.locale, kiloDecimals).format(watts / 1_000_000), unit: 'MW' };
+  }
+  return { value: numberFormat(opts.locale, kiloDecimals).format(watts / 1000), unit: 'kW' };
 }

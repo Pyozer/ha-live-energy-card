@@ -37,6 +37,33 @@ describe('units', () => {
     expect(formatPower(1234, { locale: 'en' })).toEqual({ value: '1.2', unit: 'kW' });
     expect(formatPower(-0.2, { locale: 'fr' }).value).toBe('0');
   });
+
+  it('switches unit when the value rounds up to the next one', () => {
+    const en = { locale: 'en' };
+    expect(formatPower(999.6, en)).toEqual({ value: '1.0', unit: 'kW' });
+    expect(formatPower(-999.6, en)).toEqual({ value: '-1.0', unit: 'kW' });
+    expect(formatPower(999.4, en)).toEqual({ value: '999', unit: 'W' });
+    expect(formatPower(999_960, en)).toEqual({ value: '1.0', unit: 'MW' });
+    expect(formatPower(-999_960, en)).toEqual({ value: '-1.0', unit: 'MW' });
+    expect(formatPower(999_940, en)).toEqual({ value: '999.9', unit: 'kW' });
+    expect(formatPower(1_500_000, en)).toEqual({ value: '1.5', unit: 'MW' });
+    // Custom threshold and decimals.
+    expect(formatPower(1999.6, { ...en, kiloThreshold: 2000 })).toEqual({ value: '2.0', unit: 'kW' });
+    expect(formatPower(1999.4, { ...en, kiloThreshold: 2000 })).toEqual({ value: '1,999', unit: 'W' });
+    expect(formatPower(999.96, { ...en, decimals: 1 })).toEqual({ value: '1.0', unit: 'kW' });
+    expect(formatPower(999.94, { ...en, decimals: 1 })).toEqual({ value: '999.9', unit: 'W' });
+    expect(formatPower(999_996, { ...en, kiloDecimals: 2 })).toEqual({ value: '1.00', unit: 'MW' });
+    expect(formatPower(999_994, { ...en, kiloDecimals: 2 })).toEqual({ value: '999.99', unit: 'kW' });
+    // A threshold above 1 MW keeps kW.
+    expect(formatPower(999_960, { ...en, kiloThreshold: 2_000_000 })).toEqual({
+      value: '999,960',
+      unit: 'W',
+    });
+    expect(formatPower(2_500_000, { ...en, kiloThreshold: 2_000_000 })).toEqual({
+      value: '2,500.0',
+      unit: 'kW',
+    });
+  });
 });
 
 describe('intensity', () => {
