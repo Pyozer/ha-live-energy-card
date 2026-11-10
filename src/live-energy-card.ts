@@ -117,6 +117,7 @@ export class LiveEnergyCard extends LitElement {
 
   override connectedCallback(): void {
     super.connectedCallback();
+    this._animator.connect();
     this._resize = new ResizeObserver(() => this._measure());
     this._resize.observe(this);
     this._intersection = new IntersectionObserver((entries) => {
@@ -129,7 +130,7 @@ export class LiveEnergyCard extends LitElement {
     super.disconnectedCallback();
     this._resize?.disconnect();
     this._intersection?.disconnect();
-    this._animator.setVisible(false);
+    this._animator.disconnect();
     this._stopToday();
   }
 

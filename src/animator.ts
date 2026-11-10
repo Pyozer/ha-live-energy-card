@@ -84,12 +84,23 @@ export class FlowAnimator {
   private motionQuery?: MediaQueryList;
   private format: ValueFormatter = (w) => ({ value: String(Math.round(w)), unit: 'W' });
 
-  constructor() {
-    if (typeof window !== 'undefined' && window.matchMedia) {
-      this.motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-      this.reducedMotion = this.motionQuery.matches;
-      this.motionQuery.addEventListener?.('change', this.onMotionChange);
-    }
+  /**
+   * Follows the reduced-motion preference, from the moment the card is in the page. The media query
+   * keeps its listeners alive: `disconnect` must remove this one, or a card that was removed (and
+   * everything it drew) would never be collected.
+   */
+  connect(): void {
+    if (this.motionQuery || typeof window === 'undefined' || !window.matchMedia) return;
+    this.motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    this.reducedMotion = this.motionQuery.matches;
+    this.motionQuery.addEventListener?.('change', this.onMotionChange);
+  }
+
+  /** The card left the page: stops the animation and every listener. */
+  disconnect(): void {
+    this.setVisible(false);
+    this.motionQuery?.removeEventListener?.('change', this.onMotionChange);
+    this.motionQuery = undefined;
   }
 
   private onMotionChange = (e: MediaQueryListEvent): void => {
@@ -214,11 +225,6 @@ export class FlowAnimator {
     this.visible = visible;
     if (visible) this.kick();
     else this.stop();
-  }
-
-  destroy(): void {
-    this.stop();
-    this.motionQuery?.removeEventListener?.('change', this.onMotionChange);
   }
 
   private kick(): void {
