@@ -2,8 +2,17 @@
   "name": "live-energy-card",
   "version": "0.15.0",
   "description": "Modern animated energy flow card for Home Assistant",
+  "private": true,
   "type": "module",
   "license": "MIT",
+  "homepage": "https://github.com/Pyozer/ha-live-energy-card#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Pyozer/ha-live-energy-card.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Pyozer/ha-live-energy-card/issues"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
