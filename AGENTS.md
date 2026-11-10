@@ -14,7 +14,8 @@ power.
 - Element `custom:live-energy-card` and visual editor `live-energy-card-editor` (built on `ha-form`).
 - Runtime dependencies are limited to `lit` and `@mdi/js`. Do not add more without a real need:
   everything ends up in the bundle loaded by every HA client. `npm run size` enforces a gzip budget
-  on it.
+  on it. The bundle is minified in full (`build.rolldownOptions.output.minify` in `vite.config.ts`):
+  Vite alone keeps the whitespace of an ES library.
 - **Everything is written in English**: documentation, code comments, test names and commits.
   Only the UI is translated (English and French, see `src/localize/`).
 

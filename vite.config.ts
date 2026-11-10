@@ -24,6 +24,9 @@ export default defineConfig(({ mode }) => ({
       formats: ['es'],
       fileName: () => 'live-energy-card.js',
     },
+    // Vite keeps the whitespace of an ES library (for the bundler of whoever imports it). This file
+    // is what the browser loads, so it is minified in full.
+    rolldownOptions: { output: { minify: mode !== 'development' } },
   },
   test: {
     include: ['test/**/*.test.ts'],
