@@ -95,7 +95,10 @@ export function buildDevices(
   (config.devices ?? []).forEach((dev, index) => {
     if (!dev) return;
     const id = `device:${index}`;
-    const members = (dev.devices ?? []).filter((c) => c && entityIds(c.entity).length > 0);
+    // A member is numbered by its place in the config list, as for its energy statistics.
+    const members = (dev.devices ?? [])
+      .map((child, j) => ({ child, id: `${id}:${j}` }))
+      .filter(({ child }) => child && entityIds(child.entity).length > 0);
     if (members.length === 0) {
       if (entityIds(dev.entity).length === 0) return;
       const node = deviceNode(dev, id, read(dev), id);
@@ -106,7 +109,9 @@ export function buildDevices(
 
     // Group: its own entity when it has one (e.g. a circuit meter), otherwise the sum of its members.
     const isExpanded = expanded.has(id);
-    const children = members.map((child, j) => deviceNode(child, `${id}:${j}`, read(child), `${id}:${j}`));
+    const children = members.map(({ child, id: childId }) =>
+      deviceNode(child, childId, read(child), childId),
+    );
     const total: Reading = entityIds(dev.entity).length
       ? read(dev)
       : children.every((c) => c.available)

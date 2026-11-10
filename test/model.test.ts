@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeFlows } from '../src/compute';
+import { energyStatistics } from '../src/energy-today';
 import { buildModel, ringValue } from '../src/model';
 import { modelContext } from '../src/model/context';
 import { buildDevices } from '../src/model/devices';
@@ -142,6 +143,28 @@ describe('buildDevices', () => {
     const { nodes, order } = buildDevices(modelContext(config, hass), 0, new Set(), []);
     expect(order).toEqual(['device:1', 'device:1:0', 'device:1:1', 'device:0']);
     expect(nodes.find((n) => n.id === 'device:1')?.watts).toBe(500);
+  });
+
+  it('numbers group members by their place in the config, like the energy statistics', () => {
+    const config = cfg({
+      devices: [
+        {
+          name: 'Kitchen',
+          devices: [
+            { name: 'Not wired yet' },
+            { entity: 'sensor.oven', energy_entity: 'sensor.oven_energy' },
+          ],
+        },
+      ],
+    });
+    const [ovenId] = [...energyStatistics(config).keys()];
+    expect(ovenId).toBe('device:0:1');
+    const model = buildModel(config, hassWith(state('sensor.oven', 2000)), {
+      todayEnergy: new Map([[ovenId, 3.2]]),
+    });
+    const oven = model.nodes.find((n) => n.parent === 'device:0');
+    expect(oven?.id).toBe(ovenId);
+    expect(oven?.secondary).toBe('3.20 kWh');
   });
 });
 
