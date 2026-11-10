@@ -20,6 +20,27 @@ describe('validateConfig numbers', () => {
     );
   });
 
+  it('keeps devices_columns only as a whole number of at least 1, else automatic', () => {
+    const columns = (devices_columns: unknown) =>
+      validateConfig({ type: 'x', grid: { entity: 'sensor.g' }, devices_columns }).devices_columns;
+    expect(columns(0)).toBeUndefined();
+    expect(columns(-2)).toBeUndefined();
+    expect(columns('many')).toBeUndefined();
+    expect(columns('')).toBeUndefined();
+    expect(columns(Infinity)).toBeUndefined();
+    expect(columns('3')).toBe(3);
+    expect(columns(2.7)).toBe(2);
+    expect(columns(1)).toBe(1);
+  });
+
+  it('rounds decimals and kilo_decimals and keeps them within 0..6', () => {
+    const config = (decimals: unknown, kilo_decimals: unknown) =>
+      validateConfig({ ...base, decimals, kilo_decimals });
+    expect(config(-1, 200)).toMatchObject({ decimals: 0, kilo_decimals: 6 });
+    expect(config('1.6', 2.2)).toMatchObject({ decimals: 2, kilo_decimals: 2 });
+    expect(config(3, 0)).toMatchObject({ decimals: 3, kilo_decimals: 0 });
+  });
+
   it('does not modify the given configuration', () => {
     const input = { ...base, grid: { entity: 'sensor.g', max_import: '6000' } };
     validateConfig(input);
@@ -60,10 +81,67 @@ describe('validateConfig units', () => {
     expect(config.battery?.units).toEqual([{ entity: 'sensor.b', capacity: 5 }]);
   });
 
+  it('keeps the reserve of a battery unit within 0..100', () => {
+    const minSoc = (min_soc: unknown) =>
+      validateConfig({ ...base, battery: { units: [{ entity: 'sensor.b', min_soc }] } }).battery?.units?.[0]
+        .min_soc;
+    expect(minSoc(-10)).toBe(0);
+    expect(minSoc('150')).toBe(100);
+    expect(minSoc(20)).toBe(20);
+    expect(minSoc(undefined)).toBeUndefined();
+  });
+
+  it('accepts a unit written as a bare entity id', () => {
+    const config = validateConfig({
+      type: 'x',
+      solar: { units: ['sensor.pv', '', null] },
+      battery: { units: ['sensor.bat'] },
+    });
+    expect(config.solar?.units).toEqual([{ entity: 'sensor.pv' }]);
+    expect(config.battery?.units).toEqual([{ entity: 'sensor.bat' }]);
+  });
+
   it('rejects a capacity that is not a number, in a unit', () => {
     expect(() =>
       validateConfig({ ...base, battery: { units: [{ entity: 'sensor.b', capacity: 'big' }] } }),
     ).toThrow(/capacity/);
+  });
+
+  it('refuses group members that are not a list, with a readable error', () => {
+    for (const config of [{ ...base }, { type: 'x' }])
+      expect(() => validateConfig({ ...config, devices: [{ name: 'G', devices: 'sensor.a' }] })).toThrow(
+        'devices must be a list.',
+      );
+  });
+
+  it('accepts a device or a group member written as a bare entity id', () => {
+    const config = validateConfig({
+      type: 'x',
+      devices: [
+        'sensor.tv',
+        null,
+        3,
+        { name: 'G', devices: ['sensor.oven', null, 4, { entity: 'sensor.hob' }] },
+      ],
+    });
+    expect(config.devices).toEqual([
+      { entity: 'sensor.tv' },
+      { name: 'G', devices: [{ entity: 'sensor.oven' }, { entity: 'sensor.hob' }] },
+    ]);
+  });
+
+  it('coerces the maximum power of devices and group members', () => {
+    const config = validateConfig({
+      ...base,
+      devices: [
+        { entity: 'sensor.a', max_power: '2000', devices: [{ entity: 'sensor.b', max_power: '500' }] },
+      ],
+    });
+    expect(config.devices?.[0].max_power).toBe(2000);
+    expect(config.devices?.[0].devices?.[0].max_power).toBe(500);
+    expect(() => validateConfig({ ...base, devices: [{ entity: 'sensor.a', max_power: 'big' }] })).toThrow(
+      /max_power/,
+    );
   });
 
   it('watches the entities of the units, and the custom line of the node', () => {

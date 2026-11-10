@@ -54,6 +54,19 @@ function withNumbers(obj: object, fields: readonly string[], l: string): Record<
   return copy;
 }
 
+/**
+ * The entries of a list (devices, units): a bare entity id stands for `{ entity }`, and what is
+ * neither an object nor such an id (an empty row left by the editor, `null`…) is dropped.
+ */
+function entries<T extends object>(list: unknown[]): T[] {
+  return list.flatMap((item) => {
+    if (typeof item === 'string') return item ? [{ entity: item } as T] : [];
+    return item && typeof item === 'object' ? [item as T] : [];
+  });
+}
+
+const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
+
 function renamed(obj: object, names: Record<string, string>): object {
   const copy = { ...obj } as Record<string, unknown>;
   for (const [old, current] of Object.entries(names)) {
@@ -90,6 +103,16 @@ export function validateConfig(input: unknown): LiveEnergyCardConfig {
     if (!Number.isFinite(num)) throw new Error(localize(l, 'error.invalid_power', { field }));
     config[field] = num;
   }
+  // Digits after the decimal point: what number formatting accepts.
+  for (const field of ['decimals', 'kilo_decimals'] as const) {
+    if (config[field] !== undefined) config[field] = clamp(Math.round(config[field]), 0, 6);
+  }
+  // A fixed number of device columns is a whole number of at least 1; anything else is automatic.
+  if (config.devices_columns !== undefined) {
+    const columns = Number(config.devices_columns);
+    if (Number.isFinite(columns) && columns >= 1) config.devices_columns = Math.floor(columns);
+    else delete config.devices_columns;
+  }
 
   if (
     config.min_power !== undefined &&
@@ -124,9 +147,12 @@ export function validateConfig(input: unknown): LiveEnergyCardConfig {
     const numeric = section === 'battery' ? ['capacity', 'min_soc'] : ['max_power'];
     (config as Record<string, unknown>)[section] = {
       ...node,
-      units: node.units
-        .filter((u) => u && typeof u === 'object')
-        .map((u) => withNumbers(renamed(u, RENAMED_UNIT_OPTIONS[section]), numeric, l)),
+      units: entries<object>(node.units).map((u) => {
+        const unit = withNumbers(renamed(u, RENAMED_UNIT_OPTIONS[section]), numeric, l);
+        // A reserve is a percentage of the charge.
+        if (typeof unit.min_soc === 'number') unit.min_soc = clamp(unit.min_soc, 0, 100);
+        return unit;
+      }),
     };
   }
 
@@ -136,8 +162,17 @@ export function validateConfig(input: unknown): LiveEnergyCardConfig {
   if (config.devices !== undefined && !Array.isArray(config.devices)) {
     throw new Error(localize(l, 'error.invalid_devices'));
   }
-  // Empty rows left by the editor are ignored.
-  config.devices = (config.devices ?? []).filter((d) => d && typeof d === 'object');
+  // Empty rows left by the editor are ignored, in the list and in the members of a group.
+  config.devices = entries<DeviceConfig>(config.devices ?? []).map((d) => {
+    if (d.devices !== undefined && !Array.isArray(d.devices))
+      throw new Error(localize(l, 'error.invalid_devices'));
+    const device = withNumbers(d, ['max_power'], l) as DeviceConfig;
+    if (d.devices)
+      device.devices = entries<DeviceConfig>(d.devices).map(
+        (m) => withNumbers(m, ['max_power'], l) as DeviceConfig,
+      );
+    return device;
+  });
 
   const has = (...refs: unknown[]) => refs.some((r) => entityIds(r as EntityRef).length > 0);
   const hasEntity =

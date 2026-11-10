@@ -129,6 +129,28 @@ describe('computeLayout', () => {
     expect(layout.devices.mode).toBe('column');
   });
 
+  it('ignores a number of columns below 1 and rounds a fractional one down', () => {
+    const base = { solar: true, grid: true, battery: true };
+    for (const width of [300, 400, 900]) {
+      for (const devicesColumns of [0, -1, 0.5]) {
+        const layout = computeLayout({ ...base, width, devices: devices(3), devicesColumns });
+        for (const id of devices(3))
+          expect(layout.nodes[id], `${width} ${devicesColumns} ${id}`).toBeDefined();
+        expect(Number.isFinite(layout.height)).toBe(true);
+        assertNoOverlap(layout);
+      }
+      const fractional = computeLayout({
+        ...base,
+        width,
+        devices: devices(6),
+        devicesLayout: 'grid',
+        devicesColumns: 1.5,
+      });
+      expect(fractional.devices.columns.length).toBe(1);
+      assertNoOverlap(fractional);
+    }
+  });
+
   it('each grid device has an end segment', () => {
     const layout = computeLayout({
       width: 900,

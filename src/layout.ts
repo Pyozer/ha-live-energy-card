@@ -152,6 +152,10 @@ function diagramMetrics(input: LayoutInput, areaW: number): DiagramMetrics {
   };
 }
 
+/** A fixed number of device columns: a whole number of at least 1, otherwise automatic. */
+const fixedColumns = (value: number | undefined): number | undefined =>
+  value !== undefined && Number.isFinite(value) && value >= 1 ? Math.floor(value) : undefined;
+
 const stackHeight = (count: number, h: number, gap: number): number =>
   count > 0 ? count * h + (count - 1) * gap : 0;
 
@@ -232,9 +236,10 @@ export function computeLayout(input: LayoutInput): Layout {
       const gap = clamp(W * 0.05, 30, 56);
       const avail = W - 2 * pad - areaW - gap;
       const maxCols = Math.max(1, Math.floor((avail + gutter) / (minTile + gutter)));
+      const fixed = fixedColumns(input.devicesColumns);
       let count: number;
-      if (input.devicesColumns && input.devicesColumns > 0) {
-        count = Math.min(input.devicesColumns, maxCols, n);
+      if (fixed) {
+        count = Math.min(fixed, maxCols, n);
       } else {
         const corridor = clamp(m.pillH * 0.55, 20, 26);
         for (count = 2; count < Math.min(maxCols, n); count++) {
@@ -330,7 +335,7 @@ function stackLayout(input: LayoutInput, W: number, pad: number): Layout {
 
   const bus = 13;
   const gutter = 22;
-  const count = Math.min(n, W >= 300 ? 2 : 1, input.devicesColumns ?? 2);
+  const count = Math.min(n, W >= 300 ? 2 : 1, fixedColumns(input.devicesColumns) ?? 2);
   const pillH = input.smallBubbles ? 40 : 46;
   const pillGap = input.compact ? 6 : 8;
   const tileW = (W - 2 * pad - bus - (count - 1) * gutter) / count;
