@@ -138,8 +138,6 @@ export function fromFormData(
   for (const [key, value] of Object.entries(DEFAULTS)) {
     if (next[key] === value) delete next[key];
   }
-  const globalHide = data.hide_when_zero as boolean | undefined;
-
   for (const kind of NODE_KEYS) {
     const cfg = { ...((data[kind] as BaseNodeConfig) ?? {}) };
     if (isUnitGroup(kind)) {
@@ -158,9 +156,12 @@ export function fromFormData(
       const grid = cfg as GridConfig;
       grid.export_energy_entity = compactRef(grid.export_energy_entity);
     }
-    // A value equal to the default is dropped, unless it was written explicitly before.
+    // A value equal to the default is dropped, unless it was written explicitly before. The default
+    // is the one the form showed, resolved from the card-wide option as it was: when that option
+    // has just been switched, the nodes still hold its former value, which nobody chose for them.
     const explicit = (previous[kind] as BaseNodeConfig | undefined)?.hide_when_zero !== undefined;
-    if (cfg.hide_when_zero === hideDefault(kind, globalHide) && !explicit) delete cfg.hide_when_zero;
+    if (cfg.hide_when_zero === hideDefault(kind, previous.hide_when_zero) && !explicit)
+      delete cfg.hide_when_zero;
     const cleaned = clean(cfg);
     if (Object.keys(cleaned).length === 0) delete next[kind];
     else next[kind] = cleaned;

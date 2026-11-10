@@ -69,6 +69,35 @@ describe('editor form', () => {
     expect('hide_when_zero' in roundTrip(implicit).solar!).toBe(false);
   });
 
+  it('switching the card-wide hide_when_zero does not pin the nodes to their former value', () => {
+    const sources = {
+      solar: { units: [{ entity: 'sensor.s' }] },
+      battery: { units: [{ entity: 'sensor.b' }] },
+      grid: { entity: 'sensor.g' },
+    };
+    const off = roundTrip({ ...base, ...sources }, (d) => (d.hide_when_zero = false));
+    expect(off.hide_when_zero).toBe(false);
+    expect(off.solar).toEqual(sources.solar);
+    expect(off.battery).toEqual(sources.battery);
+    expect(off.grid).toEqual(sources.grid);
+
+    // And back on: no override, and no battery section made out of nothing.
+    const withoutBattery = { solar: sources.solar, grid: sources.grid };
+    const on = roundTrip({ ...base, hide_when_zero: false, ...withoutBattery }, (d) => {
+      d.hide_when_zero = true;
+    });
+    expect('hide_when_zero' in on).toBe(false);
+    expect(on.solar).toEqual(sources.solar);
+    expect('battery' in on).toBe(false);
+  });
+
+  it('writes the hide_when_zero of a node switched in its own form', () => {
+    const config: LiveEnergyCardConfig = { ...base, solar: { units: [{ entity: 'sensor.s' }] } };
+    const next = roundTrip(config, (d) => ((d.solar as Record<string, unknown>).hide_when_zero = false));
+    expect(next.solar?.hide_when_zero).toBe(false);
+    expect('hide_when_zero' in next).toBe(false);
+  });
+
   it('stores one entity as a string and several as a list', () => {
     const next = roundTrip(base, (d) => {
       (d.home as Record<string, unknown>).entity = ['sensor.a'];
