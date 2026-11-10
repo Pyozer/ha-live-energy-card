@@ -2,7 +2,7 @@ import type { FlowResult } from './compute';
 import { COST_STATISTIC, EARNINGS_STATISTIC, EXPORT_STATISTIC, SAVINGS_STATISTIC } from './energy-today';
 import type { NodeActions } from './model/types';
 import type { CarbonConfig, CostConfig, HassEntity, HomeAssistant } from './types';
-import { numberFormat } from './units';
+import { numberFormat, readNumber } from './units';
 
 /**
  * Live cost and carbon indicators, derived from the current flows:
@@ -71,9 +71,8 @@ const PER_ENERGY: Record<string, number> = { Wh: 1000, kWh: 1, MWh: 0.001 };
 
 /** Reads a price entity (`EUR/kWh`, `€/MWh`…). The currency comes from its unit. */
 export function readPrice(entity: HassEntity | undefined): Price | null {
-  if (!entity) return null;
-  const value = Number(entity.state);
-  if (!Number.isFinite(value)) return null;
+  const value = readNumber(entity);
+  if (!entity || value === null) return null;
   const unit = String(entity.attributes.unit_of_measurement ?? '').trim();
   const [currency, energy] = unit.split('/').map((p) => p.trim());
   const factor = energy && energy in PER_ENERGY ? PER_ENERGY[energy] : 1;
@@ -130,9 +129,8 @@ export function dailyAmounts(
 
 /** Reads a monetary entity (`EUR`, `€/h`…). The currency is the part of the unit before `/`. */
 export function readMoney(entity: HassEntity | undefined): { value: number; currency?: string } | null {
-  if (!entity) return null;
-  const value = Number(entity.state);
-  if (!Number.isFinite(value)) return null;
+  const value = readNumber(entity);
+  if (!entity || value === null) return null;
   const currency = String(entity.attributes.unit_of_measurement ?? '')
     .split('/')[0]
     .trim();
@@ -201,8 +199,8 @@ export function computeStats(
   const kw = (w: number) => w / 1000;
   let carbon: number | null = null;
   if (carbonEntity) {
-    const intensity = Number(hass.states[carbonEntity]?.state);
-    if (Number.isFinite(intensity)) carbon = kw(result.gridImport) * Math.max(0, intensity);
+    const intensity = readNumber(hass.states[carbonEntity]);
+    if (intensity !== null) carbon = kw(result.gridImport) * Math.max(0, intensity);
   }
 
   return {

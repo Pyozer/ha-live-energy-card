@@ -1,6 +1,6 @@
 import { formatEnergy } from '../energy-today';
 import type { BaseNodeConfig, EntityRef, GridConfig, HomeAssistant } from '../types';
-import { entityIds, numberFormat } from '../units';
+import { entityIds, numberFormat, readNumber } from '../units';
 import type { NodeActions, NodeModel } from './types';
 
 const NAME_SUFFIXES = [
@@ -35,16 +35,17 @@ export function formatSecondary(hass: HomeAssistant, entityId: string | undefine
   if (!entityId) return undefined;
   const st = hass.states[entityId];
   if (!st) return undefined;
-  if (st.state === 'unavailable' || st.state === 'unknown') return '—';
+  if (st.state === 'unavailable' || st.state === 'unknown' || String(st.state).trim() === '') return '—';
   const unit = st.attributes.unit_of_measurement ?? '';
-  const num = Number(st.state);
+  const num = readNumber(st);
   const locale = hass.locale?.language ?? hass.language;
-  const value = Number.isFinite(num)
-    ? numberFormat(
-        locale,
-        Math.abs(num) >= 100 || Number.isInteger(num) ? 0 : Math.abs(num) >= 10 ? 1 : 2,
-      ).format(num)
-    : st.state;
+  const value =
+    num !== null
+      ? numberFormat(
+          locale,
+          Math.abs(num) >= 100 || Number.isInteger(num) ? 0 : Math.abs(num) >= 10 ? 1 : 2,
+        ).format(num)
+      : st.state;
   return unit ? `${value} ${unit}` : value;
 }
 

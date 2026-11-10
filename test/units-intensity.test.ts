@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { ECO_FPS, frameDue } from '../src/animator';
 import { flowToggles } from '../src/model';
 import { DEFAULT_TOGGLES, flowVisual, normalizePower, resolveToggles } from '../src/intensity';
-import { formatPower, readPower, unitFactor } from '../src/units';
+import {
+  formatPower,
+  readNumber,
+  readPercent,
+  readPercentAverage,
+  readPower,
+  unitFactor,
+} from '../src/units';
 import type { HassEntity } from '../src/types';
 
 const entity = (state: string, unit?: string): HassEntity => ({
@@ -25,6 +32,22 @@ describe('units', () => {
     expect(readPower(entity('unknown'))).toEqual({ value: null, available: false });
     expect(readPower(entity('abc')).available).toBe(false);
     expect(readPower(undefined).available).toBe(false);
+  });
+
+  it('reads an empty state as unavailable, not as zero', () => {
+    expect(readNumber(entity(''))).toBeNull();
+    expect(readNumber(entity(' '))).toBeNull();
+    expect(readNumber(entity('unknown'))).toBeNull();
+    expect(readNumber(entity('unavailable'))).toBeNull();
+    expect(readNumber(entity('abc'))).toBeNull();
+    expect(readNumber(entity('Infinity'))).toBeNull();
+    expect(readNumber(undefined)).toBeNull();
+    expect(readNumber(entity('0'))).toBe(0);
+    expect(readNumber(entity('-2.5'))).toBe(-2.5);
+    expect(readPower(entity('', 'W'))).toEqual({ value: null, available: false });
+    expect(readPercent(entity('', '%'))).toBeNull();
+    expect(readPercent(entity('120', '%'))).toBe(100);
+    expect(readPercentAverage({ 'sensor.x': entity('', '%') }, 'sensor.x')).toBeNull();
   });
 
   it('inverts the sign', () => {

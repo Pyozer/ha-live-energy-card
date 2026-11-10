@@ -32,16 +32,23 @@ export interface Reading {
 
 export const UNAVAILABLE: Reading = { value: null, available: false };
 
+/**
+ * The numeric state of an entity; `null` when it has none: missing, unavailable, unknown, empty (which
+ * `Number` would read as 0) or not a finite number.
+ */
+export function readNumber(entity: HassEntity | undefined): number | null {
+  const raw = entity?.state;
+  if (raw === undefined || raw === null || raw === 'unavailable' || raw === 'unknown') return null;
+  if (String(raw).trim() === '') return null;
+  const num = Number(raw);
+  return Number.isFinite(num) ? num : null;
+}
+
 /** Reads a power entity state and converts it to watts. */
 export function readPower(entity: HassEntity | undefined, invert = false): Reading {
-  if (!entity) return UNAVAILABLE;
-  const raw = entity.state;
-  if (raw === undefined || raw === null || raw === 'unavailable' || raw === 'unknown' || raw === '') {
-    return UNAVAILABLE;
-  }
-  const num = Number(raw);
-  if (!Number.isFinite(num)) return UNAVAILABLE;
-  const watts = num * unitFactor(entity.attributes?.unit_of_measurement);
+  const num = readNumber(entity);
+  if (num === null) return UNAVAILABLE;
+  const watts = num * unitFactor(entity?.attributes?.unit_of_measurement);
   return { value: invert ? -watts : watts, available: true };
 }
 
@@ -83,9 +90,8 @@ export function readPercentAverage(
 
 /** Reads a percentage (battery SOC), clamped between 0 and 100. */
 export function readPercent(entity: HassEntity | undefined): number | null {
-  if (!entity) return null;
-  const num = Number(entity.state);
-  if (!Number.isFinite(num)) return null;
+  const num = readNumber(entity);
+  if (num === null) return null;
   return Math.min(100, Math.max(0, num));
 }
 

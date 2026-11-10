@@ -68,6 +68,7 @@ describe('formatSecondary', () => {
   it('shows text states as they are, and a dash when unavailable', () => {
     expect(formatSecondary(hass(st('sunny')), 'sensor.s')).toBe('sunny');
     expect(formatSecondary(hass(st('unavailable', 'kWh')), 'sensor.s')).toBe('—');
+    expect(formatSecondary(hass(st('', 'kWh')), 'sensor.s')).toBe('—');
   });
 
   it('shows nothing for a missing entity', () => {

@@ -31,6 +31,7 @@ describe('prices', () => {
     expect(readPrice(ent('sensor.p', 0.25, 'EUR/kWh'))).toEqual({ value: 0.25, currency: 'EUR' });
     expect(readPrice(ent('sensor.p', 120, '€/MWh'))?.value).toBeCloseTo(0.12);
     expect(readPrice(ent('sensor.p', 'unknown', 'EUR/kWh'))).toBeNull();
+    expect(readPrice(ent('sensor.p', '', 'EUR/kWh'))).toBeNull();
     expect(readPrice(undefined)).toBeNull();
   });
 });
@@ -263,6 +264,7 @@ describe('computeStats', () => {
       expect(readMoney(ent('sensor.a', 1.5, '€/h'))).toEqual({ value: 1.5, currency: '€' });
       expect(readMoney(ent('sensor.a', 2, 'EUR'))).toEqual({ value: 2, currency: 'EUR' });
       expect(readMoney(ent('sensor.a', 'unknown'))).toBeNull();
+      expect(readMoney(ent('sensor.a', '', 'EUR'))).toBeNull();
       expect(readMoney(undefined)).toBeNull();
     });
 
@@ -366,6 +368,7 @@ describe('computeStats', () => {
     expect(
       computeStats(importing, hass(ent('sensor.co2', 'unavailable')), undefined, 'sensor.co2')!.carbon,
     ).toBeNull();
+    expect(computeStats(importing, hass(ent('sensor.co2', '')), undefined, 'sensor.co2')!.carbon).toBeNull();
   });
 
   it('nothing configured: no stats', () => {
