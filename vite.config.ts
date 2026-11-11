@@ -37,16 +37,16 @@ export default defineConfig(({ mode }) => ({
       // Floors just under the current values, so coverage cannot silently drop. The pure modules
       // (computation, layout, model, editor logic) are held to a higher bar than the DOM code.
       thresholds: {
-        statements: 65,
-        branches: 58,
-        functions: 65,
-        lines: 66,
+        statements: 75,
+        branches: 68,
+        functions: 74,
+        lines: 75,
         'src/{compute,config,cost,energy,entities,intensity,layout,source-units,unit-layout,units}.ts': {
-          lines: 85,
+          lines: 98,
           functions: 95,
         },
-        'src/model/**': { lines: 90, functions: 90 },
-        'src/editor/{device-list,form,schema,unit-list,validation}.ts': { lines: 90, functions: 95 },
+        'src/model/**': { lines: 97, functions: 97 },
+        'src/editor/{device-list,form,schema,unit-list,validation}.ts': { lines: 99, functions: 95 },
       },
     },
   },
