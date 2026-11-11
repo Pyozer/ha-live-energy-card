@@ -19,6 +19,13 @@ describe('resolveColor', () => {
     expect(resolveColor(undefined, 'var(--lec-solar)')).toBe('var(--lec-solar)');
     expect(resolveColor('', 'var(--lec-solar)')).toBe('var(--lec-solar)');
   });
+
+  it('falls back when the YAML value is not a string', () => {
+    const fallback = 'var(--lec-solar)';
+    expect(resolveColor([255, 0, 0] as unknown as string, fallback)).toBe(fallback);
+    expect(resolveColor(16711680 as unknown as string, fallback)).toBe(fallback);
+    expect(resolveColor({ r: 1 } as unknown as string, fallback)).toBe(fallback);
+  });
 });
 
 describe('batteryIcon', () => {

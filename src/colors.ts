@@ -30,7 +30,7 @@ const HA_COLORS: Record<string, string> = {
 
 /** Converts a config color to a CSS value (HA name → theme variable with fallback). */
 export function resolveColor(color: string | undefined, fallback: string): string {
-  if (!color) return fallback;
+  if (!color || typeof color !== 'string') return fallback;
   const key = color.trim();
   if (key in HA_COLORS) {
     const value = HA_COLORS[key];
