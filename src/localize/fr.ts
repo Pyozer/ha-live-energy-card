@@ -15,6 +15,7 @@ export const fr: DeepStrings<typeof en> = {
     untracked: 'Autres',
     group: 'Groupe',
     group_count: '{count} appareils',
+    group_count_one: '1 appareil',
   },
   state: {
     importing: 'Soutirage',

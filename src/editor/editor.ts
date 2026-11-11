@@ -12,6 +12,7 @@ import { LitElement, html, nothing, type TemplateResult } from 'lit';
 import { fireEvent } from '../actions';
 import { configFromEnergyPrefs, fetchEnergyPrefs, importedCount, mergeEnergyImport } from '../energy';
 import { localize, type LocalizeKey } from '../localize/localize';
+import { groupCount } from '../model';
 import type { UnitGroup } from '../source-units';
 import type { BatteryConfig, DeviceConfig, HomeAssistant, LiveEnergyCardConfig, SolarConfig } from '../types';
 import { entityIds } from '../units';
@@ -310,7 +311,7 @@ export class LiveEnergyCardEditor extends LitElement {
     const ids = entityIds(dev.entity);
     const state = ids.length ? this.hass!.states[ids[0]] : undefined;
     const title = dev.name ?? state?.attributes.friendly_name ?? (ids[0] || '—');
-    const subtitle = group ? this._t('node.group_count', { count: String(members.length) }) : ids.join(', ');
+    const subtitle = group ? groupCount((key, vars) => this._t(key, vars), members.length) : ids.join(', ');
     const icon =
       dev.icon ?? state?.attributes.icon ?? (group ? 'mdi:folder-outline' : 'mdi:power-plug-outline');
     const warning = deviceIssues(issues, path).length > 0;

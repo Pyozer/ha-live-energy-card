@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LANGUAGE_NAMES, localize, resolveLanguage, SUPPORTED_LANGUAGES } from '../src/localize/localize';
-import { buildModel } from '../src/model';
+import { buildModel, groupCount } from '../src/model';
 import type { HomeAssistant } from '../src/types';
 
 const hass = (language: string): HomeAssistant => ({
@@ -73,5 +73,28 @@ describe('card language', () => {
       hass('fr'),
     );
     expect(model.nodes.find((n) => n.id === 'grid')!.name).toBe('Linky');
+  });
+});
+
+describe('group count', () => {
+  it('uses the singular for one member, in every language', () => {
+    expect(groupCount((key, vars) => localize('en', key, vars), 1)).toBe('1 device');
+    expect(groupCount((key, vars) => localize('fr', key, vars), 1)).toBe('1 appareil');
+  });
+
+  it('uses the plural otherwise, in every language', () => {
+    expect(groupCount((key, vars) => localize('en', key, vars), 3)).toBe('3 devices');
+    expect(groupCount((key, vars) => localize('fr', key, vars), 0)).toBe('0 appareils');
+  });
+
+  it('labels a group of one device in the model', () => {
+    const config = {
+      type: 'custom:live-energy-card',
+      language: 'en',
+      grid: { entity: 'sensor.grid' },
+      devices: [{ name: 'Kitchen', devices: [{ entity: 'sensor.grid' }] }],
+    };
+    const group = buildModel(config, hass('en')).nodes.find((n) => n.name === 'Kitchen')!;
+    expect(group.secondary).toBe('1 device');
   });
 });

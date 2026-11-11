@@ -1,4 +1,5 @@
 import { formatEnergy } from '../energy-today';
+import type { LocalizeKey } from '../localize/localize';
 import type { BaseNodeConfig, EntityRef, GridConfig, HomeAssistant } from '../types';
 import { entityIds, numberFormat, readNumber } from '../units';
 import type { NodeActions, NodeModel } from './types';
@@ -20,6 +21,14 @@ export function ringValue(node: Pick<NodeModel, 'kind' | 'soc' | 'powerRatio'>):
   if (node.kind === 'solar' || node.kind === 'grid')
     return node.powerRatio == null ? node.powerRatio : node.powerRatio * 100;
   return undefined;
+}
+
+/** Number of devices in a group, in the singular for one (`1 device`, not `1 devices`). */
+export function groupCount(
+  t: (key: LocalizeKey, vars?: Record<string, string>) => string,
+  count: number,
+): string {
+  return count === 1 ? t('node.group_count_one') : t('node.group_count', { count: String(count) });
 }
 
 /** Readable entity name, without suffixes such as "Power". */

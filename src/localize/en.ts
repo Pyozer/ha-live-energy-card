@@ -11,6 +11,7 @@ export const en = {
     untracked: 'Other',
     group: 'Group',
     group_count: '{count} devices',
+    group_count_one: '1 device',
   },
   state: {
     importing: 'Import',

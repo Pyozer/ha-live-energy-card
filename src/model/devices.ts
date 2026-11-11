@@ -3,7 +3,7 @@ import { untrackedPower } from '../compute';
 import type { DeviceConfig } from '../types';
 import { entityIds, readPowerSum, type Reading } from '../units';
 import { powerShare, readMaxPower, shareStatus, type ModelContext } from './context';
-import { actionsFor, cleanName, nodeSecondary } from './format';
+import { actionsFor, cleanName, groupCount, nodeSecondary } from './format';
 import { TOGGLE_GROUP, UNTRACKED_ID, type NodeModel } from './types';
 
 export interface DeviceNodes {
@@ -120,7 +120,7 @@ export function buildDevices(
     const group = deviceNode(dev, id, total, t('node.group'));
     group.icon = dev.icon ?? 'mdi:folder-outline';
     group.group = { expanded: isExpanded, count: children.length };
-    group.secondary ??= t('node.group_count', { count: String(children.length) });
+    group.secondary ??= groupCount(t, children.length);
     // Tapping a group expands or collapses it, unless another action is configured.
     group.actions = { ...group.actions, tap_action: dev.tap_action ?? { action: TOGGLE_GROUP } };
     if (!dev.exclude_from_untracked) tracked.push(group.watts ?? 0);
