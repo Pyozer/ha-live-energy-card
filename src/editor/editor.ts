@@ -38,7 +38,7 @@ import {
   toFormData,
   type PriceModes,
 } from './form';
-import { EditorSchema, fieldHelper, formLabel } from './schema';
+import { EditorSchema, fieldHelper, formLabel, type FieldRef, type Schema } from './schema';
 import { editorStyles } from './styles';
 import './unit-editor';
 import { describeIssue, deviceIssues, entityIssues, type EntityIssue } from './validation';
@@ -100,9 +100,9 @@ export class LiveEnergyCardEditor extends LitElement {
     return new EditorSchema((key, vars) => this._t(key, vars), this.hass);
   }
 
-  private _label = (schema: { name: string }): string => formLabel((key) => this._t(key), schema.name);
+  private _label = (field: FieldRef): string => formLabel((key) => this._t(key), field);
 
-  private _helper = (schema: { name: string }): string => fieldHelper((key) => this._t(key), schema.name);
+  private _helper = (field: FieldRef): string => fieldHelper((key) => this._t(key), field);
 
   // --- Data -------------------------------------------------------------------------------------
 
@@ -192,6 +192,7 @@ export class LiveEnergyCardEditor extends LitElement {
     if (!this.hass || !this._config) return nothing;
     const devices = this._config.devices ?? [];
     const issues = entityIssues(this._config, this.hass);
+    const schema = this._schema();
     return html`
       <div class="import">
         <button class="add" @click=${this._importEnergy}>
@@ -205,17 +206,11 @@ export class LiveEnergyCardEditor extends LitElement {
             : nothing
         }
       </div>
-      ${issues.length ? this._renderIssues(issues) : nothing}
-      <ha-form
-        .hass=${this.hass}
-        .data=${toFormData(this._config, this._priceModes)}
-        .schema=${this._schema().card(this._config, this._priceModes)}
-        .computeLabel=${this._label}
-        .computeHelper=${this._helper}
-        @value-changed=${this._valueChanged}
-      ></ha-form>
-
-      ${this._renderUnits('solar', issues)}${this._renderUnits('battery', issues)}
+      ${issues.length ? this._renderIssues(issues) : nothing} ${this._form(schema.intro())}
+      ${this._renderUnits('solar', issues)}
+      <div class="section">${this._form([schema.source('grid', this._config)])}</div>
+      ${this._renderUnits('battery', issues)}
+      <div class="section">${this._form([schema.source('home', this._config)])}</div>
 
       <div class="devices ${this._drag.dragging ? 'lifting' : ''}">
         <div class="devices-title">
@@ -233,11 +228,28 @@ export class LiveEnergyCardEditor extends LitElement {
             <ha-svg-icon .path=${mdiFolderPlusOutline}></ha-svg-icon>${this._t('editor.add_group')}
           </button>
         </div>
+        ${this._form(schema.devicesOptions())}
       </div>
+      <div class="section">${this._form(schema.settings(this._config, this._priceModes))}</div>
     `;
   }
 
-  /** The units of the solar or battery source: a list of their own, under the form of the source. */
+  /**
+   * A part of the card form. Every part gets the whole data and reports the whole data, so the
+   * parts can sit between the lists (units, devices) in the order of the card.
+   */
+  private _form(schema: Schema[]): TemplateResult {
+    return html`<ha-form
+      .hass=${this.hass}
+      .data=${toFormData(this._config!, this._priceModes)}
+      .schema=${schema}
+      .computeLabel=${this._label}
+      .computeHelper=${this._helper}
+      @value-changed=${this._valueChanged}
+    ></ha-form>`;
+  }
+
+  /** The solar or battery source: its units (what it reads), then the options of its bubble. */
   private _renderUnits(group: UnitGroup, issues: EntityIssue[]): TemplateResult {
     return html`<live-energy-card-unit-editor
       .hass=${this.hass}
@@ -247,7 +259,8 @@ export class LiveEnergyCardEditor extends LitElement {
       .issues=${issues}
       @units-changed=${(ev: CustomEvent<{ node: SolarConfig | BatteryConfig }>) =>
         this._emit({ ...this._config!, [group]: ev.detail.node })}
-    ></live-energy-card-unit-editor>`;
+      >${this._form([this._schema().source(group, this._config!)])}</live-energy-card-unit-editor
+    >`;
   }
 
   private _renderIssues(issues: EntityIssue[]): TemplateResult {
@@ -348,6 +361,7 @@ export class LiveEnergyCardEditor extends LitElement {
                   .data=${deviceFormData(dev, this._config!.hide_when_zero)}
                   .schema=${this._schema().device(dev)}
                   .computeLabel=${this._label}
+                  .computeHelper=${this._helper}
                   @value-changed=${(ev: CustomEvent) => this._deviceChanged(path, ev)}
                 ></ha-form>
               </div>`

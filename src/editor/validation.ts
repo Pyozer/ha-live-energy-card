@@ -139,7 +139,7 @@ export function describeIssue(
     const unit = config[at.group]?.units?.[at.index];
     const id = entityIds(unit?.entity)[0];
     const friendly = id ? hass?.states[id]?.attributes.friendly_name : undefined;
-    where = `${t(`node.${at.group}`)} › ${unit?.name ?? friendly ?? t('editor.unit_n', { n: String(at.index + 1) })}`;
+    where = `${t(`node.${at.group}`)} › ${unit?.name ?? friendly ?? t(`editor.unit_n_${at.group}`, { n: String(at.index + 1) })}`;
   } else if (typeof at !== 'string') {
     const names: string[] = [];
     let list = config.devices ?? [];

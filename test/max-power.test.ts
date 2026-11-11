@@ -195,7 +195,7 @@ describe('maximum power of a solar unit', () => {
     for (const lang of ['en', 'fr']) {
       const t = (key: Parameters<typeof localize>[1]) => localize(lang, key);
       for (const field of ['max_power', 'max_power_entity']) {
-        expect(fieldHelper(t, field), `${lang} ${field}`).toBe('');
+        expect(fieldHelper(t, { name: field }), `${lang} ${field}`).toBe('');
         expect(localize(lang, `editor.field.${field}` as Parameters<typeof localize>[1]).length).toBeLessThan(
           40,
         );

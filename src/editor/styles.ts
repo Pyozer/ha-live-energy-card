@@ -11,6 +11,9 @@ export const editorStyles = css`
     flex-direction: column;
     gap: 8px;
   }
+  .section {
+    margin-top: 16px;
+  }
   .devices-title {
     display: flex;
     align-items: center;

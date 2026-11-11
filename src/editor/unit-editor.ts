@@ -14,7 +14,7 @@ import { entityIds } from '../units';
 import { dropTargetAt } from './drag';
 import { DragController, measureBlocks } from './drag-controller';
 import { unitFormData, unitFromForm } from './form';
-import { EditorSchema, fieldHelper, formLabel, NODE_ICONS } from './schema';
+import { EditorSchema, fieldHelper, formLabel, NODE_ICONS, type FieldRef } from './schema';
 import { editorStyles } from './styles';
 import { addUnit, dropUnit, removeUnit, shiftUnit, unitsOf, updateUnit } from './unit-list';
 import { unitIssues, type EntityIssue } from './validation';
@@ -67,8 +67,8 @@ export class LiveEnergyCardUnitEditor extends LitElement {
     return localize(this.hass?.locale?.language ?? this.hass?.language, key, vars);
   }
 
-  private _label = (schema: { name: string }): string => formLabel((key) => this._t(key), schema.name);
-  private _helper = (schema: { name: string }): string => fieldHelper((key) => this._t(key), schema.name);
+  private _label = (field: FieldRef): string => formLabel((key) => this._t(key), field);
+  private _helper = (field: FieldRef): string => fieldHelper((key) => this._t(key), field);
 
   /** Keeps the unit being edited open after the list changed (by identity: its position may differ). */
   private _followOpen(next: SolarConfig | BatteryConfig): number {
@@ -89,9 +89,7 @@ export class LiveEnergyCardUnitEditor extends LitElement {
   }
 
   private _add(): void {
-    // A source without units shows an empty one: adding makes it a real one, then adds another.
-    const base = unitsOf(this.source).length ? (this.source ?? {}) : updateUnit(this.source ?? {}, 0, {});
-    const next = addUnit(base);
+    const next = addUnit(this.source ?? {});
     this._change(next, unitsOf(next).length - 1);
   }
 
@@ -113,21 +111,26 @@ export class LiveEnergyCardUnitEditor extends LitElement {
   protected override render(): TemplateResult | typeof nothing {
     if (!this.hass) return nothing;
     const units = unitsOf(this.source);
-    // A source without units shows an empty one, ready to take its first entity.
-    const shown: BatteryUnitConfig[] = units.length ? units : [{}];
     return html`
       <div class="units ${this._drag.dragging ? 'lifting' : ''}">
         <div class="devices-title">
           <ha-icon .icon=${NODE_ICONS[this.group]}></ha-icon>
-          <span>${this._t(`editor.units_${this.group}`)}</span>
+          <span>${this._t(`node.${this.group}`)}</span>
           <span class="count">${units.length}</span>
         </div>
-        ${shown.map((unit, i) => this._renderEntry(unit, i, units.length === 0))}
+        ${
+          units.length === 0
+            ? html`<div class="empty">${this._t(`editor.no_units_${this.group}`)}</div>`
+            : nothing
+        }
+        ${units.map((unit, i) => this._renderEntry(unit, i, false))}
         <div class="actions">
           <button class="add" @click=${this._add}>
-            <ha-svg-icon .path=${mdiPlus}></ha-svg-icon>${this._t('editor.add_unit')}
+            <ha-svg-icon .path=${mdiPlus}></ha-svg-icon>${this._t(`editor.add_unit_${this.group}`)}
           </button>
         </div>
+        <!-- The options of the bubble of the source, once it has something to show. -->
+        ${units.length ? html`<slot></slot>` : nothing}
       </div>
     `;
   }
@@ -157,7 +160,7 @@ export class LiveEnergyCardUnitEditor extends LitElement {
     const title =
       (separate ? unit.name : undefined) ??
       state?.attributes.friendly_name ??
-      this._t('editor.unit_n', { n: String(index + 1) });
+      this._t(`editor.unit_n_${this.group}`, { n: String(index + 1) });
     const icon = (separate ? unit.icon : undefined) ?? state?.attributes.icon ?? NODE_ICONS[this.group];
     const warning = unitIssues(this.issues, this.group, index).length > 0;
     return html`

@@ -11,6 +11,7 @@ import type {
 import { isGroup } from './device-list';
 import {
   isUnitGroup,
+  NODE_KEYS,
   PRICE_FIELDS,
   priceMode,
   savingsMode,
@@ -23,6 +24,18 @@ import {
 
 export type Schema = Record<string, unknown>;
 export type Translate = (key: LocalizeKey, vars?: Record<string, string>) => string;
+
+/**
+ * What the form needs to describe a field. Its name is its config key; `label` and `helper` name a
+ * label or a help text of its own (`editor.field.<label>`, `editor.helper.<helper>`) where the key
+ * alone does not say what the field is for: `max_power` is the scale of the animation for the card,
+ * and what a gauge fills up to for a device.
+ */
+export interface FieldRef {
+  name: string;
+  label?: string;
+  helper?: string;
+}
 
 const ANY_ENTITY = { entity: {} };
 
@@ -48,8 +61,9 @@ const select = (t: Translate, name: string, values: readonly string[]): Schema =
 const booleans = (names: readonly string[]): Schema[] =>
   names.map((name) => ({ name, selector: { boolean: {} } }));
 
-const watts = (name: string, min = 0): Schema => ({
+const watts = (name: string, min = 0, describe: Partial<FieldRef> = {}): Schema => ({
   name,
+  ...describe,
   selector: { number: { min, mode: 'box', unit_of_measurement: 'W' } },
 });
 
@@ -84,7 +98,7 @@ export class EditorSchema {
    */
   node(kind: NodeKey, config: LiveEnergyCardConfig): Schema[] {
     if (!isUnitGroup(kind)) return this.fields(kind, config[kind]);
-    const separate: Schema = { name: 'separate', selector: { boolean: {} } };
+    const separate: Schema = { name: 'separate', label: `separate_${kind}`, selector: { boolean: {} } };
     return config[kind]?.separate ? [separate] : [separate, ...this.bubble(kind)];
   }
 
@@ -95,13 +109,24 @@ export class EditorSchema {
   unit(group: UnitGroup, unit: BatteryUnitConfig, separate: boolean): Schema[] {
     const cfg = unit as Record<string, unknown>;
     const power = (name: string): Schema => ({ name, selector: this.entity('power', cfg[name]) });
+    const energy: Schema = {
+      name: 'energy_entity',
+      helper: 'energy_entity_unit',
+      selector: this.entity('energy', cfg.energy_entity),
+    };
+    // What the unit reads, the essential first; then its bubble.
     const reads: Schema[] =
       group === 'solar'
-        ? [power('entity'), grid([watts('max_power'), power('max_power_entity')])]
-        : [
+        ? [
             power('entity'),
+            grid(booleans(['invert'])),
+            grid([watts('max_power'), power('max_power_entity')]),
+            energy,
+          ]
+        : [
+            { ...power('entity'), helper: 'battery_entity' },
             grid([power('charge_entity'), power('discharge_entity')]),
-            power('grid_charge_entity'),
+            grid(booleans(['invert'])),
             { name: 'soc_entity', selector: this.entity('percent', cfg.soc_entity) },
             grid([
               {
@@ -113,13 +138,10 @@ export class EditorSchema {
                 selector: { number: { min: 0, max: 100, mode: 'box', unit_of_measurement: '%' } },
               },
             ]),
+            energy,
+            power('grid_charge_entity'),
           ];
-    return [
-      ...reads,
-      grid(booleans(['invert'])),
-      { name: 'energy_entity', selector: this.entity('energy', cfg.energy_entity) },
-      ...(separate ? this.bubble(group) : []),
-    ];
+    return [...reads, ...(separate ? this.bubble(group) : [])];
   }
 
   /** What a bubble shows and does: its look, whether it hides at zero, its custom line, its actions. */
@@ -141,26 +163,25 @@ export class EditorSchema {
   private fields(kind: 'grid' | 'home', node: object | undefined): Schema[] {
     const cfg = (node ?? {}) as Record<string, unknown>;
     const power = (name: string): Schema => ({ name, selector: this.entity('power', cfg[name]) });
-    // The main entity accepts several sensors, added up (grid phases…).
-    const entities: Schema[] = [{ name: 'entity', selector: this.entity('power', cfg.entity, true) }];
-    if (kind === 'grid') {
-      entities.push(grid([power('import_entity'), power('export_entity')]), watts('max_import', 0));
+    const energy = (name: string): Schema => ({ name, selector: this.entity('energy', cfg[name], true) });
+    // What the node reads first: the main entity accepts several sensors, added up (grid phases…).
+    const reads: Schema[] = [
+      { name: 'entity', helper: `${kind}_entity`, selector: this.entity('power', cfg.entity, true) },
+      ...(kind === 'grid' ? [grid([power('import_entity'), power('export_entity')])] : []),
+      grid(booleans(['invert'])),
+      energy('energy_entity'),
       // Shown next to the energy bought on the bubble, and needed by the daily cost.
-      entities.push({
-        name: 'export_energy_entity',
-        selector: this.entity('energy', cfg.export_energy_entity, true),
-      });
-    }
+      ...(kind === 'grid' ? [energy('export_energy_entity'), watts('max_import', 0)] : []),
+    ];
     return [
-      ...entities,
+      ...reads,
       grid([
         { name: 'name', selector: { text: {} } },
         { name: 'icon', selector: { icon: {} } },
         { name: 'color', selector: { ui_color: { include_none: false } } },
         ...(kind === 'grid' ? [{ name: 'export_color', selector: { ui_color: {} } }] : []),
       ]),
-      grid(booleans(kind === 'home' ? ['invert'] : ['hide_when_zero', 'invert'])),
-      { name: 'energy_entity', selector: this.entity('energy', cfg.energy_entity, true) },
+      ...(kind === 'grid' ? [grid(booleans(['hide_when_zero']))] : []),
       { name: 'secondary_entity', selector: ANY_ENTITY },
       actionsSchema(this.t),
     ];
@@ -192,15 +213,19 @@ export class EditorSchema {
     ]);
   }
 
+  /** The whole form of the card. The editor shows it in parts, between its lists. */
   card(config: LiveEnergyCardConfig, modes: PriceModes = {}): Schema[] {
+    return [
+      ...this.intro(),
+      ...NODE_KEYS.map((kind) => this.source(kind, config)),
+      ...this.devicesOptions(),
+      ...this.settings(config, modes),
+    ];
+  }
+
+  /** Title and language of the card. */
+  intro(): Schema[] {
     const t = this.t;
-    const node = (kind: NodeKey): Schema => ({
-      type: 'expandable',
-      name: kind,
-      title: t(`node.${kind}`),
-      icon: NODE_ICONS[kind],
-      schema: this.node(kind, config),
-    });
     return [
       grid([
         { name: 'title', selector: { text: {} } },
@@ -217,44 +242,61 @@ export class EditorSchema {
           },
         },
       ]),
-      node('solar'),
-      node('grid'),
-      node('battery'),
-      node('home'),
+    ];
+  }
+
+  /**
+   * The section of a source. The grid and the home hold everything they read; the solar and
+   * battery sources read through their units, listed above this section, which only holds their
+   * bubble.
+   */
+  source(kind: NodeKey, config: LiveEnergyCardConfig): Schema {
+    const units = isUnitGroup(kind);
+    return {
+      type: 'expandable',
+      name: kind,
+      title: this.t(units ? 'editor.appearance' : `node.${kind}`),
+      icon: units ? 'mdi:palette-outline' : NODE_ICONS[kind],
+      schema: this.node(kind, config),
+    };
+  }
+
+  /** How the devices are laid out and sorted: shown under their list. */
+  devicesOptions(): Schema[] {
+    const t = this.t;
+    return [
       {
         type: 'expandable',
         name: '',
         flatten: true,
-        title: t('editor.general'),
-        icon: 'mdi:tune-variant',
+        title: t('editor.devices_options'),
+        icon: 'mdi:view-grid-outline',
         schema: [
-          grid([
-            watts('min_power'),
-            watts('max_power', 1),
-            watts('threshold_w'),
-            watts('kilo_threshold'),
-            { name: 'decimals', selector: { number: { min: 0, max: 3, mode: 'box' } } },
-            { name: 'kilo_decimals', selector: { number: { min: 0, max: 3, mode: 'box' } } },
-          ]),
-          select(t, 'power_curve', ['sqrt', 'linear', 'log']),
-          select(t, 'line_style', ['rounded', 'square', 'curved', 'straight']),
-          select(t, 'inactive_flows', ['hide', 'dim']),
           grid([
             select(t, 'devices_layout', ['auto', 'column', 'grid']),
             { name: 'devices_columns', selector: { number: { min: 1, max: 6, mode: 'box' } } },
           ]),
-          grid(
-            booleans([
-              'hide_when_zero',
-              'sort_devices',
-              'show_untracked',
-              'show_ratios',
-              'eco_mode',
-              'transparent',
-              'compact',
-              'small_bubbles',
-            ]),
-          ),
+          grid(booleans(['sort_devices', 'show_untracked'])),
+        ],
+      },
+    ];
+  }
+
+  /** Options of the card as a whole: the common ones first, the fine tuning last. */
+  settings(config: LiveEnergyCardConfig, modes: PriceModes = {}): Schema[] {
+    const t = this.t;
+    return [
+      {
+        type: 'expandable',
+        name: '',
+        flatten: true,
+        title: t('editor.display'),
+        icon: 'mdi:eye-outline',
+        schema: [
+          { name: 'hide_when_zero', helper: 'hide_when_zero_card', selector: { boolean: {} } },
+          grid(booleans(['show_ratios', 'compact', 'small_bubbles', 'transparent'])),
+          select(t, 'line_style', ['rounded', 'square', 'curved', 'straight']),
+          select(t, 'inactive_flows', ['hide', 'dim']),
         ],
       },
       {
@@ -288,6 +330,28 @@ export class EditorSchema {
         title: t('editor.animation'),
         icon: 'mdi:animation-play-outline',
         schema: [grid(booleans(['speed', 'thickness', 'density', 'glow']))],
+      },
+      {
+        type: 'expandable',
+        name: '',
+        flatten: true,
+        title: t('editor.advanced'),
+        icon: 'mdi:tune-variant',
+        schema: [
+          // The scale of the animation: `max_power` is also what a gauge fills up to elsewhere.
+          grid([
+            watts('min_power', 0, { label: 'scale_min' }),
+            watts('max_power', 1, { label: 'scale_max' }),
+          ]),
+          select(t, 'power_curve', ['sqrt', 'linear', 'log']),
+          grid([
+            watts('threshold_w'),
+            watts('kilo_threshold'),
+            { name: 'decimals', selector: { number: { min: 0, max: 3, mode: 'box' } } },
+            { name: 'kilo_decimals', selector: { number: { min: 0, max: 3, mode: 'box' } } },
+          ]),
+          grid(booleans(['eco_mode'])),
+        ],
       },
     ];
   }
@@ -327,13 +391,13 @@ const UNLABELED_FIELDS: ReadonlySet<string> = new Set([
 ]);
 
 /** Label shown by the form: none for the entity pickers of a price source. */
-export function formLabel(t: Translate, name: string): string {
-  return UNLABELED_FIELDS.has(name) ? '' : fieldLabel(t, name);
+export function formLabel(t: Translate, field: FieldRef): string {
+  return UNLABELED_FIELDS.has(field.name) ? '' : fieldLabel(t, field.label ?? field.name);
 }
 
-/** Help text under a field: `editor.helper.<name>`, empty when there is none. */
-export function fieldHelper(t: Translate, name: string): string {
-  const key = `editor.helper.${name}` as LocalizeKey;
+/** Help text under a field: `editor.helper.<helper, label or name>`, empty when there is none. */
+export function fieldHelper(t: Translate, field: FieldRef): string {
+  const key = `editor.helper.${field.helper ?? field.label ?? field.name}` as LocalizeKey;
   const text = t(key);
   return text === key ? '' : text;
 }

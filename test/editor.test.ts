@@ -239,9 +239,9 @@ describe('editor solar savings source', () => {
 
   it('has no label above the entity picker, a helper and a check of its unit', () => {
     const hass: HomeAssistant = { states: {}, language: 'en' };
-    expect(formLabel(t, 'savings_entity')).toBe('');
-    expect(formLabel(t, 'savings_mode')).toBe('Solar savings');
-    expect(fieldHelper(t, 'savings_entity')).toContain('€/h');
+    expect(formLabel(t, { name: 'savings_entity' })).toBe('');
+    expect(formLabel(t, { name: 'savings_mode' })).toBe('Solar savings');
+    expect(fieldHelper(t, { name: 'savings_entity' })).toContain('€/h');
     expect(entityIssues({ ...base, cost: { savings_entity: 'sensor.gone' } }, hass)).toEqual([
       { where: 'cost', field: 'savings_entity', entity: 'sensor.gone', problem: 'missing' },
     ]);
@@ -305,18 +305,18 @@ describe('editor ready-made cost', () => {
   });
 
   it('shows no label above the entity pickers of a price source, but keeps it elsewhere', () => {
-    expect(formLabel(t, 'price_entity')).toBe('');
-    expect(formLabel(t, 'cost_entity')).toBe('');
-    expect(formLabel(t, 'price_mode')).toBe('Import price');
-    expect(formLabel(t, 'export_price_mode')).toBe('Export price');
+    expect(formLabel(t, { name: 'price_entity' })).toBe('');
+    expect(formLabel(t, { name: 'cost_entity' })).toBe('');
+    expect(formLabel(t, { name: 'price_mode' })).toBe('Import price');
+    expect(formLabel(t, { name: 'export_price_mode' })).toBe('Export price');
     // The issue list still names the field.
     expect(fieldLabel(t, 'price_entity')).toBe('Import price entity');
   });
 
   it('explains the ready-made fields, and only them', () => {
-    expect(fieldHelper(t, 'cost_entity')).toContain('€/h');
-    expect(fieldHelper(t, 'earnings_entity')).toContain('€/h');
-    expect(fieldHelper(t, 'price_entity')).toBe('');
+    expect(fieldHelper(t, { name: 'cost_entity' })).toContain('€/h');
+    expect(fieldHelper(t, { name: 'earnings_entity' })).toContain('€/h');
+    expect(fieldHelper(t, { name: 'price_entity' })).toBe('');
   });
 });
 
@@ -377,11 +377,13 @@ describe('editor device form', () => {
   });
 });
 
-/** Every named field in a schema, nested ones included. */
-function fieldNames(schema: Schema[]): string[] {
+/** Every named field in a schema, nested ones included; `key` picks its name, or its own label. */
+function fieldNames(schema: Schema[], key: 'name' | 'label' = 'name'): string[] {
   return schema.flatMap((s) => [
-    ...(typeof s.name === 'string' && s.name && !Array.isArray(s.schema) ? [s.name] : []),
-    ...(Array.isArray(s.schema) ? fieldNames(s.schema as Schema[]) : []),
+    ...(typeof s.name === 'string' && s.name && !Array.isArray(s.schema)
+      ? [(s[key] as string | undefined) ?? s.name]
+      : []),
+    ...(Array.isArray(s.schema) ? fieldNames(s.schema as Schema[], key) : []),
   ]);
 }
 
@@ -392,17 +394,20 @@ describe('editor schema', () => {
       const t = (key: Parameters<typeof localize>[1]) => localize(lang, key);
       const schema = new EditorSchema(t, undefined);
       const names = [
-        ...fieldNames(schema.card(base)),
-        ...fieldNames(schema.card({ ...base, cost: { period: 'day' } })),
-        ...fieldNames(schema.card(base, { price: 'cost', export_price: 'earnings' })),
-        ...fieldNames(schema.card(base, { price: 'fixed', export_price: 'entity' })),
-        ...fieldNames(schema.card(base, { price: 'entity', export_price: 'fixed' })),
-        ...fieldNames(schema.device({ entity: 'sensor.x' })),
-        ...fieldNames(schema.device(group)),
-        ...fieldNames(schema.card({ ...base, solar: { separate: true }, battery: { separate: true } })),
+        ...fieldNames(schema.card(base), 'label'),
+        ...fieldNames(schema.card({ ...base, cost: { period: 'day' } }), 'label'),
+        ...fieldNames(schema.card(base, { price: 'cost', export_price: 'earnings' }), 'label'),
+        ...fieldNames(schema.card(base, { price: 'fixed', export_price: 'entity' }), 'label'),
+        ...fieldNames(schema.card(base, { price: 'entity', export_price: 'fixed' }), 'label'),
+        ...fieldNames(schema.device({ entity: 'sensor.x' }), 'label'),
+        ...fieldNames(schema.device(group), 'label'),
+        ...fieldNames(
+          schema.card({ ...base, solar: { separate: true }, battery: { separate: true } }),
+          'label',
+        ),
         ...[false, true].flatMap((separate) => [
-          ...fieldNames(schema.unit('solar', { entity: 'sensor.x' }, separate)),
-          ...fieldNames(schema.unit('battery', { entity: 'sensor.x' }, separate)),
+          ...fieldNames(schema.unit('solar', { entity: 'sensor.x' }, separate), 'label'),
+          ...fieldNames(schema.unit('battery', { entity: 'sensor.x' }, separate), 'label'),
         ]),
       ];
       const missing = [...new Set(names)].filter((n) => fieldLabel(t, n) === n);
@@ -447,7 +452,7 @@ describe('editor units', () => {
 
   it('a unit reads one entity, and has a bubble only when it is shown on its own', () => {
     const single = names(schema.unit('solar', {}, false));
-    expect(single).toEqual(['entity', 'max_power', 'max_power_entity', 'invert', 'energy_entity']);
+    expect(single).toEqual(['entity', 'invert', 'max_power', 'max_power_entity', 'energy_entity']);
     expect(names(schema.unit('solar', {}, true))).toEqual(
       expect.arrayContaining([...single, 'name', 'icon', 'color', 'hide_when_zero', 'secondary_entity']),
     );
@@ -471,7 +476,8 @@ describe('editor units', () => {
   });
 
   it('explains the switch', () => {
-    expect(fieldHelper(t, 'separate')).toContain('each inverter or battery');
+    expect(fieldHelper(t, { name: 'separate', label: 'separate_solar' })).toContain('each inverter');
+    expect(fieldHelper(t, { name: 'separate', label: 'separate_battery' })).toContain('each battery');
   });
 
   it('puts the switch in the form data, without the units, and drops it when it is off', () => {
@@ -731,7 +737,7 @@ describe('entity issues', () => {
     expect(unitIssues(issues, 'battery', 1)).toEqual([]);
     expect(deviceIssues(issues, [0])).toEqual([]);
     expect(describeIssue(issues[0], config, hass, t).where).toBe('Solar › Shed');
-    expect(describeIssue(issues[1], config, hass, t)).toMatchObject({ where: 'Battery › Unit 1' });
+    expect(describeIssue(issues[1], config, hass, t)).toMatchObject({ where: 'Battery › Battery 1' });
   });
 
   it('matches device issues by exact path', () => {
