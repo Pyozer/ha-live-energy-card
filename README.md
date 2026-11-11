@@ -51,7 +51,9 @@ sliders for every source and device, scenarios, and a YAML editor. No Home Assis
 - Automatic light and dark themes, `prefers-reduced-motion` support, animation paused off-screen,
   **eco mode** for low-power devices.
 - **Import from the Energy dashboard**: solar, grid, battery and devices in one click.
-- Full visual editor whose entity pickers only offer matching entities (power sensors for flows,
+- Full visual editor, organised in the order of the card: title and language, **Solar** (its
+  inverters, then *Appearance and actions*), **Grid**, **Battery**, **Home**, **Devices** (with
+  *Layout and sorting*), then **Display**, **Cost**, **Carbon**, **Animation** and **Advanced**. Its entity pickers only offer matching entities (power sensors for flows,
   percentages for the charge level) and that flags entities to check: not found (renamed or removed)
   or not matching their field (an energy counter in a power field…). English and French translations
   (following the Home Assistant user's language, or set per card).
@@ -367,20 +369,20 @@ devices:
 | `hide_when_zero` | `true` | Hides nodes at zero (solar, battery, devices). Grid and home stay visible unless set explicitly. |
 | `line_style` | `rounded` | Shape of every flow line: `rounded` (right angles with rounded corners), `square` (sharp right angles), `curved` (soft curves) or `straight` (direct lines). |
 | `inactive_flows` | `hide` | `hide`: zero flows are invisible. `dim`: dimmed grey path. |
-| `animation` | see below | Intensity effects: `speed`, `thickness`, `density` (on), `glow` (off: soft light around particles, stronger as power increases). |
+| `animation` | `speed`, `thickness` and `density` on, `glow` off | Intensity effects, each one a boolean: `speed`, `thickness`, `density`, and `glow` (soft light around particles, stronger as power increases). |
 | `transparent` | `false` | Removes the card background, border and shadow, so the diagram sits directly on the dashboard (or inside a stack / grid card). Nodes keep their own fill and stay readable. |
 | `compact` | `false` | Shorter and narrower diagram: the rows and columns of the grid, solar, home and battery bubbles closer together, and tighter margins. The bubbles keep their size. |
 | `small_bubbles` | `false` | Smaller bubbles (sources, home and device pills). Independent of `compact`: use both for the most space-saving card. |
 | `eco_mode` | `false` | Lighter animation for wall tablets and low-power devices: 30 frames per second instead of the display rate, and no glow (its blur is the most expensive effect). Roughly halves the rendering work. |
-| `devices_layout` | `auto` | `auto`, `column` or `grid`. |
-| `devices_columns` | auto | Number of columns in grid mode. |
+| `devices_layout` | `auto` | `auto`, `column` or `grid`. A forced `column` falls back to the stacked layout (devices below the diagram) when the card is too narrow for it, as `auto` does. |
+| `devices_columns` | auto | Number of columns in grid mode: a whole number of at least 1. Anything else (`0`, a negative number, a word) means automatic. |
 | `sort_devices` | `false` | Sorts devices by power (with hysteresis so the list does not keep moving). |
 | `show_untracked` | `false` | Adds an "Other" node: home consumption not covered by the devices. |
 | `show_ratios` | `false` | Shows self-consumption (share of solar used on site) and self-sufficiency (share of consumption covered without the grid). Shown only while the solar bubble is displayed: they disappear with it (no solar source, or idle solar with `hide_when_zero`). |
 | `cost` | — | Prices for the live cost and solar savings (see [Cost and carbon](#cost-and-carbon)). |
 | `carbon` | — | `intensity_entity`: grid carbon intensity for the live CO₂ (see [Cost and carbon](#cost-and-carbon)). |
 | `kilo_threshold` | `1000` | Switch from W to kW. |
-| `decimals` / `kilo_decimals` | `0` / `1` | Decimals in W and in kW. |
+| `decimals` / `kilo_decimals` | `0` / `1` | Decimals in W and in kW, from 0 to 6 (a value outside that range is brought back to it). |
 
 ### Node options
 
@@ -411,11 +413,13 @@ Specific options:
 - `solar` and `battery`: `separate` and `units`, see
   [Several inverters and batteries](#several-inverters-and-batteries). On a battery unit:
   `charge_entity` / `discharge_entity` (alternative to a signed `entity`), `soc_entity` (charge level
-  in %), `charge_color`, `capacity` (usable capacity in kWh) and `min_soc` (reserve in %, default 0):
+  in %), `charge_color`, `capacity` (usable capacity in kWh) and `min_soc` (reserve in %, from 0 to 100, default 0):
   with a charge level and a capacity, the caption shows the time to full or down to the reserve at
   the current power (*Full in 2 h 05*), up to 48 h. With a reserve, the ring turns red once the
   charge is at or under it (for a single bubble, when every unit has a level and a capacity, like
   the estimate).
+- A device, a group member or a solar / battery unit may be written as a **bare entity id**
+  (`- sensor.fridge_power`), which stands for `- entity: sensor.fridge_power`. Empty rows are ignored.
 - `home`: `entity` is optional. Without it, consumption is computed from the sources.
 - `devices`: `max_power` (W) and `max_power_entity` (W, kW…, read first while it is readable) give the
   pill a gauge, a bar along its bottom edge that fills with the share of that power being drawn, for
@@ -589,11 +593,14 @@ The demo page works **without Home Assistant**. It simulates `hass` and provides
 - cost and CO₂ indicators;
 - unavailable entity simulation and a random "live" simulation;
 - light/dark modes, FR/EN and card width;
-- a YAML configuration editor and a simulated Energy dashboard import.
+- a YAML configuration editor and a simulated Energy dashboard import;
+- a **Visual editor** panel: the real editor, fed with simulated form fields, to check its structure,
+  labels, help texts and what a change writes to the configuration.
 
 Code changes are hot-reloaded.
 
-The visual editor (`ha-form`) only works inside Home Assistant.
+The real rendering of the visual editor (`ha-form` and its entity pickers) can only be checked inside
+Home Assistant.
 
 The online demo is rebuilt and published on GitHub Pages at every push to `main`.
 

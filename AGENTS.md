@@ -65,14 +65,15 @@ hass + config ─► model/   ─► layout.ts ─► tree.ts ─► live-energy
 | `src/battery.ts` | Battery time estimate (to full or to the reserve), the charge of several batteries seen as one (`combinePacks`) and duration formatting. `belowReserve`: a battery at or under its `min_soc` (`NodeModel.low`, its ring turns red). |
 | `src/cost.ts` | Cost, solar savings and grid CO₂: live rate per hour from the flows, or total of the day (`cost.period: day`) from today's energy; price reading and formatting. Cost, earnings and savings can each be a ready-made entity (`cost_entity`, `earnings_entity`, `savings_entity`), independent of one another. `Stats.entities`: the entity behind each indicator (cost/earnings, savings, carbon), if any; `statActions` gives what a tap does: the `cost_actions` / `savings_actions` / `carbon.actions` of the config, else more-info of that entity, else nothing (the indicator is tappable only if it has an action). |
 | `src/intensity.ts` | Power → visual parameters (speed, thickness, density, glow). |
-| `src/animator.ts` | `requestAnimationFrame` loop: SVG particles, transitions, animated counters. |
+| `src/animator.ts` | `requestAnimationFrame` loop: SVG particles, transitions, animated counters. `connect` / `disconnect` pair the reduced-motion listener with the card's life in the page (the media query keeps its listeners alive, so a removed card must release it). |
 | `src/live-energy-card.ts` | Lit element: Lovelace lifecycle, rendering, width measurement, registration. |
+| `src/colors.ts` | Home Assistant color names → CSS (`resolveColor`, which falls back for anything that is not a string) and the default palette. |
 | `src/styles.ts` | Styles and palette (`--lec-*` variables, light / dark). |
 | `src/actions.ts` | `tap_action`, `hold_action`, `double_tap_action` (`hass-action` event). |
-| `src/editor/editor.ts` | Visual editor element: renders the forms and the device list (drag and drop on a handle, arrow keys as keyboard alternative), emits `config-changed`. |
+| `src/editor/editor.ts` | Visual editor element: renders the forms and the device list (drag and drop on a handle, arrow keys as keyboard alternative), emits `config-changed`. The card form is rendered in parts between the lists, in the order of the card: `intro` (title, language), then for each source its `source` form (solar and battery with their units list), `devicesOptions` after the devices, and `settings` (display, cost, carbon, animation, advanced). Every part gets and reports the whole data. |
 | `src/editor/unit-editor.ts` | `live-energy-card-unit-editor`: the list of the units of the solar or battery source (cards opening on their own form, add, remove, reorder), fires `units-changed`. |
 | `src/editor/drag-controller.ts` | `DragController`: the pointer-event drag and drop of a list (lifted block, gap, autoscroll), told what can land where by a `DragSpec`. Used by the device list and the unit lists. |
-| `src/editor/schema.ts` | `ha-form` schemas (card, nodes, devices) and field labels. |
+| `src/editor/schema.ts` | `ha-form` schemas (`EditorSchema`: `intro`, `source`, `devicesOptions`, `settings`, devices) and field labels. `FieldRef`: a field may carry its own `label` / `helper` key when its config key alone is ambiguous, e.g. `max_power` is `scale_max` for the card. |
 | `src/editor/form.ts` | Config ↔ form data. Only writes values that differ from the defaults. |
 | `src/editor/validation.ts` | Entity checks shown by the editor: missing entities and entities of the wrong kind. |
 | `src/editor/styles.ts` | Editor styles. |
@@ -80,7 +81,8 @@ hass + config ─► model/   ─► layout.ts ─► tree.ts ─► live-energy
 | `src/editor/device-list.ts` | Immutable operations on the two-level device list (devices and group members), including `dropDevice` (drag and drop). |
 | `src/editor/drag.ts` | Pure geometry of the device drag and drop: the drop target (before, after, into a group) for a pointer height. |
 | `src/localize/` | `en.ts` is the reference; `fr.ts` is typed against it (a missing key fails to compile). `resolveLanguage` picks the card `language` option, then the HA user language. |
-| `demo/` | Demo page: simulated `hass`, scenarios, sliders, YAML editor. Stubs for `ha-card` and `ha-icon`. |
+| `demo/form-stubs.ts` | Stubs for `ha-form`, `ha-svg-icon` and `ha-icon-button`, so the real visual editor renders on the demo page: the form structure, labels, help texts and the values a change writes. |
+| `demo/` | Demo page: simulated `hass`, scenarios, sliders, YAML editor, and a "Visual editor" panel. Stubs for `ha-card`, `ha-icon` (`stubs.ts`), `ha-form`, `ha-svg-icon` and `ha-icon-button` (`form-stubs.ts`). |
 | `test/` | Vitest tests, running in Node (no DOM). |
 
 Design rules:
@@ -120,7 +122,7 @@ Every change or new feature must be **testable and tested**:
 
 - Add or extend tests in `test/` (`*.test.ts`), one file per area: `compute`, `units-intensity`,
   `layout-model`, `model`, `config`, `battery`, `energy-today`, `colors-format`, `actions`, `localize`, `entities`, `energy`,
-  `device-list`, `editor`, `cost`, `source-units`, `drag-controller`, `max-power`. Create a new file when a new module appears.
+  `device-list`, `editor`, `cost`, `source-units`, `drag-controller`, `max-power`, `animator`, `release-notes`. Create a new file when a new module appears.
 - Design for testing: extract logic into an exported pure function instead of leaving it in the
   component or the animator.
 - A bug fix starts with a test that reproduces the bug.
@@ -133,8 +135,9 @@ Every change or new feature must be **testable and tested**:
 - For visual changes, check the demo (`npm run dev`). If a case cannot be reproduced there, add a
   scenario or an option to `demo/main.ts`.
 - The editor's logic (schemas, config ↔ form conversion) is tested in `editor.test.ts`; every
-  field must have a label in each language. Its rendering can only be checked inside Home
-  Assistant: say so when you change it.
+  field must have a label in each language. The structure, the labels and the round trips can be
+  tried in the demo's editor panel; the real rendering (`ha-form`, entity pickers) can only be
+  checked inside Home Assistant: say so when you change it.
 
 ## Documentation
 
@@ -189,3 +192,7 @@ Conventional Commits, in English, concise, no `Co-authored-by`. Details in
   sums flows, not node values.
 - Editor: an option whose default is `false` (e.g. `animation.glow`) must be written when it is
   `true`. Compare with the default value, not with `false`.
+- Editor: the form shows `hide_when_zero` resolved from the card-wide option; compare a node's value
+  with the default the form showed (previous config), not the new one.
+- `npm run check` output piped into grep hides its exit code: read the exit code of the command
+  itself.
