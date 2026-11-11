@@ -65,3 +65,70 @@ describe('entity kinds', () => {
     expect(entitiesOfKind(undefined, 'power')).toEqual([]);
   });
 });
+
+describe('carbon picker', () => {
+  const carbon = (...list: HassEntity[]) =>
+    entitiesOfKind({ states: Object.fromEntries(list.map((e) => [e.entity_id, e])) }, 'carbon');
+
+  it('only lists intensities in grams per kWh', () => {
+    expect(
+      carbon(
+        ent('sensor.a', 'gCO2eq/kWh'),
+        ent('sensor.b', 'gCO2/kWh'),
+        ent('sensor.c', 'g/kWh'),
+        ent('sensor.d', 'g CO2eq / kWh'),
+        ent('sensor.e', 'GCO2EQ/KWH'),
+      ),
+    ).toEqual(['sensor.a', 'sensor.b', 'sensor.c', 'sensor.d', 'sensor.e']);
+  });
+
+  it('skips indoor CO2 and the fossil fuel percentage, whatever their id', () => {
+    expect(
+      carbon(
+        ent('sensor.living_room_co2', 'ppm', 'carbon_dioxide'),
+        ent('sensor.grid_fossil_fuel_percentage', '%'),
+        ent('sensor.carbon_footprint', 'kg'),
+        ent('sensor.co2_intensity_no_unit'),
+      ),
+    ).toEqual([]);
+  });
+
+  it('keeps carbon intensities out of the price picker', () => {
+    expect(entitiesOfKind({ states: { 'sensor.c': ent('sensor.c', 'g/kWh') } }, 'price')).toEqual([]);
+  });
+});
+
+describe('power picker', () => {
+  const power = (...list: HassEntity[]) =>
+    entitiesOfKind({ states: Object.fromEntries(list.map((e) => [e.entity_id, e])) }, 'power');
+
+  it('accepts apparent power, the live reading of many Linky meters', () => {
+    expect(power(ent('sensor.linky', 'VA', 'apparent_power'), ent('sensor.kva', 'kVA'))).toEqual([
+      'sensor.kva',
+      'sensor.linky',
+    ]);
+    expect(power(ent('sensor.no_unit', undefined, 'apparent_power'))).toEqual(['sensor.no_unit']);
+  });
+
+  it('accepts the lowercase w and kw units', () => {
+    expect(power(ent('sensor.a', 'w'), ent('sensor.b', 'kw'))).toEqual(['sensor.a', 'sensor.b']);
+  });
+});
+
+describe('money picker', () => {
+  const money = (...units: string[]) =>
+    entitiesOfKind(
+      { states: Object.fromEntries(units.map((u, i) => [`sensor.m${i}`, ent(`sensor.m${i}`, u)])) },
+      'money',
+    ).length;
+
+  it('accepts local currency symbols, possibly per hour', () => {
+    expect(money('kr', 'zł', 'EUR/hour', 'kr/h', 'Fr.', 'EUR / h', '€/hour')).toBe(7);
+  });
+
+  it('still rejects what is not a currency', () => {
+    expect(money('kWh', 'W', '%', '°C', 'kW', 'Wh', 'EUR/kWh', 'ppm1', '', 'kr per day', 'gCO2eq/kWh')).toBe(
+      0,
+    );
+  });
+});

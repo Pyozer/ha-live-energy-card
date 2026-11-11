@@ -11,6 +11,10 @@ export const POWER_UNITS: Record<string, number> = {
   Wp: 1,
   kWc: 1_000,
   kWp: 1_000,
+  // Apparent power: the only live grid reading of many French Linky meters. The card reads it as
+  // watts and shows it as W / kW.
+  VA: 1,
+  kVA: 1_000,
 };
 
 /** Conversion factor to watts. `MW` (mega) and `mW` (milli) only differ by case. */

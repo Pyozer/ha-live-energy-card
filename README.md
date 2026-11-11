@@ -389,7 +389,7 @@ Available for `grid`, `home` and each item of `devices` (and for each unit of `s
 
 | Option | Description |
 | --- | --- |
-| `entity` | Power entity (W, kW…), or a list of entities whose values are added up (grid phases, or a device made of several plugs). For `grid`: positive = import. |
+| `entity` | Power entity (W, kW…), or a list of entities whose values are added up (grid phases, or a device made of several plugs). For `grid`: positive = import. Apparent power sensors (VA, kVA), the only live reading of many French Linky meters, are accepted too and shown as W / kW. |
 | `name`, `icon` | Label and icon. |
 | `color` | HA color name (`amber`, `blue`…) or CSS color. |
 | `invert` | Inverts the entity's sign. |
@@ -446,6 +446,8 @@ Live indicators shown under the diagram. `cost.period` picks how cost and saving
     an exact total.
 - **Grid CO₂**: grid import × carbon intensity of the grid (for example from the
   [Electricity Maps](https://www.home-assistant.io/integrations/co2signal/) integration), per hour.
+  The editor's carbon picker only lists entities in grams per kWh (`gCO2eq/kWh`, `gCO2/kWh`, `g/kWh`),
+  so an indoor CO₂ sensor or the fossil fuel percentage is not offered.
 
 ```yaml
 cost:

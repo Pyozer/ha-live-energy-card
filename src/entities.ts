@@ -10,20 +10,39 @@ export type EntityKind = 'power' | 'percent' | 'energy' | 'price' | 'money' | 'c
 const DOMAINS = ['sensor', 'input_number', 'number'];
 const ENERGY_UNITS = ['Wh', 'kWh', 'MWh', 'GWh'];
 
+const isPowerUnit = (unit: string): boolean => unit in POWER_UNITS || ['w', 'kw'].includes(unit);
+/** Carbon intensity of the grid: grams per kWh (`gCO2eq/kWh`, `gCO2/kWh`, `g/kWh`). */
+const isCarbonUnit = (unit: string): boolean => /^g\s*(CO2(eq)?)?\s*\/\s*kWh$/i.test(unit);
+// Units that are short and free of digits and spaces like a currency, but are not one.
+const NOT_CURRENCY = new Set(
+  [...Object.keys(POWER_UNITS), ...ENERGY_UNITS, '%', 'V', 'A', 'Hz'].map((u) => u.toLowerCase()),
+);
+/** A currency: a code (EUR), a symbol (€, kr, zł), possibly per hour. */
+const isMoneyUnit = (unit: string): boolean => {
+  const match = /^([^\d\s/]{1,4})(\s*\/\s*(h|hour))?$/.exec(unit);
+  if (!match) return false;
+  const base = match[1];
+  return !base.includes('°') && !NOT_CURRENCY.has(base.toLowerCase());
+};
+
 const unitOf = (s: HassEntity): string => String(s.attributes.unit_of_measurement ?? '').trim();
 const deviceClassOf = (s: HassEntity): string => String(s.attributes.device_class ?? '');
 
 const MATCHERS: Record<EntityKind, (s: HassEntity) => boolean> = {
-  power: (s) => deviceClassOf(s) === 'power' || unitOf(s) in POWER_UNITS,
+  // Power, or apparent power (VA / kVA, shown by the card as W / kW).
+  power: (s) =>
+    deviceClassOf(s) === 'power' || deviceClassOf(s) === 'apparent_power' || isPowerUnit(unitOf(s)),
   percent: (s) => deviceClassOf(s) === 'battery' || unitOf(s) === '%',
   energy: (s) => deviceClassOf(s) === 'energy' || ENERGY_UNITS.includes(unitOf(s)),
   // Electricity price: a currency per kWh (€/kWh, EUR/kWh…) or a monetary value.
   price: (s) =>
-    (/\/\s*(k|M)?Wh$/i.test(unitOf(s)) && !/co2/i.test(unitOf(s))) || deviceClassOf(s) === 'monetary',
-  // Ready-made cost: a currency (EUR, €, $…), possibly per hour, or a monetary value.
-  money: (s) => /^([A-Z]{3}|[€$£¥])(\s*\/\s*h)?$/.test(unitOf(s)) || deviceClassOf(s) === 'monetary',
-  // Grid carbon intensity (gCO2eq/kWh) or fossil fuel share (%).
-  carbon: (s) => /co2/i.test(unitOf(s)) || /co2|carbon|fossil/i.test(s.entity_id),
+    (/\/\s*(k|M)?Wh$/i.test(unitOf(s)) && !/co2/i.test(unitOf(s)) && !isCarbonUnit(unitOf(s))) ||
+    deviceClassOf(s) === 'monetary',
+  // Ready-made cost: a currency (EUR, €, kr, zł…), possibly per hour, or a monetary value.
+  money: (s) => isMoneyUnit(unitOf(s)) || deviceClassOf(s) === 'monetary',
+  // Grid carbon intensity, in grams per kWh. Neither an indoor CO2 sensor (ppm) nor the fossil fuel
+  // share (%) is one: the card multiplies the import by this value.
+  carbon: (s) => isCarbonUnit(unitOf(s)),
 };
 
 export function matchesKind(entity: HassEntity | undefined, kind: EntityKind): boolean {
