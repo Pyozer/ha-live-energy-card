@@ -159,11 +159,21 @@ function computedGrid(): number {
   return Math.round(homeLoad() - state.solar - state.battery);
 }
 
-function entity(id: string, value: number | string, unit = 'W', name?: string): HassEntity {
+function entity(
+  id: string,
+  value: number | string,
+  unit = 'W',
+  name?: string,
+  deviceClass?: string,
+): HassEntity {
   return {
     entity_id: id,
     state: state.unavailable.has(id) ? 'unavailable' : String(value),
-    attributes: { unit_of_measurement: unit, friendly_name: name ?? id },
+    attributes: {
+      unit_of_measurement: unit,
+      friendly_name: name ?? id,
+      ...(deviceClass ? { device_class: deviceClass } : {}),
+    },
   };
 }
 
@@ -205,6 +215,12 @@ function buildHass(): HomeAssistant {
   };
   for (const d of DEVICES)
     fresh[d.entity] = entity(d.entity, state.devices[d.entity], 'W', `${d.name} Power`);
+  // Cumulative energy counters (kWh) behind `energy_entity` / `export_energy_entity`: a total that
+  // already holds some history, plus today's change (see `TODAY_KWH`).
+  for (const [id, change] of Object.entries(TODAY_KWH)) {
+    if (!(id in fresh)) fresh[id] = entity(id, (1200 + change).toFixed(2), 'kWh', id, 'energy');
+  }
+  fresh['sensor.battery_out'] = entity('sensor.battery_out', '830.50', 'kWh', 'Battery energy out', 'energy');
 
   // Units: the solar production is shared unevenly, the battery power and level evenly (almost).
   const solarCount = config.solar?.units?.length ?? SOLAR_UNITS.length;
