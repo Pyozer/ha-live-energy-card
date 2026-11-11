@@ -174,6 +174,7 @@ Every code change comes with the matching documentation update, in the same comm
 - `.github/workflows/pages.yml`: builds the demo (`npm run build:demo`) and publishes it on GitHub
   Pages at every push to `main` (Settings → Pages → Source: GitHub Actions). The README links to it.
 - `docs/` holds the README screenshots, taken from the demo page: refresh them when the look changes.
+- `.github/ISSUE_TEMPLATE/bug_report.yml`: the bug report form (what happened, YAML configuration, card and Home Assistant versions); blank issues stay allowed (`config.yml`).
 - Dependabot opens monthly update PRs for npm (dev dependencies grouped) and the GitHub actions.
 - The Node version is pinned in `.nvmrc`, shared by CI and local development.
 

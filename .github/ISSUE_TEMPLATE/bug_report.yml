@@ -1,0 +1,49 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem. Please check the
+        [README](https://github.com/Pyozer/ha-live-energy-card#readme) first: the option you need may already exist.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened, and what did you expect?
+      description: Describe what you see, then what you expected to see instead.
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Card configuration
+      description: The YAML of the card (Edit card, then Show code editor). Remove anything private.
+      render: yaml
+    validations:
+      required: true
+  - type: input
+    id: card-version
+    attributes:
+      label: Card version
+      description: Logged in the browser console as `LIVE-ENERGY-CARD x.y.z`.
+      placeholder: 0.16.0
+    validations:
+      required: true
+  - type: input
+    id: ha-version
+    attributes:
+      label: Home Assistant version
+      placeholder: 2026.11.0
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser or app
+      placeholder: Safari on iOS, Home Assistant Companion app on Android, Chrome on Windows...
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshot or console errors
+      description: Drag an image here, or paste the errors shown in the browser console.
