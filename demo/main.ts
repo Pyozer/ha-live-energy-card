@@ -1,4 +1,5 @@
 import './stubs';
+import './form-stubs';
 import type { EnergyPrefs } from '../src/energy';
 import { DEFAULT_TOGGLES } from '../src/intensity';
 import { LiveEnergyCard } from '../src/live-energy-card';
@@ -9,6 +10,9 @@ interface CardElement extends HTMLElement {
   hass?: HomeAssistant;
   setConfig(config: LiveEnergyCardConfig): void;
 }
+
+/** The visual editor: same contract as the card, and it reports a change with `config-changed`. */
+type EditorElement = CardElement;
 
 const ENT = {
   solar: 'sensor.shelly_solaire_puissance',
@@ -138,6 +142,12 @@ frame.appendChild(card);
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
+// The visual editor, as Home Assistant shows it next to the card preview. It is only fed while its
+// panel is open.
+const editor = document.createElement('live-energy-card-editor') as EditorElement;
+const editorPanel = $<HTMLDetailsElement>('editor-panel');
+$('editor').appendChild(editor);
+
 // --- Simulation ---------------------------------------------------------------------------------
 
 function homeLoad(): number {
@@ -239,6 +249,7 @@ function buildHass(): HomeAssistant {
 
 function push(): void {
   card.hass = buildHass();
+  if (editorPanel.open) editor.hass = card.hass;
   const grid = state.autoGrid ? computedGrid() : state.grid;
   const gridOut = document.getElementById('out-grid');
   if (gridOut) gridOut.textContent = `${grid} W`;
@@ -250,6 +261,7 @@ function applyConfig(next: LiveEnergyCardConfig): void {
   try {
     card.setConfig(next);
     config = next;
+    editor.setConfig(config);
     $('error').textContent = '';
     $<HTMLTextAreaElement>('yaml').value = stringify(config);
     push();
@@ -872,6 +884,18 @@ $('import').addEventListener('click', async () => {
   const stub = await LiveEnergyCard.getStubConfig(buildHass());
   applyConfig({ type: 'custom:live-energy-card', ...stub } as LiveEnergyCardConfig);
 });
+
+// Like Home Assistant: a change in the editor is applied to the card, then given back to the editor.
+editor.addEventListener('config-changed', (ev) => {
+  const next = (ev as CustomEvent<{ config: LiveEnergyCardConfig }>).detail.config;
+  try {
+    applyConfig(next);
+  } finally {
+    // An invalid configuration stays in the editor so it can be fixed, as in Home Assistant.
+    if (config !== next) $<HTMLTextAreaElement>('yaml').value = stringify(next);
+  }
+});
+editorPanel.addEventListener('toggle', () => push());
 
 card.addEventListener('hass-action', (ev) => {
   const { config: c, action } = (ev as CustomEvent).detail;

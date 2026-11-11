@@ -214,6 +214,13 @@
         flex-wrap: wrap;
         gap: 6px;
       }
+      .editor summary {
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .editor[open] summary {
+        margin-bottom: 12px;
+      }
     </style>
   </head>
   <body>
@@ -247,6 +254,13 @@
         <div>
           <h2>Unavailable sensors</h2>
           <div class="unavailable" id="unavailable"></div>
+        </div>
+        <div>
+          <h2>Visual editor</h2>
+          <details class="editor" id="editor-panel">
+            <summary>Open the editor (simulated form fields)</summary>
+            <div id="editor"></div>
+          </details>
         </div>
         <div>
           <h2>YAML configuration</h2>
