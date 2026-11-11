@@ -97,6 +97,10 @@ export const en = {
         'Positive when discharging, negative when charging. With one sensor per direction, use the two fields below instead.',
       home_entity: 'Optional: without it, the consumption is computed from the sources.',
       invert: 'Turn on if the flow goes the wrong way.',
+      max_power_solar:
+        'What the ring fills up to: the peak power of the panels, or the limit of the inverter if it is lower.',
+      max_power_device: 'The bar under the device fills up to it, e.g. its rated power.',
+      max_power_entity: 'Read in W or kW. Used instead of the value while it is available.',
       max_import: 'A ring fills up to it and the bubble turns red above it, e.g. your subscribed power.',
       capacity: 'With the state of charge, shows the time to full or to the reserve.',
       min_soc: 'Charge the battery keeps: the estimate stops there and the ring turns red.',

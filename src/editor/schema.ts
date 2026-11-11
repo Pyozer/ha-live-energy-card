@@ -120,7 +120,7 @@ export class EditorSchema {
         ? [
             power('entity'),
             grid(booleans(['invert'])),
-            grid([watts('max_power'), power('max_power_entity')]),
+            grid([watts('max_power', 0, { helper: 'max_power_solar' }), power('max_power_entity')]),
             energy,
           ]
         : [
@@ -362,7 +362,7 @@ export class EditorSchema {
       // A group's entity is optional (a circuit meter); without it, its members are added up.
       { name: group ? 'group_entity' : 'entity', selector: this.entity('power', dev.entity, true) },
       grid([
-        watts('max_power'),
+        watts('max_power', 0, { helper: 'max_power_device' }),
         { name: 'max_power_entity', selector: this.entity('power', dev.max_power_entity) },
       ]),
       grid([

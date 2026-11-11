@@ -117,6 +117,11 @@ export const fr: DeepStrings<typeof en> = {
         'Les flux atteignent leur vitesse et leur épaisseur maximales à cette puissance, par ex. votre pic habituel.',
       power_curve: 'Comment l’animation grandit avec la puissance.',
       threshold_w: 'Une puissance inférieure compte comme zéro (bruit des capteurs).',
+      max_power_solar:
+        'Ce que l’anneau atteint une fois plein : la puissance crête des panneaux, ou la limite de l’onduleur si elle est plus basse.',
+      max_power_device:
+        'La barre sous l’appareil se remplit jusqu’à cette valeur, par ex. sa puissance nominale.',
+      max_power_entity: 'Lue en W ou kW. Remplace la valeur tant qu’elle est disponible.',
       grid_charge_entity:
         'Puissance que la batterie tire du réseau en charge. Le reste de sa charge compte comme solaire.',
       exclude_from_untracked: 'Pour un appareil sur un circuit séparé, ou déjà compté par un autre appareil.',

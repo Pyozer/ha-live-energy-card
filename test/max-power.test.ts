@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { validateConfig, watchedEntities } from '../src/config';
-import { fieldHelper } from '../src/editor/schema';
+import { EditorSchema, fieldHelper, type FieldRef, type Schema } from '../src/editor/schema';
 import { entityIssues } from '../src/editor/validation';
 import { buildModel, ringValue, type NodeModel } from '../src/model';
 import type { HassEntity, HomeAssistant, LiveEnergyCardConfig } from '../src/types';
@@ -191,11 +191,21 @@ describe('maximum power of a solar unit', () => {
     ).toBeCloseTo(0.5);
   });
 
-  it('has short labels and no helper text: the fields speak for themselves', () => {
+  it('has short labels and explains what the maximum is for', () => {
+    const schema = new EditorSchema((key) => key, undefined);
+    const entries = [
+      ...schema.unit('solar', { entity: 'sensor.roof' }, false),
+      ...schema.device({ entity: 'sensor.heater' }),
+    ].flatMap((s) => (Array.isArray(s.schema) ? (s.schema as Schema[]) : [s]));
+    const maxima = entries.filter((s) => s.name === 'max_power' || s.name === 'max_power_entity');
+    expect(maxima).toHaveLength(4);
     for (const lang of ['en', 'fr']) {
       const t = (key: Parameters<typeof localize>[1]) => localize(lang, key);
+      for (const entry of maxima) {
+        const field = entry as unknown as FieldRef;
+        expect(fieldHelper(t, field), `${lang} ${field.name} ${field.helper ?? ''}`).not.toBe('');
+      }
       for (const field of ['max_power', 'max_power_entity']) {
-        expect(fieldHelper(t, { name: field }), `${lang} ${field}`).toBe('');
         expect(localize(lang, `editor.field.${field}` as Parameters<typeof localize>[1]).length).toBeLessThan(
           40,
         );
