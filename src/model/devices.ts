@@ -33,15 +33,20 @@ export function sortWithHysteresis(
   });
   const beats = (a: { watts: number }, b: { watts: number }): boolean =>
     a.watts > b.watts * (1 + margin) + minDelta;
-  // Stable insertion sort with an overtaking threshold.
+  // Stable insertion sort with an overtaking threshold. The item goes above the first device it
+  // beats, not just above its direct neighbour: checking the neighbour only lets small steps add up
+  // (100, 119, 138 W…), leaving a device far below ones it clearly beats.
   for (let i = 1; i < ordered.length; i++) {
     const item = ordered[i];
-    let j = i - 1;
-    while (j >= 0 && beats(item, ordered[j])) {
-      ordered[j + 1] = ordered[j];
-      j--;
+    let target = i;
+    for (let j = 0; j < i; j++) {
+      if (beats(item, ordered[j])) {
+        target = j;
+        break;
+      }
     }
-    ordered[j + 1] = item;
+    for (let j = i; j > target; j--) ordered[j] = ordered[j - 1];
+    ordered[target] = item;
   }
   return ordered.map((it) => it.id);
 }

@@ -571,6 +571,28 @@ describe('utilities', () => {
     ).toEqual(['b', 'a']);
   });
 
+  it('hysteresis sort: small steps do not add up to a wrong order', () => {
+    // Each device is within the margin of its neighbour, but c is far above a.
+    const items = [
+      { id: 'a', watts: 100 },
+      { id: 'b', watts: 119 },
+      { id: 'c', watts: 138 },
+      { id: 'd', watts: 157 },
+      { id: 'e', watts: 176 },
+    ];
+    const order = sortWithHysteresis(items, []);
+    expect(order[0]).toBe('e');
+    // No device sits below another one it clearly beats.
+    const watts = new Map(items.map((i) => [i.id, i.watts]));
+    for (let i = 0; i < order.length; i++) {
+      for (let j = i + 1; j < order.length; j++) {
+        const upper = watts.get(order[i])!;
+        const lower = watts.get(order[j])!;
+        expect(lower > upper * 1.12 + 8, `${order[j]} below ${order[i]}`).toBe(false);
+      }
+    }
+  });
+
   it('watched entities include every entity of a list', () => {
     expect(
       watchedEntities({
