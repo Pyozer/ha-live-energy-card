@@ -32,6 +32,7 @@ npm run build         # type check + dist/live-energy-card.js
 npm run size          # bundle size against its budget (scripts/check-size.mjs)
 npm run build:demo    # the demo page as a static site in dist-demo/ (vite.demo.config.ts)
 npm run check         # lint + format:check + coverage + build + size: run before every commit
+npm run release -- minor   # check, version bump, `chore: release` commit and tag (see Versioning)
 ```
 
 ## Architecture
@@ -157,7 +158,9 @@ Every code change comes with the matching documentation update, in the same comm
 - Manual install: copy `dist/live-energy-card.js` to `/config/www/` and change the `?v=` parameter of
   the Lovelace resource to bust the cache.
 - `dist/` is not versioned.
-- Release: bump `package.json`, commit `chore: release x.y.z`, then push a `vx.y.z` tag. The
+- Release: `npm run release -- <patch|minor|major|x.y.z>` (`preversion` runs `npm run check`, then
+  `npm version` bumps `package.json` and the lockfile, commits `chore: release x.y.z` and creates the
+  annotated tag `vx.y.z`), then `git push --follow-tags`. Never push or tag without the user's go-ahead. The
   `Release` workflow checks that the tag matches `package.json`, runs `npm run check` and publishes
   a GitHub release with `live-energy-card.js` attached (what HACS installs). The release notes are
   built from the Conventional Commits since the previous tag (`scripts/release-notes.mjs`), so a

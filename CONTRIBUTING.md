@@ -10,6 +10,24 @@ Every commit must leave the project building with all tests passing. The same ch
 every push and pull request. Changed code comes with its
 tests and updated documentation (see [AGENTS.md](AGENTS.md)).
 
+## Releasing
+
+From a clean `main`, with the commits to release already in:
+
+```bash
+npm run release -- minor   # or patch, major, or an exact version such as 0.17.0
+git push --follow-tags
+```
+
+`npm run release` runs `npm run check` first, then bumps `package.json` and `package-lock.json`,
+commits `chore: release x.y.z` and creates the annotated tag `vx.y.z`. It refuses to run on a dirty
+working tree. Nothing is pushed by the script: `git push --follow-tags` sends the commit and the tag
+together. The tag triggers the `Release` workflow, which publishes the GitHub release that HACS
+installs.
+
+If the release commit already exists (version bumped by hand), only the tag is missing:
+`git tag -a vx.y.z -m "chore: release x.y.z"`, then `git push --follow-tags`.
+
 ## Commit messages
 
 Messages follow [Conventional Commits](https://www.conventionalcommits.org/) and are written

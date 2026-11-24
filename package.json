@@ -25,7 +25,9 @@
     "lint": "eslint src demo test scripts",
     "format": "prettier --write src demo test scripts",
     "format:check": "prettier --check src demo test scripts",
-    "check": "npm run lint && npm run format:check && npm run coverage && npm run build && npm run size"
+    "check": "npm run lint && npm run format:check && npm run coverage && npm run build && npm run size",
+    "preversion": "npm run check",
+    "release": "npm version -m 'chore: release %s'"
   },
   "dependencies": {
     "@mdi/js": "^7.4.47",
