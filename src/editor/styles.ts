@@ -69,8 +69,12 @@ export const editorStyles = css`
     -webkit-user-select: none;
     user-select: none;
   }
-  .handle:hover,
-  .handle:focus-visible {
+  .handle:disabled {
+    cursor: default;
+    opacity: 0.35;
+  }
+  .handle:not(:disabled):hover,
+  .handle:not(:disabled):focus-visible {
     color: var(--primary-text-color);
     background: var(--secondary-background-color);
   }

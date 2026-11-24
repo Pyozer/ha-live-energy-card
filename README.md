@@ -174,7 +174,9 @@ collapse it.
 In the visual editor, **drag a device by its handle** (mouse, touch or pen) to reorder the list,
 move it into a group (drop it on the group's header), take it out of a group or move it to another
 one. A group can be reordered among the top-level devices, but not placed inside another group. With
-the keyboard, focus the handle and use the up and down arrows.
+the keyboard, focus the handle and use the up and down arrows. While `sort_devices` is on, the handle
+of the top-level devices is disabled (their order follows the power); the members of a group can
+still be reordered.
 
 ```yaml
 type: custom:live-energy-card
@@ -376,7 +378,7 @@ devices:
 | `eco_mode` | `false` | Lighter animation for wall tablets and low-power devices: 30 frames per second instead of the display rate, and no glow (its blur is the most expensive effect). Roughly halves the rendering work. |
 | `devices_layout` | `auto` | `auto`, `column` or `grid`. A forced `column` falls back to the stacked layout (devices below the diagram) when the card is too narrow for it, as `auto` does. |
 | `devices_columns` | auto | Number of columns in grid mode: a whole number of at least 1. Anything else (`0`, a negative number, a word) means automatic. |
-| `sort_devices` | `false` | Sorts devices by power (with hysteresis so the list does not keep moving). |
+| `sort_devices` | `false` | Sorts devices by power (with hysteresis so the list does not keep moving). The drag and drop of the top-level devices is then disabled in the visual editor. |
 | `show_untracked` | `false` | Adds an "Other" node: home consumption not covered by the devices. |
 | `show_ratios` | `false` | Shows self-consumption (share of solar used on site) and self-sufficiency (share of consumption covered without the grid). Shown only while the solar bubble is displayed: they disappear with it (no solar source, or idle solar with `hide_when_zero`). |
 | `cost` | — | Prices for the live cost and solar savings (see [Cost and carbon](#cost-and-carbon)). |

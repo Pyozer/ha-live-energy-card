@@ -63,6 +63,7 @@ export const en = {
     add_member: 'Add a device to the group',
     add_device: 'Add a device',
     drag: 'Drag to reorder or move into a group (arrow keys also work)',
+    drag_sorted: 'Sorted by power: turn the sort off to reorder',
     drag_unit: 'Drag to reorder (arrow keys also work)',
     remove: 'Remove',
     edit: 'Edit',

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addDevice,
+  canReorder,
   deviceAt,
   dropDevice,
   findDevice,
@@ -18,6 +19,15 @@ const list: DeviceConfig[] = [
   { entity: 'sensor.a' },
   { name: 'Kitchen', devices: [{ entity: 'sensor.oven' }, { entity: 'sensor.hob' }] },
 ];
+
+describe('canReorder', () => {
+  it('locks the top-level devices while they are sorted by power', () => {
+    expect(canReorder(true, [1])).toBe(false);
+    expect(canReorder(true, [1, 0])).toBe(true);
+    expect(canReorder(false, [1])).toBe(true);
+    expect(canReorder(undefined, [1])).toBe(true);
+  });
+});
 
 describe('path keys', () => {
   it('turn a path into a key and back', () => {

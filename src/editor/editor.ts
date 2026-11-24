@@ -18,6 +18,7 @@ import type { BatteryConfig, DeviceConfig, HomeAssistant, LiveEnergyCardConfig, 
 import { entityIds } from '../units';
 import {
   addDevice,
+  canReorder,
   deviceAt,
   dropDevice,
   findDevice,
@@ -315,6 +316,8 @@ export class LiveEnergyCardEditor extends LitElement {
     const icon =
       dev.icon ?? state?.attributes.icon ?? (group ? 'mdi:folder-outline' : 'mdi:power-plug-outline');
     const warning = deviceIssues(issues, path).length > 0;
+    const reorderable = canReorder(this._config!.sort_devices, path);
+    const dragLabel = this._t(reorderable ? 'editor.drag' : 'editor.drag_sorted');
     const { target } = this._drag;
     const into = target?.position === 'into' && pathKey(target.path) === key;
     return html`
@@ -327,8 +330,9 @@ export class LiveEnergyCardEditor extends LitElement {
         <div class="device-head">
           <button
             class="handle"
-            .title=${this._t('editor.drag')}
-            aria-label=${this._t('editor.drag')}
+            ?disabled=${!reorderable}
+            .title=${dragLabel}
+            aria-label=${dragLabel}
             @pointerdown=${(ev: PointerEvent) => this._drag.start(ev, pathKey(path))}
             @pointermove=${(ev: PointerEvent) => this._drag.move(ev)}
             @pointerup=${(ev: PointerEvent) => this._drag.end(ev)}

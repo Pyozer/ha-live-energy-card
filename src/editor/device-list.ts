@@ -10,6 +10,14 @@ export type DevicePath = readonly number[];
 export const pathKey = (path: DevicePath): string => path.join('.');
 export const parsePathKey = (key: string): DevicePath => key.split('.').map(Number);
 
+/**
+ * Whether the position of a device in the list can be changed by hand. The top-level devices are
+ * ordered by power when `sort_devices` is on, so their place in the list means nothing; the members
+ * of a group are never sorted.
+ */
+export const canReorder = (sortedByPower: boolean | undefined, path: DevicePath): boolean =>
+  !sortedByPower || path.length > 1;
+
 export const isGroup = (dev: DeviceConfig | undefined): boolean => Array.isArray(dev?.devices);
 
 /** Device at a path, `undefined` when the path does not exist. */

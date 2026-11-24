@@ -67,6 +67,7 @@ export const fr: DeepStrings<typeof en> = {
     add_member: 'Ajouter un appareil au groupe',
     add_device: 'Ajouter un appareil',
     drag: 'Glisser pour réordonner ou déplacer dans un groupe (les flèches fonctionnent aussi)',
+    drag_sorted: 'Trié par puissance : désactivez le tri pour réordonner',
     drag_unit: 'Glisser pour réordonner (les flèches fonctionnent aussi)',
     remove: 'Supprimer',
     edit: 'Modifier',

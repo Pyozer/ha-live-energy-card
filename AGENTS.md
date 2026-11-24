@@ -70,7 +70,7 @@ hass + config ─► model/   ─► layout.ts ─► tree.ts ─► live-energy
 | `src/colors.ts` | Home Assistant color names → CSS (`resolveColor`, which falls back for anything that is not a string) and the default palette. |
 | `src/styles.ts` | Styles and palette (`--lec-*` variables, light / dark). |
 | `src/actions.ts` | `tap_action`, `hold_action`, `double_tap_action` (`hass-action` event). |
-| `src/editor/editor.ts` | Visual editor element: renders the forms and the device list (drag and drop on a handle, arrow keys as keyboard alternative), emits `config-changed`. The card form is rendered in parts between the lists, in the order of the card: `intro` (title, language), then for each source its `source` form (solar and battery with their units list), `devicesOptions` after the devices, and `settings` (display, cost, carbon, animation, advanced). Every part gets and reports the whole data. |
+| `src/editor/editor.ts` | Visual editor element: renders the forms and the device list (drag and drop on a handle, arrow keys as keyboard alternative; the handle of the top-level devices is disabled while `sort_devices` is on, see `canReorder`), emits `config-changed`. The card form is rendered in parts between the lists, in the order of the card: `intro` (title, language), then for each source its `source` form (solar and battery with their units list), `devicesOptions` after the devices, and `settings` (display, cost, carbon, animation, advanced). Every part gets and reports the whole data. |
 | `src/editor/unit-editor.ts` | `live-energy-card-unit-editor`: the list of the units of the solar or battery source (cards opening on their own form, add, remove, reorder), fires `units-changed`. |
 | `src/editor/drag-controller.ts` | `DragController`: the pointer-event drag and drop of a list (lifted block, gap, autoscroll), told what can land where by a `DragSpec`. Used by the device list and the unit lists. |
 | `src/editor/schema.ts` | `ha-form` schemas (`EditorSchema`: `intro`, `source`, `devicesOptions`, `settings`, devices) and field labels. `FieldRef`: a field may carry its own `label` / `helper` key when its config key alone is ambiguous, e.g. `max_power` is `scale_max` for the card. |
@@ -78,7 +78,7 @@ hass + config ─► model/   ─► layout.ts ─► tree.ts ─► live-energy
 | `src/editor/validation.ts` | Entity checks shown by the editor: missing entities and entities of the wrong kind. |
 | `src/editor/styles.ts` | Editor styles. |
 | `src/editor/unit-list.ts` | Immutable operations on the units of a source (add, update, remove, reorder by keyboard or drop). |
-| `src/editor/device-list.ts` | Immutable operations on the two-level device list (devices and group members), including `dropDevice` (drag and drop). |
+| `src/editor/device-list.ts` | Immutable operations on the two-level device list (devices and group members), including `dropDevice` (drag and drop) and `canReorder` (top-level devices are not reorderable by hand while `sort_devices` is on). |
 | `src/editor/drag.ts` | Pure geometry of the device drag and drop: the drop target (before, after, into a group) for a pointer height. |
 | `src/localize/` | `en.ts` is the reference; `fr.ts` is typed against it (a missing key fails to compile). `resolveLanguage` picks the card `language` option, then the HA user language. |
 | `demo/form-stubs.ts` | Stubs for `ha-form`, `ha-svg-icon` and `ha-icon-button`, so the real visual editor renders on the demo page: the form structure, labels, help texts and the values a change writes. |
