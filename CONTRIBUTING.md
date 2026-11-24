@@ -1,5 +1,18 @@
 # Contributing
 
+## Node version
+
+The Node version is pinned in `.nvmrc`, which nvm, fnm, mise and the CI all read. `package.json`
+states the minimum (`engines`) and `.npmrc` makes `npm install` fail on an older Node.
+
+With [mise](https://mise.jdx.dev), reading `.nvmrc` has to be enabled once on your machine, otherwise
+mise ignores it without a message:
+
+```bash
+mise settings add idiomatic_version_file_enable_tools node
+mise install   # installs the version of .nvmrc
+```
+
 ## Before committing
 
 ```bash

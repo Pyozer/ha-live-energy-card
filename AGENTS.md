@@ -179,7 +179,9 @@ Every code change comes with the matching documentation update, in the same comm
 - `docs/` holds the README screenshots, taken from the demo page: refresh them when the look changes.
 - `.github/ISSUE_TEMPLATE/bug_report.yml`: the bug report form (what happened, YAML configuration, card and Home Assistant versions); blank issues stay allowed (`config.yml`).
 - Dependabot opens monthly update PRs for npm (dev dependencies grouped) and the GitHub actions.
-- The Node version is pinned in `.nvmrc`, shared by CI and local development.
+- The Node version is pinned in `.nvmrc`, shared by CI and local development (nvm, fnm, mise and
+  `actions/setup-node` all read it). `engines` in `package.json` states the minimum, and
+  `engine-strict=true` in `.npmrc` makes `npm install` fail on an older Node instead of warning.
 
 ## Commits
 
