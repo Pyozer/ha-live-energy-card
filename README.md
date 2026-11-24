@@ -1,4 +1,8 @@
-# Live Energy Card
+<p align="center">
+  <img src="docs/logo.svg" alt="Live Energy Card logo" width="112" />
+</p>
+
+<h1 align="center">Live Energy Card</h1>
 
 A Home Assistant Lovelace card that shows your home's energy flows **live**: solar, grid, battery,
 home and individual devices. The design follows iOS app conventions: neutral surfaces, with system

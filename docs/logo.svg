@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="title">
+  <title id="title">Live Energy Card</title>
+  <defs>
+    <clipPath id="tile"><rect width="256" height="256" rx="58"/></clipPath>
+    <clipPath id="glass"><path d="M112.8 61Q128 48 143.2 61L188.9 100.2Q198 108 198 120L198 178Q198 204 172 204L84 204Q58 204 58 178L58 120Q58 108 67.1 100.2Z"/></clipPath>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#2c2c30"/><stop offset="1" stop-color="#121214"/>
+    </linearGradient>
+    <radialGradient id="haze" cx="72" cy="84" r="110" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff9f0a" stop-opacity="0.28"/><stop offset="1" stop-color="#ff9f0a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="sun" cx="0.38" cy="0.32" r="0.75">
+      <stop offset="0" stop-color="#ffd27a"/><stop offset="0.45" stop-color="#ffa31a"/><stop offset="1" stop-color="#ff7a00"/>
+    </radialGradient>
+    <linearGradient id="g-grid" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="256" y2="0">
+      <stop offset="0" stop-color="#0a84ff"/><stop offset="0.7" stop-color="#2f7bff"/><stop offset="1" stop-color="#5e5ce6"/>
+    </linearGradient>
+    <linearGradient id="g-export" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="256" y2="0">
+      <stop offset="0" stop-color="#5e5ce6"/><stop offset="1" stop-color="#8e7cff"/>
+    </linearGradient>
+    <linearGradient id="pane" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.30"/><stop offset="0.55" stop-color="#fff" stop-opacity="0.08"/><stop offset="1" stop-color="#fff" stop-opacity="0.14"/>
+    </linearGradient>
+    <linearGradient id="rim" gradientUnits="userSpaceOnUse" x1="58" y1="48" x2="198" y2="204">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.95"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.2"/><stop offset="1" stop-color="#fff" stop-opacity="0.6"/>
+    </linearGradient>
+    <filter id="frost" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="9"/>
+      <feColorMatrix type="saturate" values="1.25"/>
+    </filter>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%"><feGaussianBlur stdDeviation="8"/></filter>
+    <path id="bolt" d="M137.7 111.7L111 139.9Q109.5 141.5 111.7 141.5L126.2 141.5Q127.4 141.5 126.9 142.6L117.7 161.9Q116.8 163.9 118.3 162.3L145 134.1Q146.5 132.5 144.3 132.5L129.8 132.5Q128.6 132.5 129.1 131.4L138.3 112.1Q139.2 110.1 137.7 111.7Z"/>
+    <clipPath id="bolt-clip"><path d="M137.7 111.7L111 139.9Q109.5 141.5 111.7 141.5L126.2 141.5Q127.4 141.5 126.9 142.6L117.7 161.9Q116.8 163.9 118.3 162.3L145 134.1Q146.5 132.5 144.3 132.5L129.8 132.5Q128.6 132.5 129.1 131.4L138.3 112.1Q139.2 110.1 137.7 111.7Z"/></clipPath>
+    <linearGradient id="bolt-fill" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.55"/><stop offset="1" stop-color="#fff" stop-opacity="0.22"/>
+    </linearGradient>
+    <linearGradient id="bolt-rim" gradientUnits="userSpaceOnUse" x1="110" y1="110" x2="146" y2="164">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.95"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.3"/><stop offset="1" stop-color="#fff" stop-opacity="0.7"/>
+    </linearGradient>
+    <filter id="bolt-shadow" x="-40%" y="-30%" width="180%" height="160%"><feGaussianBlur stdDeviation="2.5"/></filter>
+    <filter id="bolt-frost" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="9"/>
+      <feColorMatrix type="saturate" values="1.25"/>
+      <feComponentTransfer><feFuncR type="linear" slope="1.3" intercept="0.22"/><feFuncG type="linear" slope="1.3" intercept="0.22"/><feFuncB type="linear" slope="1.3" intercept="0.22"/></feComponentTransfer>
+    </filter>
+  </defs>
+  <g clip-path="url(#tile)">
+    <g id="scene">
+      <rect width="256" height="256" fill="url(#bg)"/>
+      <rect width="256" height="256" fill="url(#haze)"/>
+      <circle cx="72" cy="84" r="40" fill="url(#sun)"/>
+      <g fill="none" stroke-linecap="round">
+        <path d="M-24 155.6C-22.7 155.9 -18.7 156.6 -16 157.3C-13.3 158.1 -10.7 159 -8 160C-5.3 161 -2.7 162.1 0 163.3C2.7 164.5 5.3 165.8 8 167C10.7 168.3 13.3 169.6 16 170.9C18.7 172.1 21.3 173.3 24 174.4C26.7 175.5 29.3 176.6 32 177.4C34.7 178.3 37.3 179.1 40 179.6C42.7 180.2 45.3 180.6 48 180.8C50.7 181 53.3 181.1 56 180.9C58.7 180.7 61.3 180.4 64 179.8C66.7 179.3 69.3 178.6 72 177.8C74.7 176.9 77.3 175.9 80 174.8C82.7 173.8 85.3 172.5 88 171.3C90.7 170.1 93.3 168.8 96 167.5C98.7 166.3 101.3 164.9 104 163.8C106.7 162.6 109.3 161.4 112 160.4C114.7 159.3 117.3 158.4 120 157.6C122.7 156.9 125.3 156.2 128 155.8C130.7 155.4 133.3 155.1 136 155C138.7 155 141.3 155.1 144 155.4C146.7 155.7 149.3 156.2 152 156.8C154.7 157.5 157.3 158.3 160 159.2C162.7 160.2 165.3 161.3 168 162.4C170.7 163.6 173.3 164.8 176 166.1C178.7 167.3 181.3 168.7 184 169.9C186.7 171.2 189.3 172.4 192 173.6C194.7 174.7 197.3 175.8 200 176.8C202.7 177.7 205.3 178.5 208 179.2C210.7 179.8 213.3 180.3 216 180.6C218.7 180.9 221.3 181 224 181C226.7 180.9 229.3 180.6 232 180.2C234.7 179.8 237.3 179.1 240 178.4C242.7 177.6 245.3 176.7 248 175.6C250.7 174.6 253.3 173.4 256 172.2C258.7 171.1 261.3 169.7 264 168.5C266.7 167.2 269.3 165.9 272 164.7C274.7 163.5 278.7 161.7 280 161.2" stroke="url(#g-grid)" stroke-width="22"/>
+        <path d="M-24 197.9C-22.7 197.3 -18.7 195.8 -16 194.7C-13.3 193.5 -10.7 192.3 -8 191.1C-5.3 189.9 -2.7 188.7 0 187.7C2.7 186.6 5.3 185.6 8 184.8C10.7 184 13.3 183.3 16 182.8C18.7 182.3 21.3 182.1 24 182C26.7 182 29.3 182.1 32 182.5C34.7 182.9 37.3 183.5 40 184.2C42.7 184.9 45.3 185.9 48 186.9C50.7 187.9 53.3 189.1 56 190.2C58.7 191.4 61.3 192.6 64 193.8C66.7 194.9 69.3 196.1 72 197.1C74.7 198.1 77.3 199.1 80 199.8C82.7 200.5 85.3 201.1 88 201.5C90.7 201.9 93.3 202 96 202C98.7 201.9 101.3 201.7 104 201.2C106.7 200.7 109.3 200 112 199.2C114.7 198.4 117.3 197.4 120 196.3C122.7 195.3 125.3 194.1 128 192.9C130.7 191.7 133.3 190.5 136 189.3C138.7 188.2 141.3 187.1 144 186.1C146.7 185.2 149.3 184.3 152 183.7C154.7 183 157.3 182.5 160 182.3C162.7 182 165.3 181.9 168 182.1C170.7 182.2 173.3 182.6 176 183.2C178.7 183.7 181.3 184.5 184 185.4C186.7 186.3 189.3 187.4 192 188.5C194.7 189.6 197.3 190.8 200 192C202.7 193.2 205.3 194.4 208 195.5C210.7 196.6 213.3 197.7 216 198.6C218.7 199.5 221.3 200.3 224 200.8C226.7 201.4 229.3 201.8 232 201.9C234.7 202.1 237.3 202 240 201.7C242.7 201.5 245.3 201 248 200.3C250.7 199.7 253.3 198.8 256 197.9C258.7 196.9 261.3 195.8 264 194.7C266.7 193.5 269.3 192.3 272 191.1C274.7 189.9 278.7 188.2 280 187.7" stroke="url(#g-export)" stroke-width="13"/>
+        <path d="M-24 215.1C-21.3 215.9 -18.7 216.5 -16 216.8C-13.3 217.1 -10.7 217.1 -8 216.8C-5.3 216.5 -2.7 215.9 0 215.1C2.7 214.3 5.3 213.2 8 212C10.7 210.8 13.3 209.4 16 208C18.7 206.7 21.3 205.2 24 203.9C26.7 202.6 29.3 201.3 32 200.3C34.7 199.3 37.3 198.4 40 197.9C42.7 197.3 45.3 197 48 197C50.7 197 53.3 197.3 56 197.9C58.7 198.4 61.3 199.3 64 200.3C66.7 201.3 69.3 202.6 72 203.9C74.7 205.2 77.3 206.7 80 208C82.7 209.4 85.3 210.8 88 212C90.7 213.2 93.3 214.3 96 215.1C98.7 215.9 101.3 216.5 104 216.8C106.7 217.1 109.3 217.1 112 216.8C114.7 216.5 117.3 215.9 120 215.1C122.7 214.3 125.3 213.2 128 212C130.7 210.8 133.3 209.4 136 208C138.7 206.7 141.3 205.2 144 203.9C146.7 202.6 149.3 201.3 152 200.3C154.7 199.3 157.3 198.4 160 197.9C162.7 197.3 165.3 197 168 197C170.7 197 173.3 197.3 176 197.9C178.7 198.4 181.3 199.3 184 200.3C186.7 201.3 189.3 202.6 192 203.9C194.7 205.2 197.3 206.7 200 208C202.7 209.4 205.3 210.8 208 212C210.7 213.2 213.3 214.3 216 215.1C218.7 215.9 221.3 216.5 224 216.8C226.7 217.1 229.3 217.1 232 216.8C234.7 216.5 237.3 215.9 240 215.1C242.7 214.3 245.3 213.2 248 212C250.7 210.8 253.3 209.4 256 208C258.7 206.7 261.3 205.2 264 203.9C266.7 202.6 269.3 201.3 272 200.3C274.7 199.3 277.3 198.4 280 197.9" stroke="#30d158" stroke-width="8"/>
+      </g>
+      <g fill="#fff" fill-opacity="0.9"><circle cx="10" cy="168" r="2.8"/><circle cx="20" cy="182.3" r="2.2"/><circle cx="44" cy="185.4" r="2.8"/><circle cx="226" cy="201.2" r="2.2"/><circle cx="242" cy="201.5" r="2.8"/><circle cx="210" cy="179.6" r="2.6"/><circle cx="228" cy="180.7" r="3.2"/></g>
+    </g>
+    <path d="M112.8 61Q128 48 143.2 61L188.9 100.2Q198 108 198 120L198 178Q198 204 172 204L84 204Q58 204 58 178L58 120Q58 108 67.1 100.2Z" fill="#000" fill-opacity="0.45" filter="url(#shadow)" transform="translate(0 8)"/>
+    <g clip-path="url(#glass)">
+      <use href="#scene" xlink:href="#scene" filter="url(#frost)"/>
+      <path d="M112.8 61Q128 48 143.2 61L188.9 100.2Q198 108 198 120L198 178Q198 204 172 204L84 204Q58 204 58 178L58 120Q58 108 67.1 100.2Z" fill="url(#pane)"/>
+    </g>
+    <path d="M112.8 61Q128 48 143.2 61L188.9 100.2Q198 108 198 120L198 178Q198 204 172 204L84 204Q58 204 58 178L58 120Q58 108 67.1 100.2Z" fill="none" stroke="url(#rim)" stroke-width="2"/>
+    <use href="#bolt" xlink:href="#bolt" fill="#000" fill-opacity="0.35" filter="url(#bolt-shadow)" transform="translate(0 3)"/>
+    <g clip-path="url(#bolt-clip)">
+      <use href="#scene" xlink:href="#scene" filter="url(#bolt-frost)"/>
+      <use href="#bolt" xlink:href="#bolt" fill="url(#bolt-fill)"/>
+      <use href="#bolt" xlink:href="#bolt" fill="none" stroke="#fff" stroke-opacity="0.6" stroke-width="1.3" stroke-linejoin="round" transform="translate(0.7 0.9)"/>
+    </g>
+    <use href="#bolt" xlink:href="#bolt" fill="none" stroke="url(#bolt-rim)" stroke-width="1" stroke-linejoin="round"/>
+  </g>
+</svg>
