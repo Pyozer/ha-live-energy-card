@@ -1,6 +1,6 @@
 import { formatEnergy } from '../energy-today';
 import type { LocalizeKey } from '../localize/localize';
-import type { BaseNodeConfig, EntityRef, GridConfig, HomeAssistant } from '../types';
+import type { BaseNodeConfig, BubbleConfig, EntityRef, GridConfig, HomeAssistant } from '../types';
 import { entityIds, numberFormat, readNumber } from '../units';
 import type { NodeActions, NodeModel } from './types';
 
@@ -104,9 +104,9 @@ export function gridSecondary(
     : `${parts[0]} ${parts[1]}`;
 }
 
-/** Default action: more-info of the node's (first) entity. */
-export function actionsFor(cfg: BaseNodeConfig | undefined, ref: EntityRef | undefined): NodeActions {
-  const entity = entityIds(ref)[0];
+/** Default action: more-info of `action_entity`, else the node's (first) entity. */
+export function actionsFor(cfg: BubbleConfig | undefined, ref: EntityRef | undefined): NodeActions {
+  const entity = cfg?.action_entity || entityIds(ref)[0];
   return {
     entity,
     tap_action: cfg?.tap_action ?? (entity ? { action: 'more-info' } : { action: 'none' }),

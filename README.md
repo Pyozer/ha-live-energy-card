@@ -51,7 +51,7 @@ sliders for every source and device, scenarios, and a YAML editor. No Home Assis
   bubbles closer together and/or smaller bubbles.
 - Automatic unit conversion (W, kW, MW), animated counters, tabular figures.
 - `unavailable` / `unknown` entities are reported cleanly: never `NaN`.
-- `tap_action`, `hold_action`, `double_tap_action` on every node and on the cost, savings and CO₂ indicators (more-info by default).
+- `tap_action`, `hold_action`, `double_tap_action` and optional `action_entity` on every node and on the cost, savings and CO₂ indicators (more-info by default).
 - Automatic light and dark themes, `prefers-reduced-motion` support, animation paused off-screen,
   **eco mode** for low-power devices.
 - **Import from the Energy dashboard**: solar, grid, battery and devices in one click.
@@ -249,7 +249,7 @@ other loses nothing.
 
 | On the unit | On the node (single bubble), or on each unit (`separate`) |
 | --- | --- |
-| `entity`, `invert`, `energy_entity`, solar: `max_power`, `max_power_entity` | `name`, `icon`, `color`, `hide_when_zero`, `secondary_entity`, `animation`, `tap_action`, `hold_action`, `double_tap_action` |
+| `entity`, `invert`, `energy_entity`, solar: `max_power`, `max_power_entity` | `name`, `icon`, `color`, `hide_when_zero`, `secondary_entity`, `animation`, `action_entity`, `tap_action`, `hold_action`, `double_tap_action` |
 | battery: `charge_entity`, `discharge_entity`, `grid_charge_entity`, `soc_entity`, `capacity`, `min_soc` | battery: `charge_color` |
 
 - A unit's `entity` is a single entity: one sensor per unit. A battery unit has a signed `entity`
@@ -406,6 +406,7 @@ Available for `grid`, `home` and each item of `devices` (and for each unit of `s
 | `energy_entity` | **Energy of the day.** Cumulative energy counter(s) in kWh, as used by the Energy dashboard (a list is added up). The card shows the change since midnight, read from the Home Assistant statistics (refreshed every 5 minutes), always in kWh. The counter does not need to reset daily. Shows `—` when a counter has no statistics. |
 | `secondary_entity` | **Custom line.** Any entity (a daily `utility_meter`, a cost, a temperature…), shown as is with its own unit, live. It *replaces* the energy of the day: when both are set, `energy_entity` is ignored (the editor warns about it). |
 | `animation` | Overrides the intensity effects for this node's flows. |
+| `action_entity` | Optional entity targeted by actions (`more-info`, `toggle`…), replacing the node's own entity. Useful when the live flow reads a fast sensor without history and tapping the bubble should open a recorded sensor instead, or to make a calculated `home` bubble tappable. |
 | `tap_action`, `hold_action`, `double_tap_action` | Standard Home Assistant actions. |
 
 Specific options:
@@ -512,9 +513,9 @@ graph), like a bubble. An indicator that is calculated from prices and flows has
 and is not tappable. When the earnings are shown instead of the cost (a negative cost), the earnings
 entity is the one that opens.
 
-Like on a bubble, each indicator can have its own `tap_action`, `hold_action` and `double_tap_action`
-(standard Home Assistant actions), which replace the default more-info. They also work on a calculated
-indicator, which makes it tappable:
+Like on a bubble, each indicator can have its own `action_entity`, `tap_action`, `hold_action` and
+`double_tap_action` (standard Home Assistant actions), which replace the default more-info entity or
+action. They also work on a calculated indicator, which makes it tappable:
 
 | Indicator | Option | Default |
 | --- | --- | --- |

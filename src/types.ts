@@ -27,6 +27,8 @@ export interface BubbleConfig {
   /** Additional entity shown in the bubble (e.g. today's energy). */
   secondary_entity?: string;
   animation?: AnimationToggles;
+  /** Entity targeted by actions (`more-info`, `toggle`…), replacing the bubble's own entity. */
+  action_entity?: string;
   tap_action?: ActionConfig;
   hold_action?: ActionConfig;
   double_tap_action?: ActionConfig;
@@ -166,6 +168,8 @@ export interface CostConfig {
 
 /** What tapping an indicator does. More-info of its entity by default, when it has one. */
 export interface StatActionsConfig {
+  /** Entity targeted by actions (`more-info`, `toggle`…), replacing the indicator's own entity. */
+  action_entity?: string;
   tap_action?: ActionConfig;
   hold_action?: ActionConfig;
   double_tap_action?: ActionConfig;

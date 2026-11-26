@@ -97,4 +97,19 @@ describe('actionsFor', () => {
     const nav = { action: 'navigate', navigation_path: '/energy' };
     expect(actionsFor({ tap_action: nav }, 'sensor.a').tap_action).toBe(nav);
   });
+
+  it('uses action_entity instead of the power sensor, including on entityless nodes', () => {
+    expect(actionsFor({ action_entity: 'sensor.grid_history' }, 'sensor.grid_fast')).toMatchObject({
+      entity: 'sensor.grid_history',
+      tap_action: { action: 'more-info' },
+    });
+    expect(actionsFor({ action_entity: 'sensor.home_history' }, undefined)).toMatchObject({
+      entity: 'sensor.home_history',
+      tap_action: { action: 'more-info' },
+    });
+    expect(actionsFor({ action_entity: '' }, 'sensor.grid_fast')).toMatchObject({
+      entity: 'sensor.grid_fast',
+      tap_action: { action: 'more-info' },
+    });
+  });
 });

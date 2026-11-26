@@ -47,6 +47,7 @@ const NODE_FIELDS: [string, EntityKind | undefined][] = [
   ['energy_entity', 'energy'],
   ['export_energy_entity', 'energy'],
   ['secondary_entity', undefined],
+  ['action_entity', undefined],
 ];
 
 export function entityIssues(config: LiveEnergyCardConfig, hass: HomeAssistant | undefined): EntityIssue[] {
@@ -105,7 +106,10 @@ export function entityIssues(config: LiveEnergyCardConfig, hass: HomeAssistant |
   check('cost', 'savings_entity', config.cost?.savings_entity, 'money');
   check('cost', 'price_entity', config.cost?.price_entity, 'price');
   check('cost', 'export_price_entity', config.cost?.export_price_entity, 'price');
+  check('cost', 'action_entity', config.cost?.cost_actions?.action_entity, undefined);
+  check('cost', 'action_entity', config.cost?.savings_actions?.action_entity, undefined);
   check('carbon', 'intensity_entity', config.carbon?.intensity_entity, 'carbon');
+  check('carbon', 'action_entity', config.carbon?.actions?.action_entity, undefined);
   return issues;
 }
 

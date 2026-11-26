@@ -58,6 +58,7 @@ export const fr: DeepStrings<typeof en> = {
     display: 'Affichage',
     advanced: 'Avancé',
     appearance: 'Apparence et actions',
+    actions: 'Actions',
     devices_options: 'Disposition et tri',
     animation: 'Animation',
     cost: 'Coût',
@@ -149,6 +150,8 @@ export const fr: DeepStrings<typeof en> = {
       energy_entity: 'Compteur(s) cumulatif(s) en kWh, additionnés. Affiche la variation depuis minuit.',
       secondary_entity:
         'N’importe quelle entité, affichée telle quelle sous la valeur. Remplace l’énergie du jour.',
+      action_entity:
+        'Facultatif : ouvre cette entité au clic (« Plus d’informations » ou « Basculer ») à la place du capteur de puissance, par ex. une entité avec historique.',
       period: 'Le total du jour est calculé depuis les compteurs d’énergie.',
       cost_entity: 'Par heure : un montant en €/h. Par jour : un montant en €.',
       earnings_entity: 'Par heure : un montant en €/h. Par jour : un montant en €.',
@@ -220,6 +223,7 @@ export const fr: DeepStrings<typeof en> = {
       thickness: 'Épaisseur du trait',
       density: 'Densité de particules',
       glow: 'Halo lumineux',
+      action_entity: 'Entité des actions',
       tap_action: 'Action au toucher',
       hold_action: 'Action en appui long',
       double_tap_action: 'Action au double toucher',

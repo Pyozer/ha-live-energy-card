@@ -207,6 +207,26 @@ describe('computeStats', () => {
         cost.cost_actions.tap_action,
       );
     });
+
+    it('uses action_entity over the default entity and makes calculated indicators tappable', () => {
+      const cost = {
+        cost_actions: { action_entity: 'sensor.cost_history' },
+        savings_actions: { action_entity: 'sensor.savings_history' },
+      };
+      const carbon = { actions: { action_entity: 'sensor.co2_history' } };
+      expect(statActions('cost', 'sensor.cost_fast', cost, carbon)).toMatchObject({
+        entity: 'sensor.cost_history',
+        tap_action: { action: 'more-info' },
+      });
+      expect(statActions('savings', undefined, cost, carbon)).toMatchObject({
+        entity: 'sensor.savings_history',
+        tap_action: { action: 'more-info' },
+      });
+      expect(statActions('carbon', undefined, cost, carbon)).toMatchObject({
+        entity: 'sensor.co2_history',
+        tap_action: { action: 'more-info' },
+      });
+    });
   });
 
   describe('ready-made cost entities', () => {

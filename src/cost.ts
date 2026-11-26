@@ -47,9 +47,10 @@ export function statActions(
 ): NodeActions {
   const cfg =
     key === 'cost' ? cost?.cost_actions : key === 'savings' ? cost?.savings_actions : carbon?.actions;
+  const target = cfg?.action_entity || entity;
   return {
-    entity,
-    tap_action: cfg?.tap_action ?? (entity ? { action: 'more-info' } : { action: 'none' }),
+    entity: target,
+    tap_action: cfg?.tap_action ?? (target ? { action: 'more-info' } : { action: 'none' }),
     hold_action: cfg?.hold_action,
     double_tap_action: cfg?.double_tap_action,
   };

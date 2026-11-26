@@ -135,6 +135,40 @@ describe('editor form', () => {
     expect(next.carbon).toEqual({ actions: { double_tap_action: tap } });
   });
 
+  it('keeps action_entity on nodes, units, devices and indicators, and drops it when cleared', () => {
+    const next = roundTrip(base, (d) => {
+      (d.grid as Record<string, unknown>).action_entity = 'sensor.grid_history';
+      d.cost = { cost_actions: { action_entity: 'sensor.cost_history' } };
+      d.carbon = { actions: { action_entity: 'sensor.co2_history' } };
+    });
+    expect(next.grid).toEqual({ action_entity: 'sensor.grid_history' });
+    expect(next.cost).toEqual({ cost_actions: { action_entity: 'sensor.cost_history' } });
+    expect(next.carbon).toEqual({ actions: { action_entity: 'sensor.co2_history' } });
+
+    const cleared = roundTrip(next, (d) => {
+      (d.grid as Record<string, unknown>).action_entity = '';
+      d.cost = { cost_actions: { action_entity: '' } };
+      d.carbon = { actions: { action_entity: '' } };
+    });
+    expect(cleared.grid).toBeUndefined();
+    expect(cleared.cost).toBeUndefined();
+    expect(cleared.carbon).toBeUndefined();
+
+    expect(
+      deviceFromForm(
+        { entity: ['sensor.tv_fast'], action_entity: 'sensor.tv' },
+        { entity: 'sensor.tv_fast' },
+        true,
+      ),
+    ).toEqual({ entity: 'sensor.tv_fast', action_entity: 'sensor.tv' });
+    expect(unitFromForm('solar', { entity: 'sensor.pv_fast', action_entity: 'sensor.pv' }, {}, true)).toEqual(
+      {
+        entity: 'sensor.pv_fast',
+        action_entity: 'sensor.pv',
+      },
+    );
+  });
+
   it('has an actions group for each indicator, nested under its own key', () => {
     const t = (key: Parameters<typeof localize>[1]) => localize('en', key);
     const sections = new EditorSchema(t, undefined).card(base) as Schema[];
@@ -676,6 +710,32 @@ describe('entity issues', () => {
   it('only checks that a secondary entity exists', () => {
     const config: LiveEnergyCardConfig = { ...base, home: { secondary_entity: 'sensor.price' } };
     expect(entityIssues(config, hass)).toEqual([]);
+  });
+
+  it('checks that action_entity exists on nodes, units, devices and indicators, regardless of unit', () => {
+    const valid: LiveEnergyCardConfig = {
+      ...base,
+      grid: { entity: 'sensor.solar', action_entity: 'sensor.price' },
+      cost: { cost_actions: { action_entity: 'sensor.tv' } },
+      carbon: { actions: { action_entity: 'sensor.soc' } },
+    };
+    expect(entityIssues(valid, hass)).toEqual([]);
+
+    const missing: LiveEnergyCardConfig = {
+      ...base,
+      grid: { entity: 'sensor.solar', action_entity: 'sensor.missing_grid' },
+      cost: {
+        cost_actions: { action_entity: 'sensor.missing_cost' },
+        savings_actions: { action_entity: 'sensor.missing_savings' },
+      },
+      carbon: { actions: { action_entity: 'sensor.missing_carbon' } },
+    };
+    expect(entityIssues(missing, hass)).toEqual([
+      { where: 'grid', field: 'action_entity', entity: 'sensor.missing_grid', problem: 'missing' },
+      { where: 'cost', field: 'action_entity', entity: 'sensor.missing_cost', problem: 'missing' },
+      { where: 'cost', field: 'action_entity', entity: 'sensor.missing_savings', problem: 'missing' },
+      { where: 'carbon', field: 'action_entity', entity: 'sensor.missing_carbon', problem: 'missing' },
+    ]);
   });
 
   it('warns when a secondary entity hides the energy counters', () => {

@@ -79,14 +79,15 @@ const watts = (name: string, min = 0, describe: Partial<FieldRef> = {}): Schema 
   selector: { number: { min, mode: 'box', unit_of_measurement: 'W' } },
 });
 
-/** The three actions, flattened into the form of a node, or nested under `name` for an indicator. */
-const actionsSchema = (t: Translate, name = '', title: LocalizeKey = 'editor.field.tap_action'): Schema => ({
+/** Actions and optional target entity, flattened into a node form or nested under `name` for an indicator. */
+const actionsSchema = (t: Translate, name = '', title: LocalizeKey = 'editor.actions'): Schema => ({
   type: 'expandable',
   name,
   ...(name ? {} : { flatten: true }),
   title: t(title),
   icon: 'mdi:gesture-tap',
   schema: [
+    { name: 'action_entity', selector: ANY_ENTITY },
     { name: 'tap_action', selector: { ui_action: {} } },
     { name: 'hold_action', selector: { ui_action: {} } },
     { name: 'double_tap_action', selector: { ui_action: {} } },
