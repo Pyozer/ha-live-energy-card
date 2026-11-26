@@ -120,6 +120,18 @@ export function deviceIssues(issues: readonly EntityIssue[], path: DevicePath): 
   );
 }
 
+/** Sections of the visual editor, each shown as its own collapsible panel. */
+export type EditorSection = NodeKey | 'devices' | 'display' | 'cost' | 'carbon' | 'animation' | 'advanced';
+
+/** Issues belonging to a section of the editor (used to flag its collapsed header). */
+export function sectionIssues(issues: readonly EntityIssue[], section: EditorSection): EntityIssue[] {
+  if (section === 'solar' || section === 'battery') {
+    return issues.filter((i) => i.where === section || (isUnitRef(i.where) && i.where.group === section));
+  }
+  if (section === 'devices') return issues.filter((i) => Array.isArray(i.where));
+  return issues.filter((i) => i.where === section);
+}
+
 /** Issues of a unit of the solar or battery node. */
 export function unitIssues(issues: readonly EntityIssue[], group: UnitGroup, index: number): EntityIssue[] {
   return issues.filter((i) => isUnitRef(i.where) && i.where.group === group && i.where.index === index);

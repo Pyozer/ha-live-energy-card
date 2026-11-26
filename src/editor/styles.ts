@@ -4,32 +4,95 @@ export const editorStyles = css`
   :host {
     display: block;
   }
-  .devices,
-  .units {
-    margin-top: 16px;
+  .group-title {
+    margin: 20px 0 8px 2px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--secondary-text-color);
+  }
+  .panels {
     display: flex;
     flex-direction: column;
     gap: 8px;
   }
-  .section {
-    margin-top: 16px;
+  .panel {
+    border: 1px solid var(--divider-color);
+    border-radius: 12px;
+    background: var(--card-background-color, var(--ha-card-background, transparent));
   }
-  .devices-title {
+  .panel.open {
+    border-color: color-mix(in srgb, var(--primary-color) 45%, var(--divider-color));
+  }
+  .panel-head {
+    width: 100%;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
+    padding: 12px 12px 12px 14px;
+    border: none;
+    border-radius: 12px;
+    background: none;
+    color: var(--primary-text-color);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .panel-head:hover {
+    background: color-mix(in srgb, var(--primary-text-color) 4%, transparent);
+  }
+  .panel.open .panel-head {
+    border-radius: 12px 12px 0 0;
+  }
+  .panel-head > ha-icon,
+  .panel-head .chevron {
+    color: var(--secondary-text-color);
+    flex: none;
+  }
+  .panel-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .panel-title {
     font-weight: 500;
-    padding: 4px 2px;
+    font-size: 14px;
   }
-  .devices-title ha-icon {
+  .panel-summary {
     color: var(--secondary-text-color);
-  }
-  .count {
     font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .panel-body {
+    padding: 12px 14px 16px;
+    border-top: 1px solid var(--divider-color);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .sub-heading {
+    margin-top: 4px;
+    padding-top: 12px;
+    border-top: 1px solid var(--divider-color);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
     color: var(--secondary-text-color);
-    background: var(--secondary-background-color);
-    border-radius: 10px;
-    padding: 1px 8px;
+  }
+  .unit-toggle {
+    margin-top: 4px;
+  }
+  .devices,
+  .units {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
   .empty {
     color: var(--secondary-text-color);
@@ -200,7 +263,8 @@ export const editorStyles = css`
     font-weight: 500;
   }
   .issues ha-svg-icon,
-  .device-head .warning {
+  .device-head .warning,
+  .panel-head .warning {
     color: var(--warning-color, #ff9500);
     flex: none;
   }

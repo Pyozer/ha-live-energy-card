@@ -46,7 +46,7 @@ export default defineConfig(({ mode }) => ({
           functions: 95,
         },
         'src/model/**': { lines: 97, functions: 97 },
-        'src/editor/{device-list,form,schema,unit-list,validation}.ts': { lines: 99, functions: 95 },
+        'src/editor/{device-list,form,schema,summary,unit-list,validation}.ts': { lines: 99, functions: 95 },
       },
     },
   },

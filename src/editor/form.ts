@@ -114,6 +114,29 @@ export function toFormData(config: LiveEnergyCardConfig, modes: PriceModes = {})
   };
 }
 
+/** Sections edited in their own `ha-form`, scoped to `data[section]`. */
+export type NestedSection = NodeKey | 'cost' | 'carbon' | 'animation';
+
+export const NESTED_SECTIONS: ReadonlySet<string> = new Set<NestedSection>([
+  'solar',
+  'grid',
+  'battery',
+  'home',
+  'cost',
+  'carbon',
+  'animation',
+]);
+
+/** Merges a `value-changed` payload from either a root form or a nested section form into full form data. */
+export function mergeFormData(
+  config: LiveEnergyCardConfig,
+  modes: PriceModes,
+  value: unknown,
+  section?: NestedSection,
+): Record<string, unknown> {
+  return section ? { ...toFormData(config, modes), [section]: value } : (value as Record<string, unknown>);
+}
+
 /** Price sources chosen in the form data. */
 export function priceModesOf(data: Record<string, unknown>): PriceModes {
   const cost = (data.cost ?? {}) as Record<string, unknown>;

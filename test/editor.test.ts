@@ -3,6 +3,8 @@ import {
   deviceFormData,
   deviceFromForm,
   fromFormData,
+  mergeFormData,
+  NESTED_SECTIONS,
   priceMode,
   priceModesOf,
   savingsMode,
@@ -14,7 +16,14 @@ import { addUnit, dropUnit, removeUnit, shiftUnit, unitsOf, updateUnit } from '.
 import { EditorSchema, fieldHelper, fieldLabel, formLabel, type Schema } from '../src/editor/schema';
 import { localize, SUPPORTED_LANGUAGES } from '../src/localize/localize';
 import type { HassEntity, HomeAssistant, LiveEnergyCardConfig } from '../src/types';
-import { describeIssue, deviceIssues, entityIssues, unitIssues } from '../src/editor/validation';
+import {
+  describeIssue,
+  deviceIssues,
+  entityIssues,
+  sectionIssues,
+  unitIssues,
+} from '../src/editor/validation';
+import { EDITOR_GROUPS, sectionSummary, showSeparateToggle, toggleSection } from '../src/editor/summary';
 
 const base: LiveEnergyCardConfig = { type: 'custom:live-energy-card' };
 
@@ -135,6 +144,29 @@ describe('editor form', () => {
         .map((s) => s.name);
     expect(groupsOf('cost')).toEqual(['cost_actions', 'savings_actions']);
     expect(groupsOf('carbon')).toEqual(['actions']);
+  });
+
+  it('merges edits from a nested section form without losing other sections', () => {
+    const config: LiveEnergyCardConfig = {
+      ...base,
+      title: 'Energy',
+      solar: { units: [{ entity: 'sensor.s' }] },
+      grid: { entity: 'sensor.g' },
+      devices: [{ entity: 'sensor.tv' }],
+    };
+    const merged = mergeFormData(
+      config,
+      {},
+      { ...(toFormData(config).grid as object), name: 'Linky' },
+      'grid',
+    );
+    expect(fromFormData(merged, config)).toEqual({
+      ...config,
+      grid: { entity: 'sensor.g', name: 'Linky' },
+    });
+    expect(mergeFormData(config, {}, { title: 'Home' })).toEqual({ title: 'Home' });
+    expect(NESTED_SECTIONS.has('cost')).toBe(true);
+    expect(NESTED_SECTIONS.has('display')).toBe(false);
   });
 });
 
@@ -768,5 +800,160 @@ describe('entity issues', () => {
       expected: 'power',
     } as const;
     expect(describeIssue({ ...member, where: [0, 0] }, config, hass, t).where).toBe('IT › TV');
+  });
+
+  it('groups issues by top-level editor section (including units and nested devices)', () => {
+    const config: LiveEnergyCardConfig = {
+      ...base,
+      solar: { units: [{ entity: 'sensor.gone_solar' }] },
+      grid: { entity: 'sensor.gone_grid' },
+      battery: { secondary_entity: 'sensor.gone_bat_sec', units: [{ entity: 'sensor.gone_bat' }] },
+      home: { entity: 'sensor.gone_home' },
+      cost: { price_entity: 'sensor.gone_price' },
+      carbon: { intensity_entity: 'sensor.gone_co2' },
+      devices: [{ name: 'IT', devices: [{ entity: 'sensor.gone_dev' }] }],
+    };
+    const issues = entityIssues(config, hass);
+    expect(sectionIssues(issues, 'solar')).toHaveLength(1);
+    expect(sectionIssues(issues, 'grid')).toHaveLength(1);
+    expect(sectionIssues(issues, 'battery')).toHaveLength(2);
+    expect(sectionIssues(issues, 'home')).toHaveLength(1);
+    expect(sectionIssues(issues, 'devices')).toHaveLength(1);
+    expect(sectionIssues(issues, 'cost')).toHaveLength(1);
+    expect(sectionIssues(issues, 'carbon')).toHaveLength(1);
+    expect(sectionIssues(issues, 'display')).toEqual([]);
+    expect(sectionIssues(issues, 'animation')).toEqual([]);
+    expect(sectionIssues(issues, 'advanced')).toEqual([]);
+  });
+});
+
+describe('editor section summaries', () => {
+  const st = (id: string, friendly_name?: string): HassEntity => ({
+    entity_id: id,
+    state: '1',
+    attributes: friendly_name ? { friendly_name } : {},
+  });
+  const hass: HomeAssistant = {
+    language: 'en',
+    states: {
+      'sensor.grid': st('sensor.grid', 'Linky Power'),
+      'sensor.home': st('sensor.home', 'House Load'),
+      'sensor.co2': st('sensor.co2', 'Grid CO2'),
+      'sensor.raw': st('sensor.raw'),
+    },
+  };
+  const tEn = (key: Parameters<typeof localize>[1], vars?: Record<string, string>) =>
+    localize('en', key, vars);
+  const tFr = (key: Parameters<typeof localize>[1], vars?: Record<string, string>) =>
+    localize('fr', key, vars);
+
+  it('summarizes unconfigured sections clearly in both languages', () => {
+    expect(sectionSummary('solar', base, hass, tEn)).toBe('Not configured');
+    expect(sectionSummary('battery', base, hass, tFr)).toBe('Non configurée');
+    expect(sectionSummary('solar', base, hass, tFr)).toBe('Non configuré');
+    expect(sectionSummary('grid', base, hass, tEn)).toBe('Not configured');
+    expect(sectionSummary('home', base, hass, tEn)).toBe('Calculated automatically');
+    expect(sectionSummary('home', base, hass, tFr)).toBe('Calculée automatiquement');
+    expect(sectionSummary('devices', base, hass, tEn)).toBe('No devices');
+    expect(sectionSummary('cost', base, hass, tEn)).toBe('Not configured');
+    expect(sectionSummary('carbon', base, hass, tEn)).toBe('Not configured');
+    expect(sectionSummary('display', base, hass, tEn)).toBe('');
+    expect(sectionSummary('animation', base, hass, tEn)).toBe('');
+    expect(sectionSummary('advanced', base, hass, tEn)).toBe('');
+  });
+
+  it('summarizes solar and battery unit counts and separate bubbles', () => {
+    const one: LiveEnergyCardConfig = {
+      ...base,
+      solar: { units: [{ entity: 'sensor.a' }] },
+      battery: { units: [{ entity: 'sensor.b' }] },
+    };
+    expect(sectionSummary('solar', one, hass, tEn)).toBe('1 inverter');
+    expect(sectionSummary('battery', one, hass, tFr)).toBe('1 batterie');
+    const many: LiveEnergyCardConfig = {
+      ...base,
+      solar: { separate: true, units: [{ entity: 'sensor.a' }, { entity: 'sensor.b' }] },
+      battery: { units: [{ entity: 'sensor.c' }, { entity: 'sensor.d' }] },
+    };
+    expect(sectionSummary('solar', many, hass, tEn)).toBe('2 inverters · Separate bubbles');
+    expect(sectionSummary('solar', many, hass, tFr)).toBe('2 onduleurs · Bulles séparées');
+    expect(sectionSummary('battery', many, hass, tEn)).toBe('2 batteries');
+  });
+
+  it('summarizes grid, home and carbon with friendly name, raw id or sensor count', () => {
+    expect(sectionSummary('grid', { ...base, grid: { entity: 'sensor.grid' } }, hass, tEn)).toBe(
+      'Linky Power',
+    );
+    expect(sectionSummary('grid', { ...base, grid: { entity: 'sensor.raw' } }, hass, tEn)).toBe('sensor.raw');
+    expect(
+      sectionSummary(
+        'grid',
+        { ...base, grid: { import_entity: 'sensor.a', export_entity: 'sensor.b' } },
+        hass,
+        tEn,
+      ),
+    ).toBe('2 sensors');
+    expect(sectionSummary('home', { ...base, home: { entity: 'sensor.home' } }, hass, tEn)).toBe(
+      'House Load',
+    );
+    expect(sectionSummary('home', { ...base, home: { entity: ['sensor.a', 'sensor.b'] } }, hass, tFr)).toBe(
+      '2 capteurs',
+    );
+    expect(sectionSummary('carbon', { ...base, carbon: { intensity_entity: 'sensor.co2' } }, hass, tEn)).toBe(
+      'Grid CO2',
+    );
+    expect(
+      sectionSummary('carbon', { ...base, carbon: { intensity_entity: 'sensor.unknown' } }, undefined, tEn),
+    ).toBe('sensor.unknown');
+  });
+
+  it('summarizes devices with count and sort state, and cost with period', () => {
+    expect(sectionSummary('devices', { ...base, devices: [{ entity: 'sensor.tv' }] }, hass, tEn)).toBe(
+      '1 device',
+    );
+    expect(
+      sectionSummary(
+        'devices',
+        { ...base, sort_devices: true, devices: [{ entity: 'sensor.a' }, { entity: 'sensor.b' }] },
+        hass,
+        tFr,
+      ),
+    ).toBe('2 appareils · Tri par puissance');
+    expect(sectionSummary('cost', { ...base, cost: { price: 0.25 } }, hass, tEn)).toBe(
+      'Per hour (live rate)',
+    );
+    expect(
+      sectionSummary('cost', { ...base, cost: { period: 'day', cost_entity: 'sensor.c' } }, hass, tFr),
+    ).toBe('Total du jour');
+    expect(sectionSummary('cost', { ...base, cost: { currency: '€' } }, hass, tEn)).toBe('Not configured');
+  });
+
+  it('shows the separate-bubbles toggle once a source has at least one unit or is already separate', () => {
+    expect(showSeparateToggle(undefined)).toBe(false);
+    expect(showSeparateToggle({ units: [{ entity: 'sensor.a' }] })).toBe(true);
+    expect(showSeparateToggle({ units: [{ entity: 'sensor.a' }, { entity: 'sensor.b' }] })).toBe(true);
+    expect(showSeparateToggle({ separate: true })).toBe(true);
+  });
+
+  it('toggles collapsible sections immutably', () => {
+    const empty = new Set<'solar' | 'grid'>();
+    const opened = toggleSection(empty, 'solar');
+    expect([...opened]).toEqual(['solar']);
+    expect([...empty]).toEqual([]);
+    expect([...toggleSection(opened, 'solar')]).toEqual([]);
+  });
+
+  it('groups every editor section into sources, devices and settings with translations', () => {
+    expect(EDITOR_GROUPS.map((g) => g.sections.map((s) => s.id))).toEqual([
+      ['solar', 'grid', 'battery', 'home'],
+      ['devices'],
+      ['display', 'cost', 'carbon', 'animation', 'advanced'],
+    ]);
+    for (const lang of SUPPORTED_LANGUAGES) {
+      for (const group of EDITOR_GROUPS) {
+        expect(localize(lang, group.title)).not.toBe(group.title);
+        for (const section of group.sections) expect(localize(lang, section.title)).not.toBe(section.title);
+      }
+    }
   });
 });

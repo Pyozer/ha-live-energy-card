@@ -19,11 +19,13 @@ import {
   type PriceKey,
   type PriceModes,
 } from './form';
+import type { EditorSection } from './validation';
 
 /** `ha-form` schemas of the visual editor. */
 
 export type Schema = Record<string, unknown>;
 export type Translate = (key: LocalizeKey, vars?: Record<string, string>) => string;
+export type SettingSection = 'display' | 'cost' | 'carbon' | 'animation' | 'advanced';
 
 /**
  * What the form needs to describe a field. Its name is its config key; `label` and `helper` name a
@@ -44,6 +46,16 @@ export const NODE_ICONS: Record<NodeKey, string> = {
   grid: 'mdi:transmission-tower',
   battery: 'mdi:home-battery-outline',
   home: 'mdi:home-lightning-bolt-outline',
+};
+
+export const SECTION_ICONS: Record<EditorSection, string> = {
+  ...NODE_ICONS,
+  devices: 'mdi:power-plug-outline',
+  display: 'mdi:eye-outline',
+  cost: 'mdi:cash',
+  carbon: 'mdi:molecule-co2',
+  animation: 'mdi:animation-play-outline',
+  advanced: 'mdi:tune-variant',
 };
 
 const grid = (schema: Schema[]): Schema => ({ type: 'grid', name: '', schema });
@@ -92,13 +104,18 @@ export class EditorSchema {
     return entitySelector(this.hass, kind, current as EntityRef | undefined, multiple);
   }
 
+  /** Switch that shows each inverter or battery as its own bubble. */
+  separateToggle(kind: UnitGroup): Schema {
+    return { name: 'separate', label: `separate_${kind}`, selector: { boolean: {} } };
+  }
+
   /**
    * Fields of a node. The solar and battery sources only have their bubble here, as a single one:
    * with `separate`, the bubble is that of each unit. What they read is set on their units.
    */
   node(kind: NodeKey, config: LiveEnergyCardConfig): Schema[] {
-    if (!isUnitGroup(kind)) return this.fields(kind, config[kind]);
-    const separate: Schema = { name: 'separate', label: `separate_${kind}`, selector: { boolean: {} } };
+    if (!isUnitGroup(kind)) return [...this.sourceReads(kind, config[kind]), ...this.sourceAppearance(kind)];
+    const separate = this.separateToggle(kind);
     return config[kind]?.separate ? [separate] : [separate, ...this.bubble(kind)];
   }
 
@@ -145,7 +162,7 @@ export class EditorSchema {
   }
 
   /** What a bubble shows and does: its look, whether it hides at zero, its custom line, its actions. */
-  private bubble(kind: UnitGroup): Schema[] {
+  bubble(kind: UnitGroup): Schema[] {
     return [
       grid([
         { name: 'name', selector: { text: {} } },
@@ -159,13 +176,13 @@ export class EditorSchema {
     ];
   }
 
-  /** Fields of the grid and the home. */
-  private fields(kind: 'grid' | 'home', node: object | undefined): Schema[] {
+  /** Sensors read by the grid or the home. */
+  sourceReads(kind: 'grid' | 'home', node: object | undefined): Schema[] {
     const cfg = (node ?? {}) as Record<string, unknown>;
     const power = (name: string): Schema => ({ name, selector: this.entity('power', cfg[name]) });
     const energy = (name: string): Schema => ({ name, selector: this.entity('energy', cfg[name], true) });
-    // What the node reads first: the main entity accepts several sensors, added up (grid phases…).
-    const reads: Schema[] = [
+    // The main entity accepts several sensors, added up (grid phases…).
+    return [
       { name: 'entity', helper: `${kind}_entity`, selector: this.entity('power', cfg.entity, true) },
       ...(kind === 'grid' ? [grid([power('import_entity'), power('export_entity')])] : []),
       grid(booleans(['invert'])),
@@ -173,8 +190,11 @@ export class EditorSchema {
       // Shown next to the energy bought on the bubble, and needed by the daily cost.
       ...(kind === 'grid' ? [energy('export_energy_entity'), watts('max_import', 0)] : []),
     ];
+  }
+
+  /** Appearance and actions of the grid or the home bubble. */
+  sourceAppearance(kind: 'grid' | 'home'): Schema[] {
     return [
-      ...reads,
       grid([
         { name: 'name', selector: { text: {} } },
         { name: 'icon', selector: { icon: {} } },
@@ -245,66 +265,42 @@ export class EditorSchema {
     ];
   }
 
-  /**
-   * The section of a source. The grid and the home hold everything they read; the solar and
-   * battery sources read through their units, listed above this section, which only holds their
-   * bubble.
-   */
+  /** The section of a source, used to compose the full card schema. */
   source(kind: NodeKey, config: LiveEnergyCardConfig): Schema {
-    const units = isUnitGroup(kind);
     return {
       type: 'expandable',
       name: kind,
-      title: this.t(units ? 'editor.appearance' : `node.${kind}`),
-      icon: units ? 'mdi:palette-outline' : NODE_ICONS[kind],
+      title: this.t(`node.${kind}`),
+      icon: NODE_ICONS[kind],
       schema: this.node(kind, config),
     };
   }
 
-  /** How the devices are laid out and sorted: shown under their list. */
+  /** How the devices are laid out and sorted: shown directly inside the Devices panel. */
   devicesOptions(): Schema[] {
     const t = this.t;
     return [
-      {
-        type: 'expandable',
-        name: '',
-        flatten: true,
-        title: t('editor.devices_options'),
-        icon: 'mdi:view-grid-outline',
-        schema: [
-          grid([
-            select(t, 'devices_layout', ['auto', 'column', 'grid']),
-            { name: 'devices_columns', selector: { number: { min: 1, max: 6, mode: 'box' } } },
-          ]),
-          grid(booleans(['sort_devices', 'show_untracked'])),
-        ],
-      },
+      grid([
+        select(t, 'devices_layout', ['auto', 'column', 'grid']),
+        { name: 'devices_columns', selector: { number: { min: 1, max: 6, mode: 'box' } } },
+      ]),
+      grid(booleans(['sort_devices', 'show_untracked'])),
     ];
   }
 
-  /** Options of the card as a whole: the common ones first, the fine tuning last. */
-  settings(config: LiveEnergyCardConfig, modes: PriceModes = {}): Schema[] {
+  /** Fields of one card-wide settings panel. */
+  setting(section: SettingSection, config: LiveEnergyCardConfig, modes: PriceModes = {}): Schema[] {
     const t = this.t;
-    return [
-      {
-        type: 'expandable',
-        name: '',
-        flatten: true,
-        title: t('editor.display'),
-        icon: 'mdi:eye-outline',
-        schema: [
+    switch (section) {
+      case 'display':
+        return [
           { name: 'hide_when_zero', helper: 'hide_when_zero_card', selector: { boolean: {} } },
           grid(booleans(['show_ratios', 'compact', 'small_bubbles', 'transparent'])),
           select(t, 'line_style', ['rounded', 'square', 'curved', 'straight']),
           select(t, 'inactive_flows', ['hide', 'dim']),
-        ],
-      },
-      {
-        type: 'expandable',
-        name: 'cost',
-        title: t('editor.cost'),
-        icon: 'mdi:cash',
-        schema: [
+        ];
+      case 'cost':
+        return [
           select(t, 'period', ['hour', 'day']),
           this.price(config, 'price', modes),
           this.price(config, 'export_price', modes),
@@ -312,32 +308,16 @@ export class EditorSchema {
           { name: 'currency', selector: { text: {} } },
           actionsSchema(this.t, 'cost_actions', 'editor.field.cost_actions'),
           actionsSchema(this.t, 'savings_actions', 'editor.field.savings_actions'),
-        ],
-      },
-      {
-        type: 'expandable',
-        name: 'carbon',
-        title: t('editor.carbon'),
-        icon: 'mdi:molecule-co2',
-        schema: [
+        ];
+      case 'carbon':
+        return [
           { name: 'intensity_entity', selector: this.entity('carbon', config.carbon?.intensity_entity) },
           actionsSchema(this.t, 'actions', 'editor.field.carbon_actions'),
-        ],
-      },
-      {
-        type: 'expandable',
-        name: 'animation',
-        title: t('editor.animation'),
-        icon: 'mdi:animation-play-outline',
-        schema: [grid(booleans(['speed', 'thickness', 'density', 'glow']))],
-      },
-      {
-        type: 'expandable',
-        name: '',
-        flatten: true,
-        title: t('editor.advanced'),
-        icon: 'mdi:tune-variant',
-        schema: [
+        ];
+      case 'animation':
+        return [grid(booleans(['speed', 'thickness', 'density', 'glow']))];
+      case 'advanced':
+        return [
           // The scale of the animation: `max_power` is also what a gauge fills up to elsewhere.
           grid([
             watts('min_power', 0, { label: 'scale_min' }),
@@ -351,9 +331,27 @@ export class EditorSchema {
             { name: 'kilo_decimals', selector: { number: { min: 0, max: 3, mode: 'box' } } },
           ]),
           grid(booleans(['eco_mode'])),
-        ],
-      },
+        ];
+    }
+  }
+
+  /** Options of the card as a whole: the common ones first, the fine tuning last. */
+  settings(config: LiveEnergyCardConfig, modes: PriceModes = {}): Schema[] {
+    const sections: { key: SettingSection; nested?: boolean }[] = [
+      { key: 'display' },
+      { key: 'cost', nested: true },
+      { key: 'carbon', nested: true },
+      { key: 'animation', nested: true },
+      { key: 'advanced' },
     ];
+    return sections.map(({ key, nested }) => ({
+      type: 'expandable',
+      name: nested ? key : '',
+      ...(nested ? {} : { flatten: true }),
+      title: this.t(`editor.${key}`),
+      icon: SECTION_ICONS[key],
+      schema: this.setting(key, config, modes),
+    }));
   }
 
   device(dev: DeviceConfig): Schema[] {

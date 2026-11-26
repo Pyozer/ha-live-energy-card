@@ -113,24 +113,17 @@ export class LiveEnergyCardUnitEditor extends LitElement {
     const units = unitsOf(this.source);
     return html`
       <div class="units ${this._drag.dragging ? 'lifting' : ''}">
-        <div class="devices-title">
-          <ha-icon .icon=${NODE_ICONS[this.group]}></ha-icon>
-          <span>${this._t(`node.${this.group}`)}</span>
-          <span class="count">${units.length}</span>
-        </div>
         ${
           units.length === 0
             ? html`<div class="empty">${this._t(`editor.no_units_${this.group}`)}</div>`
             : nothing
         }
-        ${units.map((unit, i) => this._renderEntry(unit, i, false))}
+        ${units.map((unit, i) => this._renderEntry(unit, i))}
         <div class="actions">
-          <button class="add" @click=${this._add}>
+          <button type="button" class="add" @click=${this._add}>
             <ha-svg-icon .path=${mdiPlus}></ha-svg-icon>${this._t(`editor.add_unit_${this.group}`)}
           </button>
         </div>
-        <!-- The options of the bubble of the source, once it has something to show. -->
-        ${units.length ? html`<slot></slot>` : nothing}
       </div>
     `;
   }
@@ -146,12 +139,12 @@ export class LiveEnergyCardUnitEditor extends LitElement {
     return here ? html`<div class="drop-slot" style="height: ${this._drag.slotHeight}px"></div>` : nothing;
   }
 
-  private _renderEntry(unit: BatteryUnitConfig, index: number, empty: boolean): TemplateResult {
-    return html`${this._slot(index, 'before')}${this._renderUnit(unit, index, empty)}${this._slot(index, 'after')}`;
+  private _renderEntry(unit: BatteryUnitConfig, index: number): TemplateResult {
+    return html`${this._slot(index, 'before')}${this._renderUnit(unit, index)}${this._slot(index, 'after')}`;
   }
 
-  private _renderUnit(unit: BatteryUnitConfig, index: number, empty: boolean): TemplateResult {
-    const expanded = empty || this._open === index;
+  private _renderUnit(unit: BatteryUnitConfig, index: number): TemplateResult {
+    const expanded = this._open === index;
     const toggle = () => (this._open = expanded ? -1 : index);
     const ids = entityIds(unit.entity ?? unit.discharge_entity ?? unit.charge_entity);
     const state = ids.length ? this.hass!.states[ids[0]] : undefined;
@@ -169,42 +162,35 @@ export class LiveEnergyCardUnitEditor extends LitElement {
         data-path=${index}
       >
         <div class="device-head">
-          ${
-            empty
-              ? nothing
-              : html`<button
-                  class="handle"
-                  .title=${this._t('editor.drag_unit')}
-                  aria-label=${this._t('editor.drag_unit')}
-                  @pointerdown=${(ev: PointerEvent) => this._drag.start(ev, String(index))}
-                  @pointermove=${(ev: PointerEvent) => this._drag.move(ev)}
-                  @pointerup=${(ev: PointerEvent) => this._drag.end(ev)}
-                  @pointercancel=${(ev: PointerEvent) => this._drag.end(ev, true)}
-                  @keydown=${(ev: KeyboardEvent) => this._key(ev, index)}
-                >
-                  <ha-svg-icon .path=${mdiDragVertical}></ha-svg-icon>
-                </button>`
-          }
+          <button
+            type="button"
+            class="handle"
+            .title=${this._t('editor.drag_unit')}
+            aria-label=${this._t('editor.drag_unit')}
+            @pointerdown=${(ev: PointerEvent) => this._drag.start(ev, String(index))}
+            @pointermove=${(ev: PointerEvent) => this._drag.move(ev)}
+            @pointerup=${(ev: PointerEvent) => this._drag.end(ev)}
+            @pointercancel=${(ev: PointerEvent) => this._drag.end(ev, true)}
+            @keydown=${(ev: KeyboardEvent) => this._key(ev, index)}
+          >
+            <ha-svg-icon .path=${mdiDragVertical}></ha-svg-icon>
+          </button>
           <ha-icon .icon=${icon}></ha-icon>
-          <button class="device-title" @click=${toggle}>
+          <button type="button" class="device-title" @click=${toggle}>
             <span>${title}</span>
             <small>${ids.join(', ')}</small>
           </button>
           ${warning ? html`<ha-svg-icon class="warning" .path=${mdiAlertOutline}></ha-svg-icon>` : nothing}
-          ${
-            empty
-              ? nothing
-              : html`<ha-icon-button
-                    .label=${this._t('editor.remove')}
-                    .path=${mdiDeleteOutline}
-                    @click=${() => this._remove(index)}
-                  ></ha-icon-button>
-                  <ha-icon-button
-                    .label=${this._t('editor.edit')}
-                    .path=${expanded ? mdiChevronUp : mdiChevronDown}
-                    @click=${toggle}
-                  ></ha-icon-button>`
-          }
+          <ha-icon-button
+            .label=${this._t('editor.remove')}
+            .path=${mdiDeleteOutline}
+            @click=${() => this._remove(index)}
+          ></ha-icon-button>
+          <ha-icon-button
+            .label=${this._t('editor.edit')}
+            .path=${expanded ? mdiChevronUp : mdiChevronDown}
+            @click=${toggle}
+          ></ha-icon-button>
         </div>
         ${
           expanded

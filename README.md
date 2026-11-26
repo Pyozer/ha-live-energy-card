@@ -55,12 +55,13 @@ sliders for every source and device, scenarios, and a YAML editor. No Home Assis
 - Automatic light and dark themes, `prefers-reduced-motion` support, animation paused off-screen,
   **eco mode** for low-power devices.
 - **Import from the Energy dashboard**: solar, grid, battery and devices in one click.
-- Full visual editor, organised in the order of the card: title and language, **Solar** (its
-  inverters, then *Appearance and actions*), **Grid**, **Battery**, **Home**, **Devices** (with
-  *Layout and sorting*), then **Display**, **Cost**, **Carbon**, **Animation** and **Advanced**. Its entity pickers only offer matching entities (power sensors for flows,
-  percentages for the charge level) and that flags entities to check: not found (renamed or removed)
-  or not matching their field (an energy counter in a power field…). English and French translations
-  (following the Home Assistant user's language, or set per card).
+- Full visual editor, organised into three groups of uniform collapsible panels with live status
+  summaries and warning badges: **Energy sources** (**Solar**, **Grid**, **Battery**, **Home**),
+  **Devices** (with *Layout and sorting* inside), and **Card settings** (**Display**, **Cost**,
+  **Carbon**, **Animation**, **Advanced**). Its entity pickers only offer matching entities (power
+  sensors for flows, percentages for the charge level) and flag entities to check: not found
+  (renamed or removed) or not matching their field (an energy counter in a power field…). English
+  and French translations (following the Home Assistant user's language, or set per card).
 
 ## Installation
 

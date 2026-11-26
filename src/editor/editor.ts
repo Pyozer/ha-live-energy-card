@@ -36,20 +36,41 @@ import {
   deviceFormData,
   deviceFromForm,
   fromFormData,
+  mergeFormData,
+  NESTED_SECTIONS,
   priceModesOf,
   toFormData,
+  type NestedSection,
   type PriceModes,
 } from './form';
-import { EditorSchema, fieldHelper, formLabel, type FieldRef, type Schema } from './schema';
+import {
+  EditorSchema,
+  fieldHelper,
+  formLabel,
+  SECTION_ICONS,
+  type FieldRef,
+  type Schema,
+  type SettingSection,
+} from './schema';
 import { editorStyles } from './styles';
+import { EDITOR_GROUPS, sectionSummary, showSeparateToggle, toggleSection } from './summary';
 import './unit-editor';
-import { describeIssue, deviceIssues, entityIssues, type EntityIssue } from './validation';
+import { unitsOf } from './unit-list';
+import {
+  describeIssue,
+  deviceIssues,
+  entityIssues,
+  sectionIssues,
+  type EditorSection,
+  type EntityIssue,
+} from './validation';
 
 export class LiveEnergyCardEditor extends LitElement {
   static override properties = {
     hass: { attribute: false },
     _config: { state: true },
     _expanded: { state: true },
+    _openSections: { state: true },
     _importStatus: { state: true },
     _priceModes: { state: true },
   };
@@ -58,6 +79,8 @@ export class LiveEnergyCardEditor extends LitElement {
   declare _config?: LiveEnergyCardConfig;
   /** Path key of the device being edited (`2`, or `2.0` for a group member), empty when none. */
   declare _expanded: string;
+  /** Collapsible top-level sections currently open (all closed by default). */
+  declare _openSections: ReadonlySet<EditorSection>;
   /** Result of the last Energy dashboard import, shown under the button. */
   declare _importStatus?: { ok: boolean; text: string };
   /** Price sources picked in the form, for prices that have no value yet. */
@@ -87,6 +110,7 @@ export class LiveEnergyCardEditor extends LitElement {
   constructor() {
     super();
     this._expanded = '';
+    this._openSections = new Set();
     this._priceModes = {};
   }
 
@@ -94,25 +118,31 @@ export class LiveEnergyCardEditor extends LitElement {
     this._config = config;
   }
 
-  private _t(key: LocalizeKey, vars?: Record<string, string>): string {
-    return localize(this.hass?.locale?.language ?? this.hass?.language, key, vars);
-  }
+  private _t = (key: LocalizeKey, vars?: Record<string, string>): string =>
+    localize(this.hass?.locale?.language ?? this.hass?.language, key, vars);
 
   private _schema(): EditorSchema {
-    return new EditorSchema((key, vars) => this._t(key, vars), this.hass);
+    return new EditorSchema(this._t, this.hass);
   }
 
-  private _label = (field: FieldRef): string => formLabel((key) => this._t(key), field);
+  private _label = (field: FieldRef): string => formLabel(this._t, field);
 
-  private _helper = (field: FieldRef): string => fieldHelper((key) => this._t(key), field);
+  private _helper = (field: FieldRef): string => fieldHelper(this._t, field);
 
   // --- Data -------------------------------------------------------------------------------------
 
   private _valueChanged(ev: CustomEvent): void {
     ev.stopPropagation();
-    const data = ev.detail.value as Record<string, unknown>;
+    const section = ((ev.currentTarget as HTMLElement | null)?.dataset.section || undefined) as
+      NestedSection | undefined;
+    const data = mergeFormData(this._config!, this._priceModes, ev.detail.value, section);
     this._priceModes = priceModesOf(data);
     this._emit(fromFormData(data, this._config!));
+  }
+
+  private _toggleSection(ev: Event): void {
+    const section = (ev.currentTarget as HTMLElement).dataset.section as EditorSection;
+    this._openSections = toggleSection(this._openSections, section);
   }
 
   private _emit(config: LiveEnergyCardConfig): void {
@@ -192,12 +222,11 @@ export class LiveEnergyCardEditor extends LitElement {
 
   protected override render(): TemplateResult | typeof nothing {
     if (!this.hass || !this._config) return nothing;
-    const devices = this._config.devices ?? [];
     const issues = entityIssues(this._config, this.hass);
     const schema = this._schema();
     return html`
       <div class="import">
-        <button class="add" @click=${this._importEnergy}>
+        <button type="button" class="add" @click=${this._importEnergy}>
           <ha-svg-icon .path=${mdiLightningBoltCircle}></ha-svg-icon>${this._t('editor.import_energy')}
         </button>
         ${
@@ -209,41 +238,100 @@ export class LiveEnergyCardEditor extends LitElement {
         }
       </div>
       ${issues.length ? this._renderIssues(issues) : nothing} ${this._form(schema.intro())}
-      ${this._renderUnits('solar', issues)}
-      <div class="section">${this._form([schema.source('grid', this._config)])}</div>
-      ${this._renderUnits('battery', issues)}
-      <div class="section">${this._form([schema.source('home', this._config)])}</div>
-
-      <div class="devices ${this._drag.dragging ? 'lifting' : ''}">
-        <div class="devices-title">
-          <ha-icon icon="mdi:power-plug-outline"></ha-icon>
-          <span>${this._t('editor.devices')}</span>
-          <span class="count">${devices.length}</span>
-        </div>
-        ${devices.length === 0 ? html`<div class="empty">${this._t('editor.no_devices')}</div>` : nothing}
-        ${devices.map((dev, i) => this._renderEntry(dev, [i], issues))}
-        <div class="actions">
-          <button class="add" @click=${() => this._addDevice()}>
-            <ha-svg-icon .path=${mdiPlus}></ha-svg-icon>${this._t('editor.add_device')}
-          </button>
-          <button class="add" @click=${this._addGroup}>
-            <ha-svg-icon .path=${mdiFolderPlusOutline}></ha-svg-icon>${this._t('editor.add_group')}
-          </button>
-        </div>
-        ${this._form(schema.devicesOptions())}
-      </div>
-      <div class="section">${this._form(schema.settings(this._config, this._priceModes))}</div>
+      ${EDITOR_GROUPS.map(
+        (group) => html`
+          <div class="group-title">${this._t(group.title)}</div>
+          <div class="panels">
+            ${group.sections.map((s) => this._renderPanel(s.id, this._t(s.title), schema, issues))}
+          </div>
+        `,
+      )}
     `;
   }
 
+  /** A uniform collapsible panel with icon, title, live summary, optional warning badge and chevron. */
+  private _renderPanel(
+    section: EditorSection,
+    title: string,
+    schema: EditorSchema,
+    issues: EntityIssue[],
+  ): TemplateResult {
+    const open = this._openSections.has(section);
+    const summary = sectionSummary(section, this._config!, this.hass, this._t);
+    const warning = sectionIssues(issues, section).length > 0;
+    return html`
+      <div class="panel ${open ? 'open' : ''}">
+        <button
+          type="button"
+          class="panel-head"
+          data-section=${section}
+          aria-expanded=${open ? 'true' : 'false'}
+          @click=${this._toggleSection}
+        >
+          <ha-icon .icon=${SECTION_ICONS[section]}></ha-icon>
+          <span class="panel-text">
+            <span class="panel-title">${title}</span>
+            ${summary ? html`<span class="panel-summary">${summary}</span>` : nothing}
+          </span>
+          ${warning ? html`<ha-svg-icon class="warning" .path=${mdiAlertOutline}></ha-svg-icon>` : nothing}
+          <ha-svg-icon class="chevron" .path=${open ? mdiChevronUp : mdiChevronDown}></ha-svg-icon>
+        </button>
+        ${open ? html`<div class="panel-body">${this._renderPanelBody(section, schema, issues)}</div>` : nothing}
+      </div>
+    `;
+  }
+
+  private _renderPanelBody(
+    section: EditorSection,
+    schema: EditorSchema,
+    issues: EntityIssue[],
+  ): TemplateResult {
+    if (section === 'devices') return this._renderDevices(schema, issues);
+    if (section === 'grid' || section === 'home') {
+      return html`
+        ${this._form(schema.sourceReads(section, this._config![section]), section)}
+        <div class="sub-heading">${this._t('editor.appearance')}</div>
+        ${this._form(schema.sourceAppearance(section), section)}
+      `;
+    }
+    if (section === 'solar' || section === 'battery') {
+      const group: UnitGroup = section;
+      const source = this._config![group];
+      return html`
+        <live-energy-card-unit-editor
+          .hass=${this.hass}
+          .group=${group}
+          .source=${source}
+          .hideWhenZero=${this._config!.hide_when_zero}
+          .issues=${issues}
+          @units-changed=${(ev: CustomEvent<{ node: SolarConfig | BatteryConfig }>) =>
+            this._emit({ ...this._config!, [group]: ev.detail.node })}
+        ></live-energy-card-unit-editor>
+        ${showSeparateToggle(source) ? html`<div class="unit-toggle">${this._form([schema.separateToggle(group)], group)}</div>` : nothing}
+        ${
+          unitsOf(source).length > 0 && !source?.separate
+            ? html`
+                <div class="sub-heading">${this._t('editor.appearance')}</div>
+                ${this._form(schema.bubble(group), group)}
+              `
+            : nothing
+        }
+      `;
+    }
+    const nested = NESTED_SECTIONS.has(section) ? (section as NestedSection) : undefined;
+    return this._form(schema.setting(section as SettingSection, this._config!, this._priceModes), nested);
+  }
+
   /**
-   * A part of the card form. Every part gets the whole data and reports the whole data, so the
-   * parts can sit between the lists (units, devices) in the order of the card.
+   * A part of the card form. Root sections edit the full form data; nested sections (`solar`,
+   * `grid`, `cost`…) edit only their own sub-object and merge it back in `_valueChanged`.
    */
-  private _form(schema: Schema[]): TemplateResult {
+  private _form(schema: Schema[], section?: NestedSection): TemplateResult {
+    const data = toFormData(this._config!, this._priceModes);
     return html`<ha-form
+      data-section=${section ?? ''}
       .hass=${this.hass}
-      .data=${toFormData(this._config!, this._priceModes)}
+      .data=${section ? data[section] : data}
       .schema=${schema}
       .computeLabel=${this._label}
       .computeHelper=${this._helper}
@@ -251,22 +339,28 @@ export class LiveEnergyCardEditor extends LitElement {
     ></ha-form>`;
   }
 
-  /** The solar or battery source: its units (what it reads), then the options of its bubble. */
-  private _renderUnits(group: UnitGroup, issues: EntityIssue[]): TemplateResult {
-    return html`<live-energy-card-unit-editor
-      .hass=${this.hass}
-      .group=${group}
-      .source=${this._config![group]}
-      .hideWhenZero=${this._config!.hide_when_zero}
-      .issues=${issues}
-      @units-changed=${(ev: CustomEvent<{ node: SolarConfig | BatteryConfig }>) =>
-        this._emit({ ...this._config!, [group]: ev.detail.node })}
-      >${this._form([this._schema().source(group, this._config!)])}</live-energy-card-unit-editor
-    >`;
+  /** Body of the devices panel: the reorderable list of devices and groups, then layout and sorting. */
+  private _renderDevices(schema: EditorSchema, issues: EntityIssue[]): TemplateResult {
+    const devices = this._config!.devices ?? [];
+    return html`
+      <div class="devices ${this._drag.dragging ? 'lifting' : ''}">
+        ${devices.length === 0 ? html`<div class="empty">${this._t('editor.no_devices')}</div>` : nothing}
+        ${devices.map((dev, i) => this._renderEntry(dev, [i], issues))}
+        <div class="actions">
+          <button type="button" class="add" @click=${() => this._addDevice()}>
+            <ha-svg-icon .path=${mdiPlus}></ha-svg-icon>${this._t('editor.add_device')}
+          </button>
+          <button type="button" class="add" @click=${this._addGroup}>
+            <ha-svg-icon .path=${mdiFolderPlusOutline}></ha-svg-icon>${this._t('editor.add_group')}
+          </button>
+        </div>
+      </div>
+      <div class="sub-heading">${this._t('editor.devices_options')}</div>
+      ${this._form(schema.devicesOptions())}
+    `;
   }
 
   private _renderIssues(issues: EntityIssue[]): TemplateResult {
-    const t = (key: LocalizeKey, vars?: Record<string, string>) => this._t(key, vars);
     return html`
       <div class="issues" role="status">
         <div class="issues-title">
@@ -275,7 +369,7 @@ export class LiveEnergyCardEditor extends LitElement {
         </div>
         <ul>
           ${issues.map((issue) => {
-            const d = describeIssue(issue, this._config!, this.hass, t);
+            const d = describeIssue(issue, this._config!, this.hass, this._t);
             return html`<li>
               <span class="where">${d.where} · ${d.field}</span>
               <span><code>${issue.entity}</code> ${d.problem}</span>
@@ -312,7 +406,7 @@ export class LiveEnergyCardEditor extends LitElement {
     const ids = entityIds(dev.entity);
     const state = ids.length ? this.hass!.states[ids[0]] : undefined;
     const title = dev.name ?? state?.attributes.friendly_name ?? (ids[0] || '—');
-    const subtitle = group ? groupCount((key, vars) => this._t(key, vars), members.length) : ids.join(', ');
+    const subtitle = group ? groupCount(this._t, members.length) : ids.join(', ');
     const icon =
       dev.icon ?? state?.attributes.icon ?? (group ? 'mdi:folder-outline' : 'mdi:power-plug-outline');
     const warning = deviceIssues(issues, path).length > 0;
