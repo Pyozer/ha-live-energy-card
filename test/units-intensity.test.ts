@@ -27,6 +27,23 @@ describe('units', () => {
     expect(readPower(entity('1.5', 'kW')).value).toBe(1500);
   });
 
+  it('handles apparent power, peak power, casing fallbacks and unknown units', () => {
+    expect(unitFactor('VA')).toBe(1);
+    expect(unitFactor('kVA')).toBe(1000);
+    expect(unitFactor('Wc')).toBe(1);
+    expect(unitFactor('kWp')).toBe(1000);
+    expect(unitFactor(' kw ')).toBe(1000);
+    expect(unitFactor('w')).toBe(1);
+    expect(unitFactor('unknown_unit')).toBe(1);
+    expect(unitFactor(undefined)).toBe(1);
+  });
+
+  it('falls back gracefully when given an invalid locale', () => {
+    const formatted = formatPower(500, { locale: 'not_a_valid_locale!' });
+    expect(formatted.unit).toBe('W');
+    expect(formatted.value).toContain('500');
+  });
+
   it('handles unavailable entities', () => {
     expect(readPower(entity('unavailable', 'W'))).toEqual({ value: null, available: false });
     expect(readPower(entity('unknown'))).toEqual({ value: null, available: false });

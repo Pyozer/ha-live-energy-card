@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FlowAnimator } from '../src/animator';
 import { computeLayout } from '../src/layout';
+import type { FlowModel } from '../src/model';
 
 /** A `matchMedia` result that records its listeners, as the browser keeps them alive. */
 function fakeMotionQuery(matches = false) {
@@ -164,5 +165,240 @@ describe('FlowAnimator group frames', () => {
     animator.bind(root);
     animator.step(0.016, false);
     expect(frameEl.style.transform).toBe(prevTransform);
+  });
+});
+
+interface FakeSvgEl {
+  attrs: Map<string, string>;
+  writes: Map<string, number>;
+  style: Record<string, string>;
+  setAttribute: (k: string, v: string) => void;
+  removeAttribute: (k: string) => void;
+  querySelector?: (sel: string) => FakeSvgEl | null;
+}
+
+function fakeSvgEl(children?: Record<string, FakeSvgEl>): FakeSvgEl {
+  const attrs = new Map<string, string>();
+  const writes = new Map<string, number>();
+  return {
+    attrs,
+    writes,
+    style: {},
+    setAttribute: (k, v) => {
+      attrs.set(k, v);
+      writes.set(k, (writes.get(k) ?? 0) + 1);
+    },
+    removeAttribute: (k) => attrs.delete(k),
+    ...(children ? { querySelector: (sel: string) => children[sel] ?? null } : {}),
+  };
+}
+
+function fakeFlowDom() {
+  const track = fakeSvgEl();
+  const halo = fakeSvgEl();
+  const dots = fakeSvgEl();
+  const group = fakeSvgEl({ '.track': track, '.halo': halo, '.dots': dots });
+  const gradient = fakeSvgEl();
+  return { group, gradient, track, halo, dots };
+}
+
+function makeFlow(overrides: Partial<FlowModel> = {}): FlowModel {
+  return {
+    id: 'solar_home',
+    from: 'solar',
+    to: 'home',
+    watts: 1500,
+    intensity: 0.5,
+    active: true,
+    idle: false,
+    colorFrom: '#ff9500',
+    colorTo: '#8e8e93',
+    toggles: { speed: true, thickness: true, density: true, glow: false },
+    source: 'solar_home',
+    ...overrides,
+  };
+}
+
+describe('FlowAnimator flows, counters and visibility', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('draws active flows, keeps glow off until enabled, and only writes stroke-dashoffset on steady frames', () => {
+    vi.stubGlobal('CSS', { escape: (s: string) => s });
+    vi.stubGlobal('requestAnimationFrame', () => 1);
+    vi.stubGlobal('cancelAnimationFrame', () => undefined);
+
+    const layout = computeLayout({ width: 700, solar: true, grid: false, battery: false, devices: [] });
+    const stage = fakeEl();
+    const flowDom = fakeFlowDom();
+    const root = {
+      querySelector: (sel: string) => {
+        if (sel === '.stage') return stage;
+        if (sel === '[data-flow="solar_home"]') return flowDom.group;
+        if (sel === '[data-gradient="solar_home"]') return flowDom.gradient;
+        return null;
+      },
+    } as unknown as HTMLElement;
+
+    const animator = new FlowAnimator();
+    const vis = new Map([
+      ['solar', true],
+      ['home', true],
+    ]);
+    animator.update(layout, vis, [makeFlow()], new Map());
+    animator.bind(root);
+    animator.step(0, true);
+
+    expect(flowDom.group.style.opacity).toBe('1');
+    expect(flowDom.track.attrs.get('d')).toMatch(/^M/);
+    expect(flowDom.gradient.attrs.get('x2')).toBeDefined();
+    // Glow disabled: halo stays detached via display="none" so its blur filter costs nothing.
+    expect(flowDom.halo.attrs.get('display')).toBe('none');
+    const dWritesAfterSnap = flowDom.dots.writes.get('d') ?? 0;
+    const widthWritesAfterSnap = flowDom.dots.writes.get('stroke-width') ?? 0;
+    const initialOffset = flowDom.dots.attrs.get('stroke-dashoffset');
+
+    // Steady-state frame: only particles move (stroke-dashoffset changes, path & width are untouched).
+    expect(animator.step(0.05, false)).toBe(true);
+    expect(flowDom.dots.attrs.get('stroke-dashoffset')).not.toBe(initialOffset);
+    expect(flowDom.dots.writes.get('d')).toBe(dWritesAfterSnap);
+    expect(flowDom.dots.writes.get('stroke-width')).toBe(widthWritesAfterSnap);
+
+    // Enabling glow removes display="none" and animates the halo alongside the dots.
+    animator.update(
+      layout,
+      vis,
+      [makeFlow({ toggles: { speed: true, thickness: true, density: true, glow: true } })],
+      new Map(),
+    );
+    animator.step(0, true);
+    expect(flowDom.halo.attrs.has('display')).toBe(false);
+    expect(flowDom.halo.attrs.get('stroke-dashoffset')).toBe(flowDom.dots.attrs.get('stroke-dashoffset'));
+  });
+
+  it('handles dimmed idle flows, hidden flows and missing endpoints cleanly', () => {
+    vi.stubGlobal('CSS', { escape: (s: string) => s });
+    vi.stubGlobal('requestAnimationFrame', () => 1);
+    vi.stubGlobal('cancelAnimationFrame', () => undefined);
+
+    const layout = computeLayout({ width: 700, solar: true, grid: false, battery: false, devices: [] });
+    const flowDom = fakeFlowDom();
+    const root = {
+      querySelector: (sel: string) => {
+        if (sel === '[data-flow="solar_home"]') return flowDom.group;
+        if (sel === '[data-gradient="solar_home"]') return flowDom.gradient;
+        return null;
+      },
+    } as unknown as HTMLElement;
+
+    const animator = new FlowAnimator();
+    const vis = new Map([
+      ['solar', true],
+      ['home', true],
+    ]);
+
+    // Idle dimmed flow: track visible, dots hidden.
+    animator.update(layout, vis, [makeFlow({ active: false, idle: true, watts: 0 })], new Map());
+    animator.bind(root);
+    animator.step(0, true);
+    expect(flowDom.group.style.opacity).toBe('1');
+    expect(flowDom.dots.style.opacity).toBe('0.000');
+
+    // Inactive non-idle flow: whole group hidden.
+    animator.update(layout, vis, [makeFlow({ active: false, idle: false, watts: 0 })], new Map());
+    animator.step(0, true);
+    expect(flowDom.group.style.opacity).toBe('0');
+
+    // Missing endpoint rect: flow hidden without throwing.
+    animator.update(layout, new Map([['home', true]]), [makeFlow({ active: true })], new Map());
+    animator.step(0, true);
+    expect(flowDom.group.style.opacity).toBe('0');
+  });
+
+  it('pauses particle movement when prefers-reduced-motion is active', () => {
+    const query = fakeMotionQuery(true);
+    stubWindow(query);
+    vi.stubGlobal('CSS', { escape: (s: string) => s });
+
+    const layout = computeLayout({ width: 700, solar: true, grid: false, battery: false, devices: [] });
+    const flowDom = fakeFlowDom();
+    const root = {
+      querySelector: (sel: string) => {
+        if (sel === '[data-flow="solar_home"]') return flowDom.group;
+        if (sel === '[data-gradient="solar_home"]') return flowDom.gradient;
+        return null;
+      },
+    } as unknown as HTMLElement;
+
+    const animator = new FlowAnimator();
+    animator.connect();
+    animator.update(
+      layout,
+      new Map([
+        ['solar', true],
+        ['home', true],
+      ]),
+      [makeFlow()],
+      new Map(),
+    );
+    animator.bind(root);
+    animator.step(0, true);
+    const offset = flowDom.dots.attrs.get('stroke-dashoffset');
+
+    expect(animator.step(0.05, false)).toBe(false);
+    expect(flowDom.dots.attrs.get('stroke-dashoffset')).toBe(offset);
+    animator.disconnect();
+  });
+
+  it('interpolates power counters, applies custom formatters, and shows a dash when unavailable', () => {
+    vi.stubGlobal('CSS', { escape: (s: string) => s });
+    vi.stubGlobal('requestAnimationFrame', () => 1);
+    vi.stubGlobal('cancelAnimationFrame', () => undefined);
+
+    const layout = computeLayout({ width: 700, solar: true, grid: false, battery: false, devices: [] });
+    const numEl = { textContent: '' } as unknown as HTMLElement;
+    const unitEl = { textContent: '' } as unknown as HTMLElement;
+    const root = {
+      querySelector: (sel: string) => {
+        if (sel === '[data-num="solar"]') return numEl;
+        if (sel === '[data-unit="solar"]') return unitEl;
+        return null;
+      },
+    } as unknown as HTMLElement;
+
+    const animator = new FlowAnimator();
+    animator.setFormatter((w) => ({ value: String(Math.round(w)), unit: 'W' }));
+    animator.update(layout, new Map([['solar', true]]), [], new Map([['solar', 100]]));
+    animator.bind(root);
+    animator.step(0, true);
+    expect(numEl.textContent).toBe('100');
+    expect(unitEl.textContent).toBe('W');
+
+    // Target rises to 1000 W: a single frame moves partway rather than jumping immediately.
+    animator.update(layout, new Map([['solar', true]]), [], new Map([['solar', 1000]]));
+    expect(animator.step(0.05, false)).toBe(true);
+    const mid = Number(numEl.textContent);
+    expect(mid).toBeGreaterThan(100);
+    expect(mid).toBeLessThan(1000);
+
+    // Unavailable value renders a dash and clears the unit.
+    animator.update(layout, new Map([['solar', true]]), [], new Map([['solar', null]]));
+    animator.step(0, true);
+    expect(numEl.textContent).toBe('—');
+    expect(unitEl.textContent).toBe('');
+  });
+
+  it('cancels and restarts requestAnimationFrame when visibility changes', () => {
+    const raf = vi.fn(() => 42);
+    const cancel = vi.fn();
+    vi.stubGlobal('requestAnimationFrame', raf);
+    vi.stubGlobal('cancelAnimationFrame', cancel);
+
+    const animator = new FlowAnimator();
+    animator.setVisible(true);
+    expect(raf).toHaveBeenCalledTimes(1);
+    animator.setVisible(false);
+    expect(cancel).toHaveBeenCalledWith(42);
+    animator.setVisible(true);
+    expect(raf).toHaveBeenCalledTimes(2);
   });
 });

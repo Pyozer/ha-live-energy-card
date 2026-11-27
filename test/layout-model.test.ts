@@ -206,6 +206,59 @@ describe('computeLayout', () => {
     }
   });
 
+  it('buildDeviceTree computes valid geometry for every spine, bus and leaf edge across modes', () => {
+    const grid = computeLayout({
+      width: 900,
+      solar: true,
+      grid: true,
+      battery: true,
+      devices: devices(13),
+    });
+    expect(grid.devices.mode).toBe('grid');
+    const gridEdges = buildDeviceTree(grid.devices);
+    expect(gridEdges.some((e) => e.id.startsWith('tree:spine:'))).toBe(true);
+    expect(gridEdges.some((e) => e.id.startsWith('tree:bus:'))).toBe(true);
+    for (const edge of gridEdges) {
+      const geom = edge.geometry(grid.nodes);
+      expect(geom, edge.id).not.toBeNull();
+      expect(geom!.d, edge.id).toMatch(/^M/);
+      expect(edge.geometry({}), `${edge.id} missing rects`).toBeNull();
+    }
+
+    // Stack mode with 2 columns: exercises trunk, spine:0 turn-down, vertical bus segments and leaves.
+    const stack = computeLayout({
+      width: 340,
+      solar: true,
+      grid: true,
+      battery: true,
+      devices: devices(6),
+    });
+    for (const edge of buildDeviceTree(stack.devices)) {
+      const geom = edge.geometry(stack.nodes);
+      expect(geom, edge.id).not.toBeNull();
+      expect(geom!.d, edge.id).toMatch(/^M/);
+      expect(edge.geometry({}), `${edge.id} missing rects`).toBeNull();
+    }
+
+    // Stack mode with 3 columns exercises the straight horizontal spine segment (`c > 0`).
+    const threeColEdges = buildDeviceTree({
+      mode: 'stack',
+      columns: [['d0'], ['d1'], ['d2']],
+      above: [0, 0, 0],
+      bus: 13,
+      groups: [],
+    });
+    const rects: Record<string, Rect> = {
+      home: { x: 100, y: 50, w: 60, h: 60 },
+      d0: { x: 40, y: 140, w: 50, h: 40 },
+      d1: { x: 120, y: 140, w: 50, h: 40 },
+      d2: { x: 200, y: 140, w: 50, h: 40 },
+    };
+    const midSpine = threeColEdges.find((e) => e.id === 'tree:spine:1')!;
+    expect(midSpine.geometry(rects)?.d).toMatch(/^M[\d.]+,[\d.]+ L[\d.]+,[\d.]+$/);
+    expect(midSpine.geometry({})).toBeNull();
+  });
+
   describe('expanded device groups', () => {
     const groupedDevices = [
       'device:0',
@@ -672,6 +725,33 @@ describe('buildModel', () => {
     const flows = applyDeviceTree(model, layout, many);
     const spine = flows.find((f) => f.id === 'tree:spine:0')!;
     expect(spine.watts).toBe(1000);
+  });
+
+  it('applyDeviceTree gives hidden devices a short fade-out stub to their pill edge', () => {
+    const cfg: LiveEnergyCardConfig = {
+      type: 'custom:live-energy-card',
+      grid: { entity: 'sensor.grid' },
+      hide_when_zero: true,
+      devices: [{ entity: 'sensor.a' }, { entity: 'sensor.b' }],
+    };
+    const model = buildModel(
+      cfg,
+      hassWith([state('sensor.grid', 100), state('sensor.a', 100), state('sensor.b', 0)]),
+    );
+    const layout = computeLayout({
+      width: 900,
+      solar: false,
+      grid: true,
+      battery: false,
+      devices: ['device:0'],
+    });
+    const flows = applyDeviceTree(model, layout, cfg);
+    const hidden = flows.find((f) => f.id === 'flow:device:1')!;
+    expect(hidden.geometry).toBeDefined();
+    expect(hidden.geometry!({})).toBeNull();
+    const geom = hidden.geometry!({ 'device:1': { x: 400, y: 120, w: 160, h: 44 } })!;
+    expect(geom.to).toEqual({ x: 320, y: 120 });
+    expect(geom.from.x).toBe(320 - layout.devices.bus);
   });
 });
 

@@ -114,6 +114,12 @@ describe('validateConfig units', () => {
       );
   });
 
+  it('rejects non-object configs and non-array devices', () => {
+    expect(() => validateConfig(null)).toThrow('Invalid configuration');
+    expect(() => validateConfig('bad')).toThrow('Invalid configuration');
+    expect(() => validateConfig({ ...base, devices: 'sensor.a' })).toThrow('devices must be a list.');
+  });
+
   it('accepts a device or a group member written as a bare entity id', () => {
     const config = validateConfig({
       type: 'x',

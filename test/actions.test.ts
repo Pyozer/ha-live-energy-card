@@ -50,6 +50,18 @@ describe('actions', () => {
     expect(h.events).toEqual([]);
   });
 
+  it('pointercancel and pointerleave cancel a pending long press', () => {
+    for (const cancelEvent of ['pointercancel', 'pointerleave'] as const) {
+      const h = host();
+      const actions: NodeActions = { ...more, hold_action: { action: 'toggle' } };
+      const handlers = actionHandlers(h.el, () => actions);
+      handlers.pointerdown(pointer(0, 0));
+      handlers[cancelEvent]();
+      vi.advanceTimersByTime(600);
+      expect(h.events, cancelEvent).toEqual([]);
+    }
+  });
+
   it('ignores secondary mouse buttons for the long press', () => {
     const h = host();
     const actions: NodeActions = { ...more, hold_action: { action: 'toggle' } };
