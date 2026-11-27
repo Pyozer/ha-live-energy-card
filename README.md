@@ -4,6 +4,13 @@
 
 <h1 align="center">Live Energy Card</h1>
 
+<p align="center">
+  <a href="https://github.com/Pyozer/ha-live-energy-card/releases/latest"><img src="https://img.shields.io/github/v/release/Pyozer/ha-live-energy-card" alt="Latest release" /></a>
+  <a href="https://github.com/Pyozer/ha-live-energy-card/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Pyozer/ha-live-energy-card/ci.yml?label=CI" alt="CI status" /></a>
+  <a href="https://hacs.xyz"><img src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg" alt="HACS" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Pyozer/ha-live-energy-card" alt="MIT license" /></a>
+</p>
+
 A Home Assistant Lovelace card that shows your home's energy flows **live**: solar, grid, battery,
 home and individual devices. The design follows iOS app conventions: neutral surfaces, with system
 colors reserved for icons and flows. Each flow's animation follows its power.

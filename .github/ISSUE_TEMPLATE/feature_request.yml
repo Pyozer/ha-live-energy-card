@@ -1,0 +1,28 @@
+name: Feature request
+description: Suggest an improvement or a new option
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please check the [README](https://github.com/Pyozer/ha-live-energy-card#readme) and existing
+        issues first: the option may already exist or be under discussion.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem or use case are you trying to solve?
+      description: Describe your setup (solar, battery, devices, layout…) and what is missing today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How would you like this to behave or be configured?
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Optional YAML example, sketch, or screenshot.

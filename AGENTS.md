@@ -170,20 +170,25 @@ Every code change comes with the matching documentation update, in the same comm
 
 ## Continuous integration
 
-- `.github/workflows/ci.yml` runs `npm run check` on every push to `main` and every pull request,
-  and keeps the coverage report and the bundle as artifacts.
-- `.github/workflows/release.yml`: see above.
+- `.github/workflows/ci.yml` runs `npm run check`, `npm run build:demo`, `npm audit --audit-level=high`,
+  and validates Conventional Commit PR titles on pull requests, keeping coverage and the bundle as artifacts.
+- `.github/workflows/release.yml`: verifies the tag matches `package.json`, runs `npm run check`,
+  attaches a GitHub build provenance attestation (`actions/attest@v4`) to `dist/live-energy-card.js`,
+  and publishes the GitHub release with generated notes (`npm run release:notes -- HEAD` previews them).
 - `.github/workflows/hacs.yml`: the HACS validation (`hacs/action`, category `plugin`) on every push,
   pull request and weekly. It needs a repository description, topics and a release.
 - `.github/workflows/pages.yml`: builds the demo (`npm run build:demo`) and publishes it on GitHub
-  Pages at every push to `main` (Settings → Pages → Source: GitHub Actions). The README links to it.
+  Pages on `main` pushes affecting app/demo files (Settings → Pages → Source: GitHub Actions).
 - `docs/` holds the README screenshots, taken from the demo page (refresh them when the look changes), and
   `logo.svg`, the logo (hand-written SVG, glassmorphism): used in the README and as the favicon of the demo.
-- `.github/ISSUE_TEMPLATE/bug_report.yml`: the bug report form (what happened, YAML configuration, card and Home Assistant versions); blank issues stay allowed (`config.yml`).
-- Dependabot opens monthly update PRs for npm (dev dependencies grouped) and the GitHub actions.
+- `.github/ISSUE_TEMPLATE/` (`bug_report.yml`, `feature_request.yml`, `config.yml`),
+  `.github/PULL_REQUEST_TEMPLATE.md` and `SECURITY.md` handle community reports and contributions.
+- Dependabot opens monthly update PRs for npm (with a 7-day cooldown and grouped dev dependencies)
+  and GitHub Actions (grouped).
 - The Node version is pinned in `.nvmrc`, shared by CI and local development (nvm, fnm, mise and
-  `actions/setup-node` all read it). `engines` in `package.json` states the minimum, and
-  `engine-strict=true` in `.npmrc` makes `npm install` fail on an older Node instead of warning.
+  `actions/setup-node` all read it). `engines` in `package.json` states the minimum, and `.npmrc`
+  enforces it (`engine-strict=true`) along with exact dependency versions (`save-exact=true`).
+  `.editorconfig` aligns editor basics across IDEs.
 
 ## Commits
 
