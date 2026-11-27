@@ -34,6 +34,11 @@ export interface LayoutInput {
   battery: boolean;
   /** Visible device ids, in display order. */
   devices: string[];
+  /**
+   * Parent group id of each visible member (`memberId → groupId`). Members stay attached to their
+   * group in the same column and on the same side of the bus, inside a single unified card.
+   */
+  deviceParents?: Record<string, string>;
   devicesLayout?: DevicesLayout;
   /** Forced number of columns in grid mode. */
   devicesColumns?: number;
@@ -64,6 +69,12 @@ export interface UnitsLayout {
   trunk: number;
 }
 
+/** An expanded device group and its visible members, drawn together inside one card. */
+export interface GroupFrame {
+  id: string;
+  members: string[];
+}
+
 export interface DevicesArrangement {
   /** `stack`: devices below the diagram (narrow screens). */
   mode: 'column' | 'grid' | 'stack';
@@ -73,6 +84,8 @@ export interface DevicesArrangement {
   above: number[];
   /** Distance between the vertical bus and the left edge of the pills (grid mode). */
   bus: number;
+  /** Expanded groups that have at least one visible member, in display order. */
+  groups: GroupFrame[];
 }
 
 export interface Layout {
@@ -156,8 +169,144 @@ function diagramMetrics(input: LayoutInput, areaW: number): DiagramMetrics {
 const fixedColumns = (value: number | undefined): number | undefined =>
   value !== undefined && Number.isFinite(value) && value >= 1 ? Math.floor(value) : undefined;
 
-const stackHeight = (count: number, h: number, gap: number): number =>
-  count > 0 ? count * h + (count - 1) * gap : 0;
+/** Height of a member row inside an expanded group card: slightly slimmer than a top-level pill. */
+export const memberHeight = (pillH: number): number => Math.max(36, pillH - 4);
+
+/**
+ * Atomic vertical unit of the device list: either a standalone device (or collapsed group), or an
+ * expanded group together with its visible members. A block is never split across columns or across
+ * the central corridor in grid mode.
+ */
+interface DeviceBlock {
+  ids: string[];
+  group?: GroupFrame;
+}
+
+function deviceBlocks(devices: string[], parents?: Record<string, string>): DeviceBlock[] {
+  const blocks: DeviceBlock[] = [];
+  for (let i = 0; i < devices.length;) {
+    const id = devices[i];
+    if (!parents?.[id]) {
+      const members: string[] = [];
+      let j = i + 1;
+      while (j < devices.length && parents?.[devices[j]] === id) {
+        members.push(devices[j]);
+        j++;
+      }
+      blocks.push(members.length > 0 ? { ids: [id, ...members], group: { id, members } } : { ids: [id] });
+      i = j;
+    } else {
+      blocks.push({ ids: [id] });
+      i++;
+    }
+  }
+  return blocks;
+}
+
+const deviceBlockHeight = (b: DeviceBlock, pillH: number, memH: number): number =>
+  pillH + (b.ids.length - 1) * memH;
+
+const blocksHeight = (blocks: DeviceBlock[], pillH: number, memH: number, gap: number): number =>
+  blocks.length > 0
+    ? blocks.reduce((acc, b) => acc + deviceBlockHeight(b, pillH, memH), 0) + (blocks.length - 1) * gap
+    : 0;
+
+/**
+ * Splits ordered device blocks into `count` contiguous non-empty columns, minimizing the tallest
+ * column. Ties favor slightly fuller columns on the left.
+ */
+function partitionColumns(
+  blocks: DeviceBlock[],
+  count: number,
+  pillH: number,
+  memH: number,
+  gap: number,
+): DeviceBlock[][] {
+  const n = blocks.length;
+  const k = Math.max(1, Math.min(count, n));
+  if (k === 1) return n > 0 ? [blocks] : [];
+
+  const heights = blocks.map((b) => deviceBlockHeight(b, pillH, memH));
+  const prefix = [0];
+  for (const h of heights) prefix.push(prefix[prefix.length - 1] + h);
+  const rangeH = (l: number, r: number): number => prefix[r] - prefix[l] + Math.max(0, r - l - 1) * gap;
+
+  // dp[c][i] = minimum tallest column height when partitioning the first `i` blocks into `c` columns.
+  const dp: number[][] = Array.from({ length: k + 1 }, () => Array<number>(n + 1).fill(Infinity));
+  const cut: number[][] = Array.from({ length: k + 1 }, () => Array<number>(n + 1).fill(0));
+  for (let i = 1; i <= n; i++) dp[1][i] = rangeH(0, i);
+
+  for (let c = 2; c <= k; c++) {
+    for (let i = c; i <= n; i++) {
+      for (let j = c - 1; j < i; j++) {
+        const cost = Math.max(dp[c - 1][j], rangeH(j, i));
+        // `<=` prefers a larger `j`, i.e., fuller earlier columns on ties (e.g. [4, 3] over [3, 4]).
+        if (cost <= dp[c][i]) {
+          dp[c][i] = cost;
+          cut[c][i] = j;
+        }
+      }
+    }
+  }
+
+  const result: DeviceBlock[][] = Array.from({ length: k }, () => []);
+  let end = n;
+  for (let c = k; c >= 1; c--) {
+    const start = c === 1 ? 0 : cut[c][end];
+    result[c - 1] = blocks.slice(start, end);
+    end = start;
+  }
+  return result;
+}
+
+/**
+ * Picks the block boundary `s` (0..blocks.length) that splits a grid column into blocks above and
+ * below the central corridor with the smallest maximum height, never splitting inside a group.
+ */
+function splitCorridor(blocks: DeviceBlock[], pillH: number, memH: number, gap: number): number {
+  let best = 0;
+  let bestMax = Infinity;
+  let bestDiff = Infinity;
+  for (let s = 0; s <= blocks.length; s++) {
+    const up = blocksHeight(blocks.slice(0, s), pillH, memH, gap);
+    const down = blocksHeight(blocks.slice(s), pillH, memH, gap);
+    const max = Math.max(up, down);
+    const diff = Math.abs(up - down);
+    // On an exact tie, prefer more above the corridor (`up >= down`), matching `Math.ceil(rows / 2)`.
+    const better =
+      max < bestMax - 0.01 ||
+      (Math.abs(max - bestMax) <= 0.01 &&
+        (diff < bestDiff - 0.01 || (Math.abs(diff - bestDiff) <= 0.01 && up >= down)));
+    if (better) {
+      best = s;
+      bestMax = max;
+      bestDiff = diff;
+    }
+  }
+  return best;
+}
+
+/** Places a vertical list of device blocks starting at `top`, touching inside each expanded group. */
+function placeBlocks(
+  blocks: DeviceBlock[],
+  x: number,
+  top: number,
+  w: number,
+  pillH: number,
+  memH: number,
+  gap: number,
+  nodes: Record<string, Rect>,
+): void {
+  let y = top;
+  blocks.forEach((b, bi) => {
+    if (bi > 0) y += gap;
+    b.ids.forEach((id, idx) => {
+      const h = idx === 0 ? pillH : memH;
+      nodes[id] = { x, y: y + h / 2, w, h };
+      y += h;
+    });
+  });
+}
 
 /**
  * Positions of the grid, solar, battery and home nodes. A source shown unit by unit gets a hub where
@@ -213,20 +362,22 @@ export function computeLayout(input: LayoutInput): Layout {
   const n = input.devices.length;
   const narrow = W < 520;
   const mode = input.devicesLayout ?? 'auto';
+  const blocks = deviceBlocks(input.devices, input.deviceParents);
+  const groups = blocks.flatMap((b) => (b.group ? [b.group] : []));
 
-  if (narrow && n > 0 && mode !== 'column') return stackLayout(input, W, pad);
+  if (narrow && n > 0 && mode !== 'column') return stackLayout(input, W, pad, blocks, groups);
 
   // --- Column arrangement (reference) -----------------------------------------------------------
   let pillW = n > 0 ? clamp(W * 0.31, 112, 230) : 0;
   let devGap = n > 0 ? clamp(W * 0.075, 24, 72) : 0;
   let m = diagramMetrics(input, W - 2 * pad - pillW - devGap);
-  let columns = n > 0 ? [input.devices] : [];
+  let colBlocks: DeviceBlock[][] = blocks.length > 0 ? [blocks] : [];
   let gridMode = false;
   let tileGap = 0;
 
   // --- Grid arrangement: several columns fed by a bus -------------------------------------------
   if (n > 1 && mode !== 'column') {
-    const columnH = stackHeight(n, m.pillH, m.pillGap);
+    const columnH = blocksHeight(blocks, m.pillH, memberHeight(m.pillH), m.pillGap);
     const diagramH = m.above + m.below;
     const tooTall = columnH > Math.max(diagramH * 1.2, 4 * (m.pillH + m.pillGap));
     if (mode === 'grid' || tooTall) {
@@ -236,17 +387,23 @@ export function computeLayout(input: LayoutInput): Layout {
       const gap = clamp(W * 0.05, 30, 56);
       const avail = W - 2 * pad - areaW - gap;
       const maxCols = Math.max(1, Math.floor((avail + gutter) / (minTile + gutter)));
+      const maxGridCols = Math.min(maxCols, blocks.length);
       const fixed = fixedColumns(input.devicesColumns);
       let count: number;
       if (fixed) {
-        count = Math.min(fixed, maxCols, n);
+        count = Math.min(fixed, maxGridCols);
       } else {
         const corridor = clamp(m.pillH * 0.55, 20, 26);
-        for (count = 2; count < Math.min(maxCols, n); count++) {
-          const rows = Math.ceil(n / count);
-          if (stackHeight(rows, m.pillH, m.pillGap) + corridor <= diagramH * 1.15) break;
+        const memH = memberHeight(m.pillH);
+        for (count = 2; count < maxGridCols; count++) {
+          const cols = partitionColumns(blocks, count, m.pillH, memH, m.pillGap);
+          const maxH = cols.reduce(
+            (acc, col) => Math.max(acc, blocksHeight(col, m.pillH, memH, m.pillGap)),
+            0,
+          );
+          if (maxH + corridor <= diagramH * 1.15) break;
         }
-        count = Math.min(count, maxCols, n);
+        count = Math.min(count, maxGridCols);
       }
       if (count >= 2 || mode === 'grid') {
         gridMode = true;
@@ -257,32 +414,31 @@ export function computeLayout(input: LayoutInput): Layout {
         m = diagramMetrics(input, W - 2 * pad - devGap - devicesW);
         // Two-line pills (name then value): slightly taller.
         m.pillH = Math.max(m.pillH, 44);
-        const rows = Math.ceil(n / count);
-        columns = [];
-        for (let c = 0; c < count; c++) {
-          const slice = input.devices.slice(c * rows, (c + 1) * rows);
-          if (slice.length) columns.push(slice);
-        }
+        colBlocks = partitionColumns(blocks, count, m.pillH, memberHeight(m.pillH), m.pillGap);
       }
     }
   }
 
+  const columns = colBlocks.map((col) => col.flatMap((b) => b.ids));
   const devicesW = n > 0 ? columns.length * pillW + (columns.length - 1) * tileGap : 0;
   const totalW = m.width + (n > 0 ? devGap + devicesW : 0);
   const offsetX = pad + Math.max(0, (W - 2 * pad - totalW) / 2);
 
   // --- Vertical: home is aligned with the center of the devices (or the bus corridor) ----------
   const { pillH, pillGap } = m;
+  const memH = memberHeight(pillH);
   const corridor = clamp(pillH * 0.55, 20, 26);
-  const rows = columns.reduce((acc, c) => Math.max(acc, c.length), 0);
-  const aboveCount = gridMode ? Math.ceil(rows / 2) : 0;
+  const splits = gridMode ? colBlocks.map((col) => splitCorridor(col, pillH, memH, pillGap)) : [];
   let devAbove = 0;
   let devBelow = 0;
   if (gridMode) {
-    devAbove = corridor / 2 + stackHeight(aboveCount, pillH, pillGap);
-    devBelow = corridor / 2 + stackHeight(rows - aboveCount, pillH, pillGap);
+    colBlocks.forEach((col, c) => {
+      const s = splits[c];
+      devAbove = Math.max(devAbove, corridor / 2 + blocksHeight(col.slice(0, s), pillH, memH, pillGap));
+      devBelow = Math.max(devBelow, corridor / 2 + blocksHeight(col.slice(s), pillH, memH, pillGap));
+    });
   } else if (n > 0) {
-    devAbove = devBelow = stackHeight(n, pillH, pillGap) / 2;
+    devAbove = devBelow = blocksHeight(blocks, pillH, memH, pillGap) / 2;
   }
   const yMid = pad + Math.max(m.above, devAbove);
   const height = yMid + Math.max(m.below, devBelow) + pad;
@@ -291,30 +447,26 @@ export function computeLayout(input: LayoutInput): Layout {
   const { D } = m;
 
   const above: number[] = [];
-  columns.forEach((ids, c) => {
+  colBlocks.forEach((col, c) => {
     const x = offsetX + m.width + devGap + c * (pillW + tileGap) + pillW / 2;
     if (gridMode) {
-      const up = Math.min(ids.length, aboveCount);
-      above.push(up);
-      ids.forEach((id, i) => {
-        const y =
-          i < up
-            ? yMid - corridor / 2 - (up - 1 - i) * (pillH + pillGap) - pillH / 2
-            : yMid + corridor / 2 + (i - up) * (pillH + pillGap) + pillH / 2;
-        nodes[id] = { x, y, w: pillW, h: pillH };
-      });
+      const s = splits[c];
+      const upBlocks = col.slice(0, s);
+      const downBlocks = col.slice(s);
+      above.push(upBlocks.reduce((acc, b) => acc + b.ids.length, 0));
+      const upH = blocksHeight(upBlocks, pillH, memH, pillGap);
+      placeBlocks(upBlocks, x, yMid - corridor / 2 - upH, pillW, pillH, memH, pillGap, nodes);
+      placeBlocks(downBlocks, x, yMid + corridor / 2, pillW, pillH, memH, pillGap, nodes);
     } else {
-      const top = yMid - stackHeight(ids.length, pillH, pillGap) / 2;
-      ids.forEach((id, i) => {
-        nodes[id] = { x, y: top + pillH / 2 + i * (pillH + pillGap), w: pillW, h: pillH };
-      });
+      const top = yMid - blocksHeight(col, pillH, memH, pillGap) / 2;
+      placeBlocks(col, x, top, pillW, pillH, memH, pillGap, nodes);
       // Devices above the home, for the bus when the line style uses one.
-      above.push(ids.filter((id) => nodes[id].y < yMid - 0.5).length);
+      above.push(columns[c].filter((id) => nodes[id].y < yMid - 0.5).length);
     }
   });
   // A forced column that does not fit a narrow card falls back to the stack, as `auto` does.
   if (narrow && input.devices.some((id) => nodes[id].x + nodes[id].w / 2 > W))
-    return stackLayout(input, W, pad);
+    return stackLayout(input, W, pad, blocks, groups);
 
   return {
     width: W,
@@ -322,14 +474,19 @@ export function computeLayout(input: LayoutInput): Layout {
     nodes,
     size: D,
     narrow,
-    devices: { mode: gridMode ? 'grid' : 'column', columns, above, bus: 13 },
+    devices: { mode: gridMode ? 'grid' : 'column', columns, above, bus: 13, groups },
     units,
   };
 }
 
 /** Narrow screens: full-width diagram, devices in a grid below. */
-function stackLayout(input: LayoutInput, W: number, pad: number): Layout {
-  const n = input.devices.length;
+function stackLayout(
+  input: LayoutInput,
+  W: number,
+  pad: number,
+  blocks: DeviceBlock[],
+  groups: GroupFrame[],
+): Layout {
   const m = diagramMetrics(input, W - 2 * pad - 18);
   const { D } = m;
   const offsetX = pad + Math.max(0, (W - 2 * pad - 18 - m.width) / 2);
@@ -338,29 +495,27 @@ function stackLayout(input: LayoutInput, W: number, pad: number): Layout {
 
   const bus = 13;
   const gutter = 22;
-  const count = Math.min(n, W >= 300 ? 2 : 1, fixedColumns(input.devicesColumns) ?? 2);
+  const count = Math.min(blocks.length, W >= 300 ? 2 : 1, fixedColumns(input.devicesColumns) ?? 2);
   const pillH = input.smallBubbles ? 40 : 46;
+  const memH = memberHeight(pillH);
   const pillGap = input.compact ? 6 : 8;
   const tileW = (W - 2 * pad - bus - (count - 1) * gutter) / count;
-  const rows = Math.ceil(n / count);
   const top = yMid + m.below + (input.compact ? 22 : 30);
-  const columns: string[][] = [];
-  for (let c = 0; c < count; c++) {
-    const ids = input.devices.slice(c * rows, (c + 1) * rows);
-    if (!ids.length) continue;
-    columns.push(ids);
+  const colBlocks = partitionColumns(blocks, count, pillH, memH, pillGap);
+  const columns = colBlocks.map((col) => col.flatMap((b) => b.ids));
+  let maxColH = 0;
+  colBlocks.forEach((col, c) => {
     const x = pad + bus + c * (tileW + gutter) + tileW / 2;
-    ids.forEach((id, i) => {
-      nodes[id] = { x, y: top + pillH / 2 + i * (pillH + pillGap), w: tileW, h: pillH };
-    });
-  }
+    placeBlocks(col, x, top, tileW, pillH, memH, pillGap, nodes);
+    maxColH = Math.max(maxColH, blocksHeight(col, pillH, memH, pillGap));
+  });
   return {
     width: W,
-    height: top + stackHeight(rows, pillH, pillGap) + pad,
+    height: top + maxColH + pad,
     nodes,
     size: D,
     narrow: true,
-    devices: { mode: 'stack', columns, above: columns.map(() => 0), bus },
+    devices: { mode: 'stack', columns, above: columns.map(() => 0), bus, groups },
     units,
   };
 }

@@ -173,8 +173,10 @@ home:
 ### Device groups
 
 A group is shown as a single device with the total power of its members. Tap it to expand it: the
-group stays as a header and its members appear after it, each with its own flow. Tap again to
-collapse it.
+group header and its visible members join inside a single card — with slimmer member rows and subtle
+dividers between them — so membership stays clear even when several groups are open at once. Each
+member keeps its own flow, and a group is never split across columns or across the central bus in
+grid mode. Tap the header again to collapse it.
 
 In the visual editor, **drag a device by its handle** (mouse, touch or pen) to reorder the list,
 move it into a group (drop it on the group's header), take it out of a group or move it to another

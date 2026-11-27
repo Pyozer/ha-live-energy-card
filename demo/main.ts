@@ -848,6 +848,48 @@ const PRESETS: Record<string, () => void> = {
     });
     Object.assign(state, { solar: 120, battery: -40, soc: 16, baseLoad: 175, devices: devicesOff() });
   },
+  // Two expanded groups side by side with standalone devices, to check membership clarity across
+  // column, grid and narrow layouts.
+  'Device groups': () => {
+    withConfig((c) => {
+      c.devices = [
+        { entity: DEVICES[2].entity, name: DEVICES[2].name, icon: DEVICES[2].icon },
+        {
+          name: 'Network & IT',
+          icon: 'mdi:lan',
+          color: 'indigo',
+          expanded: true,
+          devices: IT_GROUP.map((i) => DEVICES[i]).map(({ entity, name, icon }) => ({
+            entity,
+            name,
+            icon,
+          })),
+        },
+        {
+          name: 'Appliances',
+          icon: 'mdi:home-lightning-bolt-outline',
+          expanded: true,
+          devices: [DEVICES[1], DEVICES[6]].map(({ entity, name, icon }) => ({ entity, name, icon })),
+        },
+        { entity: DEVICES[3].entity, name: DEVICES[3].name, icon: DEVICES[3].icon },
+        { entity: DEVICES[4].entity, name: DEVICES[4].name, icon: DEVICES[4].icon },
+        { entity: DEVICES[10].entity, name: DEVICES[10].name, icon: DEVICES[10].icon },
+      ];
+    });
+    Object.assign(state, {
+      solar: 2600,
+      battery: 400,
+      soc: 62,
+      baseLoad: 120,
+      devices: {
+        ...standby(),
+        [DEVICES[1].entity]: 1850,
+        [DEVICES[6].entity]: 720,
+        [DEVICES[3].entity]: 140,
+        [DEVICES[4].entity]: 125,
+      },
+    });
+  },
   'All zero': () =>
     Object.assign(state, { solar: 0, battery: 0, soc: 50, baseLoad: 0, devices: devicesOff() }),
 };

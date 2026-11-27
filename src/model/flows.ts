@@ -193,7 +193,7 @@ export function deviceFlows(
       watts,
       intensity: intensityOf(scale, watts),
       active,
-      idle: scale.dimIdle && !active && dev.visible,
+      idle: scale.dimIdle && !active && dev.visible && !dev.group?.expanded,
       colorFrom: homeColor,
       colorTo: dev.color,
       toggles: flowToggles(config, devices.configs.get(dev.id)?.animation),

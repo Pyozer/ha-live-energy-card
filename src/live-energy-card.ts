@@ -184,12 +184,17 @@ export class LiveEnergyCard extends LitElement {
     });
     this._order = this._model.devicesOrder;
     const visible = new Set(this._model.nodes.filter((n) => n.visible).map((n) => n.id));
+    const deviceParents: Record<string, string> = {};
+    for (const n of this._model.nodes) {
+      if (n.parent && visible.has(n.id) && visible.has(n.parent)) deviceParents[n.id] = n.parent;
+    }
     this._layout = computeLayout({
       width: this._width || 480,
       solar: visible.has('solar'),
       grid: visible.has('grid'),
       battery: visible.has('battery'),
       devices: this._model.devicesOrder.filter((id) => visible.has(id)),
+      deviceParents,
       devicesLayout: this._config.devices_layout,
       devicesColumns: this._config.devices_columns,
       compact: this._config.compact,
@@ -232,6 +237,7 @@ export class LiveEnergyCard extends LitElement {
     if (!this._config || !this.hass || !this._model || !this._layout) return nothing;
     const model = this._model;
     const layout = this._layout;
+    const openGroups = new Map(layout.devices.groups.map((g) => [g.id, g.members]));
     return html`
       <ha-card
         class="${this._config.transparent ? 'transparent' : ''} ${this._config.compact ? 'compact' : ''}"
@@ -279,9 +285,21 @@ export class LiveEnergyCard extends LitElement {
               )}
             </svg>
             ${repeat(
+              model.nodes.filter((n) => n.group),
+              (n) => n.id,
+              (n) => html`
+                <div
+                  class="group-frame ${openGroups.has(n.id) ? '' : 'is-hidden'}"
+                  data-group=${n.id}
+                  style="--gc: ${n.color}"
+                  aria-hidden="true"
+                ></div>
+              `,
+            )}
+            ${repeat(
               model.nodes.filter((n) => !n.hub),
               (n) => n.id,
-              (n) => this._renderNode(n),
+              (n) => this._renderNode(n, openGroups),
             )}
           </div>
           ${model.ratios || model.stats ? this._renderFooter(model) : nothing}
@@ -327,7 +345,7 @@ export class LiveEnergyCard extends LitElement {
     return statActions(key, this._model?.stats?.entities[key], cfg?.cost, cfg?.carbon);
   }
 
-  private _renderNode(n: NodeModel): TemplateResult {
+  private _renderNode(n: NodeModel, openGroups: ReadonlyMap<string, string[]>): TemplateResult {
     const interactive = isInteractive(n.actions);
     const h = this._handlersFor(n.id);
     const shape = n.kind === 'device' ? 'pill' : 'circle';
@@ -336,6 +354,10 @@ export class LiveEnergyCard extends LitElement {
         ? `${n.name} : ${localize(this._labelLang, 'state.unavailable')}`
         : `${n.name} : ${Object.values(this._format(n.watts)).join(' ')}`;
     const label = n.status ? `${reading} · ${n.status}` : reading;
+    const isOpen = !!n.group && openGroups.has(n.id);
+    const siblings = n.parent ? openGroups.get(n.parent) : undefined;
+    const isFirstMember = !!siblings && siblings[0] === n.id;
+    const isLastMember = !!siblings && siblings[siblings.length - 1] === n.id;
     const classes = [
       'node',
       shape,
@@ -348,7 +370,10 @@ export class LiveEnergyCard extends LitElement {
       ringValue(n) !== undefined ? 'has-ring' : '',
       n.group ? 'is-group' : '',
       n.group?.expanded ? 'is-expanded' : '',
+      isOpen ? 'is-open' : '',
       n.parent ? 'is-member' : '',
+      isFirstMember ? 'is-first-member' : '',
+      isLastMember ? 'is-last-member' : '',
       n.unit ? 'is-unit' : '',
       n.unit && (this._layout?.units[n.unit]?.size ?? Infinity) < SMALL_UNIT ? 'is-small' : '',
       n.alert ? 'is-alert' : '',

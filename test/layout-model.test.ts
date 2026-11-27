@@ -21,7 +21,7 @@ import { buildDeviceTree } from '../src/tree';
 import { validateConfig, watchedEntities } from '../src/config';
 import type { HassEntity, HomeAssistant, LiveEnergyCardConfig } from '../src/types';
 
-const overlaps = (a: Rect, b: Rect, margin = 0) =>
+const overlaps = (a: Rect, b: Rect, margin = -1e-6) =>
   Math.abs(a.x - b.x) < (a.w + b.w) / 2 + margin && Math.abs(a.y - b.y) < (a.h + b.h) / 2 + margin;
 
 function assertNoOverlap(layout: Layout) {
@@ -204,6 +204,131 @@ describe('computeLayout', () => {
       const end = edges.find((e) => e.id === 'tree:spine:0') ?? edges.find((e) => e.id === 'tree:trunk')!;
       expect(end.geometry(layout.nodes)?.d).toMatch(/Q[\d.,-]+ [\d.,-]+$/);
     }
+  });
+
+  describe('expanded device groups', () => {
+    const groupedDevices = [
+      'device:0',
+      'device:1',
+      'device:1:0',
+      'device:1:1',
+      'device:1:2',
+      'device:2',
+      'device:3',
+      'device:3:0',
+      'device:3:1',
+      'device:4',
+    ];
+    const deviceParents = {
+      'device:1:0': 'device:1',
+      'device:1:1': 'device:1',
+      'device:1:2': 'device:1',
+      'device:3:0': 'device:3',
+      'device:3:1': 'device:3',
+    };
+
+    for (const width of [320, 380, 520, 700, 900, 1200]) {
+      for (const devicesLayout of ['auto', 'column', 'grid'] as const) {
+        it(`keeps every expanded group intact in one card (${width}px, ${devicesLayout})`, () => {
+          const layout = computeLayout({
+            width,
+            solar: true,
+            grid: true,
+            battery: true,
+            devices: groupedDevices,
+            deviceParents,
+            devicesLayout,
+          });
+          assertNoOverlap(layout);
+          expect(layout.devices.groups).toEqual([
+            { id: 'device:1', members: ['device:1:0', 'device:1:1', 'device:1:2'] },
+            { id: 'device:3', members: ['device:3:0', 'device:3:1'] },
+          ]);
+
+          for (const group of layout.devices.groups) {
+            const colIndex = layout.devices.columns.findIndex((c) => c.includes(group.id));
+            expect(colIndex).toBeGreaterThanOrEqual(0);
+            const col = layout.devices.columns[colIndex];
+            const headPos = col.indexOf(group.id);
+            // Every member stays immediately after its group header in the same column.
+            group.members.forEach((m, i) => {
+              expect(col[headPos + 1 + i]).toBe(m);
+            });
+            // In grid mode, a group is never split across the central corridor.
+            if (layout.devices.mode === 'grid') {
+              const up = layout.devices.above[colIndex];
+              const lastPos = headPos + group.members.length;
+              expect(lastPos < up || headPos >= up).toBe(true);
+            }
+            // Header and members touch flush (0px gap) with the same x and width, forming one card.
+            let prev = layout.nodes[group.id];
+            for (const m of group.members) {
+              const cur = layout.nodes[m];
+              expect(cur.x).toBeCloseTo(prev.x);
+              expect(cur.w).toBeCloseTo(prev.w);
+              expect(cur.y - cur.h / 2).toBeCloseTo(prev.y + prev.h / 2);
+              expect(cur.h).toBeLessThanOrEqual(layout.nodes[group.id].h);
+              prev = cur;
+            }
+          }
+        });
+      }
+    }
+
+    it('keeps a single large expanded group in one column even in grid/stack modes', () => {
+      const onlyGroup = ['device:0', 'device:0:0', 'device:0:1', 'device:0:2', 'device:0:3'];
+      const parents = {
+        'device:0:0': 'device:0',
+        'device:0:1': 'device:0',
+        'device:0:2': 'device:0',
+        'device:0:3': 'device:0',
+      };
+      for (const width of [340, 900]) {
+        const layout = computeLayout({
+          width,
+          solar: true,
+          grid: true,
+          battery: true,
+          devices: onlyGroup,
+          deviceParents: parents,
+          devicesLayout: width > 520 ? 'grid' : 'auto',
+        });
+        assertNoOverlap(layout);
+        expect(layout.devices.columns).toHaveLength(1);
+        expect(layout.devices.columns[0]).toEqual(onlyGroup);
+      }
+    });
+
+    it('bus skips expanded group headers so the end of a branch curves cleanly into its member', () => {
+      const layout = computeLayout({
+        width: 900,
+        solar: true,
+        grid: true,
+        battery: true,
+        devices: ['device:0', 'device:0:0', 'device:0:1', 'device:1'],
+        deviceParents: { 'device:0:0': 'device:0', 'device:0:1': 'device:0' },
+        devicesLayout: 'grid',
+      });
+      const edges = buildDeviceTree(layout.devices);
+      // The open group header receives no leaf edge; its topmost member terminates the upward branch with a curve.
+      expect(edges.find((e) => e.leaf === 'device:0')).toBeUndefined();
+      const topMember = edges.find((e) => e.leaf === 'device:0:0');
+      expect(topMember).toBeDefined();
+      expect(topMember!.geometry(layout.nodes)?.d).toContain('Q');
+    });
+
+    it('handles an orphan member defensively without throwing', () => {
+      const layout = computeLayout({
+        width: 700,
+        solar: false,
+        grid: true,
+        battery: false,
+        devices: ['device:1:0', 'device:2'],
+        deviceParents: { 'device:1:0': 'device:1' },
+      });
+      assertNoOverlap(layout);
+      expect(layout.devices.groups).toEqual([]);
+    });
   });
 });
 
@@ -461,12 +586,16 @@ describe('buildModel', () => {
     });
 
     it('expanded: the members carry the flows, the group only heads them', () => {
-      const model = buildModel(groupConfig, groupHass, { expanded: new Set(['device:1']) });
+      const model = buildModel({ ...groupConfig, inactive_flows: 'dim' }, groupHass, {
+        expanded: new Set(['device:1']),
+      });
       const byId = Object.fromEntries(model.nodes.map((n) => [n.id, n]));
       expect(byId['device:1:0'].visible).toBe(true);
       expect(byId['device:1:0'].parent).toBe('device:1');
       const flows = Object.fromEntries(model.flows.map((f) => [f.id, f]));
       expect(flows['flow:device:1'].active).toBe(false);
+      // Even when idle flows are dimmed, an expanded group header does not draw a redundant idle stub.
+      expect(flows['flow:device:1'].idle).toBe(false);
       expect(flows['flow:device:1:0'].watts).toBe(900);
       // The bus never counts the group and its members twice.
       const layout = computeLayout({
@@ -475,6 +604,7 @@ describe('buildModel', () => {
         grid: true,
         battery: false,
         devices: model.devicesOrder.filter((id) => byId[id].visible),
+        deviceParents: { 'device:1:0': 'device:1', 'device:1:1': 'device:1' },
         devicesLayout: 'grid',
       });
       const tree = applyDeviceTree(model, layout, groupConfig);

@@ -20,6 +20,9 @@ export const cardStyles = css`
     --lec-muted: var(--secondary-text-color, #8e8e93);
     --lec-fill: color-mix(in srgb, var(--lec-text) 4.5%, var(--lec-surface));
     --lec-fill-strong: color-mix(in srgb, var(--lec-text) 8%, transparent);
+    --lec-group-fill: color-mix(in srgb, var(--lec-text) 2.5%, var(--lec-surface));
+    --lec-group-head: color-mix(in srgb, var(--lec-text) 3.5%, transparent);
+    --lec-group-border: color-mix(in srgb, var(--lec-text) 12%, transparent);
     --lec-separator: color-mix(in srgb, var(--lec-text) 9%, transparent);
     --lec-idle-line: color-mix(in srgb, var(--lec-text) 14%, transparent);
     --lec-ease: cubic-bezier(0.32, 0.72, 0, 1);
@@ -36,6 +39,9 @@ export const cardStyles = css`
     --lec-alert: #ff453a;
     --lec-fill: color-mix(in srgb, var(--lec-text) 7%, var(--lec-surface));
     --lec-fill-strong: color-mix(in srgb, var(--lec-text) 12%, transparent);
+    --lec-group-fill: color-mix(in srgb, var(--lec-text) 4.5%, var(--lec-surface));
+    --lec-group-head: color-mix(in srgb, var(--lec-text) 5%, transparent);
+    --lec-group-border: color-mix(in srgb, var(--lec-text) 15%, transparent);
   }
 
   ha-card {
@@ -146,8 +152,29 @@ export const cardStyles = css`
     }
   }
 
+  .node:focus-visible {
+    z-index: 1;
+  }
+
   .node:focus-visible .node-inner {
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--lec-grid) 45%, transparent);
+  }
+
+  /* Expanded device group container: one cohesive iOS-style grouped card wrapping header + members. */
+  .group-frame {
+    position: absolute;
+    left: 0;
+    top: 0;
+    box-sizing: border-box;
+    border-radius: 12px;
+    background: var(--lec-group-fill);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--gc, var(--lec-device)) 22%, var(--lec-group-border));
+    pointer-events: none;
+    transition: opacity 0.25s var(--lec-ease);
+  }
+
+  .group-frame.is-hidden {
+    opacity: 0;
   }
 
   ha-icon {
@@ -370,7 +397,7 @@ export const cardStyles = css`
     white-space: nowrap;
   }
 
-  /* Device groups: a chevron after the name; members are slightly recessed. */
+  /* Device groups: a chevron after the name; when expanded, header and members fuse into one card. */
   .pill.is-group .name {
     display: flex;
     align-items: center;
@@ -393,6 +420,24 @@ export const cardStyles = css`
     transform: rotate(180deg);
   }
 
+  /* Open group header: top band of the unified card, with a crisp separator above its members. */
+  .pill.is-open .node-inner {
+    border-radius: 12px 12px 0 0;
+    background: color-mix(in srgb, var(--c) 4.5%, var(--lec-group-head));
+    border-bottom: 1px solid var(--lec-separator);
+  }
+
+  @media (hover: hover) {
+    .pill.is-open.interactive:hover .node-inner {
+      background-color: color-mix(in srgb, var(--c) 6%, var(--lec-fill-strong));
+    }
+  }
+
+  .pill.is-open.interactive:active .node-inner {
+    transform: none;
+    background-color: color-mix(in srgb, var(--c) 8%, var(--lec-fill-strong));
+  }
+
   /* Gauge of a device with a maximum power: a bar along the bottom edge of the pill. */
   .pill .gauge {
     position: absolute;
@@ -410,8 +455,60 @@ export const cardStyles = css`
     transition: width 0.8s var(--lec-ease);
   }
 
+  /* Group members: slimmer rows inside the shared card, separated by subtle inset dividers. */
   .pill.is-member .node-inner {
-    background: color-mix(in srgb, var(--lec-fill) 55%, transparent);
+    background: transparent;
+    border-radius: 0;
+    padding: 0 12px 0 10px;
+    column-gap: 10px;
+  }
+
+  .pill.is-member.is-last-member .node-inner {
+    border-radius: 0 0 12px 12px;
+  }
+
+  .pill.is-member.is-hidden .node-inner {
+    transform: translateY(-4px);
+  }
+
+  .pill.is-member:not(.is-first-member) .node-inner::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 12px;
+    right: 12px;
+    height: 1px;
+    background: var(--lec-separator);
+    pointer-events: none;
+  }
+
+  .pill.is-member .chip {
+    width: calc(var(--ph) - 16px);
+    height: calc(var(--ph) - 16px);
+  }
+
+  .pill.is-member .chip ha-icon {
+    --mdc-icon-size: 15px;
+  }
+
+  .pill.is-member .name {
+    font-size: 13px;
+    font-weight: 450;
+  }
+
+  .pill.is-member .value {
+    font-size: 13px;
+  }
+
+  @media (hover: hover) {
+    .pill.is-member.interactive:hover .node-inner {
+      background-color: color-mix(in srgb, var(--lec-text) 5%, transparent);
+    }
+  }
+
+  .pill.is-member.interactive:active .node-inner {
+    transform: none;
+    background-color: color-mix(in srgb, var(--lec-text) 9%, transparent);
   }
 
   .pill .secondary {
@@ -471,6 +568,21 @@ export const cardStyles = css`
 
   .stage.grid-devices .pill .secondary {
     display: none;
+  }
+
+  .stage.grid-devices .pill.is-member .node-inner {
+    padding: 0 10px;
+    column-gap: 8px;
+  }
+
+  .stage.grid-devices .pill.is-member:not(.is-first-member) .node-inner::before {
+    left: 10px;
+    right: 10px;
+  }
+
+  .stage.grid-devices .pill.is-member .name,
+  .stage.grid-devices .pill.is-member .value {
+    font-size: 12.5px;
   }
 
   /* ---------- Indicators ---------- */
@@ -564,6 +676,7 @@ export const cardStyles = css`
 
   @media (prefers-reduced-motion: reduce) {
     .node-inner,
+    .group-frame,
     .ring circle,
     .gauge-fill,
     .ratio circle {

@@ -39,6 +39,12 @@ interface NodeState {
   applied: string;
 }
 
+interface GroupState {
+  el?: HTMLElement;
+  members: string[];
+  applied: string;
+}
+
 interface ValueState {
   target: number | null;
   current: number | null;
@@ -67,6 +73,7 @@ export function frameDue(now: number, last: number, maxFps: number): boolean {
 
 export class FlowAnimator {
   private nodes = new Map<string, NodeState>();
+  private groups = new Map<string, GroupState>();
   private flows = new Map<string, FlowState>();
   private values = new Map<string, ValueState>();
   private stage?: HTMLElement;
@@ -121,6 +128,10 @@ export class FlowAnimator {
       state.el = root.querySelector<HTMLElement>(`[data-node="${CSS.escape(id)}"]`) ?? undefined;
       state.applied = '';
     }
+    for (const [id, state] of this.groups) {
+      state.el = root.querySelector<HTMLElement>(`[data-group="${CSS.escape(id)}"]`) ?? undefined;
+      state.applied = '';
+    }
     for (const [id, state] of this.flows) {
       const group = root.querySelector<SVGGElement>(`[data-flow="${CSS.escape(id)}"]`);
       const gradient = root.querySelector<SVGLinearGradientElement>(`[data-gradient="${CSS.escape(id)}"]`);
@@ -165,6 +176,11 @@ export class FlowAnimator {
     this.height.target = layout.height;
     if (this.height.current === 0) this.height.current = layout.height;
 
+    const parentOf = new Map<string, string>();
+    for (const g of layout.devices.groups ?? []) {
+      for (const m of g.members) parentOf.set(m, g.id);
+    }
+    const newlyVisibleMembers: string[] = [];
     for (const [id, visible] of nodeVisibility) {
       let state = this.nodes.get(id);
       if (!state) {
@@ -174,12 +190,41 @@ export class FlowAnimator {
       const target = layout.nodes[id];
       if (visible && target) {
         // A reappearing node jumps straight to its position instead of sliding.
-        if (!state.visible || !state.rect) state.rect = { ...target };
+        if (!state.visible || !state.rect) {
+          state.rect = { ...target };
+          if (parentOf.has(id)) newlyVisibleMembers.push(id);
+        }
         state.target = { ...target };
       }
       state.visible = visible && !!target;
     }
+    // Expanding a group: start newly visible members aligned to their parent's current animated
+    // rect so the whole group card glides into place in lockstep without overlapping its header.
+    for (const id of newlyVisibleMembers) {
+      const state = this.nodes.get(id);
+      const parent = this.nodes.get(parentOf.get(id)!);
+      if (state?.target && parent?.visible && parent.rect && parent.target) {
+        state.rect = {
+          x: parent.rect.x + (state.target.x - parent.target.x),
+          y: parent.rect.y + (state.target.y - parent.target.y),
+          w: parent.rect.w,
+          h: state.target.h,
+        };
+      }
+    }
     for (const id of [...this.nodes.keys()]) if (!nodeVisibility.has(id)) this.nodes.delete(id);
+
+    const openGroups = new Set<string>();
+    for (const g of layout.devices.groups ?? []) {
+      openGroups.add(g.id);
+      const existing = this.groups.get(g.id);
+      if (existing) existing.members = g.members;
+      else this.groups.set(g.id, { members: g.members, applied: '' });
+    }
+    for (const [id, state] of [...this.groups]) {
+      if (!nodeVisibility.has(id)) this.groups.delete(id);
+      else if (!openGroups.has(id)) state.members = [];
+    }
 
     const seen = new Set<string>();
     for (const model of flows) {
@@ -310,6 +355,26 @@ export class FlowAnimator {
     }
 
     if (moved) this.geomVersion++;
+
+    // Expanded device group frames follow the animated rects of their header and visible members.
+    for (const [id, g] of this.groups) {
+      if (!g.el || g.members.length === 0) continue;
+      const head = rects[id];
+      const last = rects[g.members[g.members.length - 1]];
+      if (!head || !last) continue;
+      const left = head.x - head.w / 2;
+      const top = head.y - head.h / 2;
+      const width = head.w;
+      const height = Math.max(head.h, last.y + last.h / 2 - top);
+      const key = `${r1(left)}|${r1(top)}|${r1(width)}|${r1(height)}`;
+      if (key !== g.applied) {
+        g.applied = key;
+        const s = g.el.style;
+        s.transform = `translate(${r1(left)}px, ${r1(top)}px)`;
+        s.width = `${r1(width)}px`;
+        s.height = `${r1(height)}px`;
+      }
+    }
 
     // Flows.
     const motion = !this.reducedMotion;

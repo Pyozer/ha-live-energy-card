@@ -128,12 +128,20 @@ export function buildDeviceTree(arr: DevicesArrangement, radius = RADIUS): TreeE
     });
   }
 
-  // Vertical branches of each column, upward then downward.
+  // Vertical branches of each column, upward then downward. Expanded group headers carry no flow
+  // (their members do), so skipping them keeps the end of each branch curved onto its last member.
+  const openGroups = new Set((arr.groups ?? []).map((g) => g.id));
   cols.forEach((ids, c) => {
     const up = arr.above[c] ?? 0;
     const branches: [string, string[]][] = [
-      ['up', ids.slice(0, up).reverse()],
-      ['down', ids.slice(up)],
+      [
+        'up',
+        ids
+          .slice(0, up)
+          .reverse()
+          .filter((id) => !openGroups.has(id)),
+      ],
+      ['down', ids.slice(up).filter((id) => !openGroups.has(id))],
     ];
     for (const [side, chain] of branches) {
       // `chain` starts at the corridor and moves away from it.
