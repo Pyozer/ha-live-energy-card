@@ -12,11 +12,17 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: hacs-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+      # HACS publishes its current validation rules on `main` (required for default-list compliance).
       - uses: hacs/action@main
         with:
           category: plugin
