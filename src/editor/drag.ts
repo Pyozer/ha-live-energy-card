@@ -63,7 +63,7 @@ export function dropTargetAt(
   const b =
     blocks[
       nearest(
-        blocks.map((b) => b.block),
+        blocks.map((item) => item.block),
         y,
       )
     ];

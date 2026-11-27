@@ -25,7 +25,7 @@ describe('FlowAnimator lifecycle', () => {
   it('does not listen to the reduced-motion preference before the card is connected', () => {
     const query = fakeMotionQuery();
     stubWindow(query);
-    new FlowAnimator();
+    expect(new FlowAnimator()).toBeInstanceOf(FlowAnimator);
     expect(query.listeners.size).toBe(0);
   });
 

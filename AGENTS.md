@@ -26,7 +26,7 @@ npm install
 npm run dev           # demo outside Home Assistant: http://localhost:5173/demo/
 npm test              # unit tests (Vitest)
 npm run coverage      # tests + coverage thresholds (report in coverage/index.html)
-npm run lint          # ESLint
+npm run lint          # Oxlint
 npm run format        # Prettier (src, demo, test)
 npm run build         # type check + dist/live-energy-card.js
 npm run size          # bundle size against its budget (scripts/check-size.mjs)

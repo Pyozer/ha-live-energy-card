@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error"
+  },
+  "rules": {
+    "no-underscore-dangle": "off",
+    "typescript/no-explicit-any": "error"
+  },
+  "env": {
+    "browser": true,
+    "es2022": true
+  },
+  "ignorePatterns": ["dist/**", "dist-demo/**", "coverage/**"],
+  "overrides": [
+    {
+      "files": ["scripts/**/*.mjs"],
+      "env": {
+        "node": true
+      }
+    }
+  ]
+}

@@ -494,9 +494,12 @@ describe('buildModel', () => {
   });
 
   it('a device excluded from untracked is not subtracted from Other', () => {
-    const devices = [{ entity: 'sensor.frigo' }, { entity: 'sensor.tv', exclude_from_untracked: true }];
+    const excludedDevices = [
+      { entity: 'sensor.frigo' },
+      { entity: 'sensor.tv', exclude_from_untracked: true },
+    ];
     const model = buildModel(
-      { ...config, devices, show_untracked: true },
+      { ...config, devices: excludedDevices, show_untracked: true },
       hassWith([
         state('sensor.solar', 0),
         state('sensor.grid', 500),
@@ -641,9 +644,9 @@ describe('buildModel', () => {
     });
 
     it('a config made only of groups is valid and watches the members', () => {
-      const config = { type: 'x', devices: [{ name: 'G', devices: [{ entity: 'sensor.a' }] }] };
-      expect(() => validateConfig(config)).not.toThrow();
-      expect(watchedEntities(config)).toEqual(['sensor.a']);
+      const groupsOnly = { type: 'x', devices: [{ name: 'G', devices: [{ entity: 'sensor.a' }] }] };
+      expect(() => validateConfig(groupsOnly)).not.toThrow();
+      expect(watchedEntities(groupsOnly)).toEqual(['sensor.a']);
     });
   });
 
@@ -1179,27 +1182,33 @@ describe('unit flow paths', () => {
     const hasSharpCorner = (d: string): boolean => /L[\d.]+,[\d.]+ L/.test(d);
 
     it('rounds the flows out of the solar stub, leaving no right angle at the hub', () => {
-      const hub = layout.nodes.solar;
+      const solarHub = layout.nodes.solar;
       const trunk = layout.units.solar!.trunk;
       const home = path('solar_home');
       // Starts on the stub between the shared segment and the hub, and turns before the hub's height.
-      expect(home.from.x).toBe(hub.x);
+      expect(home.from.x).toBe(solarHub.x);
       expect(home.from.y).toBeGreaterThan(trunk);
-      expect(home.from.y).toBeLessThan(hub.y);
-      expect(home.d).toMatch(new RegExp(`^M${r1(hub.x)},[\\d.]+ Q${r1(hub.x)},${r1(hub.y)} `));
-      expect(path('solar_grid').d).toMatch(new RegExp(`^M${r1(hub.x)},[\\d.]+ Q${r1(hub.x)},${r1(hub.y)} `));
+      expect(home.from.y).toBeLessThan(solarHub.y);
+      expect(home.d).toMatch(new RegExp(`^M${r1(solarHub.x)},[\\d.]+ Q${r1(solarHub.x)},${r1(solarHub.y)} `));
+      expect(path('solar_grid').d).toMatch(
+        new RegExp(`^M${r1(solarHub.x)},[\\d.]+ Q${r1(solarHub.x)},${r1(solarHub.y)} `),
+      );
       expect(hasSharpCorner(home.d)).toBe(false);
     });
 
     it('meets the battery stub with a curve, from the grid', () => {
-      const hub = layout.nodes.battery;
+      const batteryHub = layout.nodes.battery;
       const grid = path('grid_battery');
-      expect(grid.to.x).toBe(hub.x);
-      expect(grid.to.y).toBeGreaterThan(hub.y);
+      expect(grid.to.x).toBe(batteryHub.x);
+      expect(grid.to.y).toBeGreaterThan(batteryHub.y);
       expect(grid.to.y).toBeLessThan(layout.units.battery!.trunk);
-      expect(grid.d).toMatch(new RegExp(`Q${r1(hub.x)},${r1(hub.y)} ${r1(hub.x)},[\\d.]+$`));
+      expect(grid.d).toMatch(
+        new RegExp(`Q${r1(batteryHub.x)},${r1(batteryHub.y)} ${r1(batteryHub.x)},[\\d.]+$`),
+      );
       for (const id of ['battery_home', 'battery_grid'] as const) {
-        expect(path(id).d, id).toMatch(new RegExp(`^M${r1(hub.x)},[\\d.]+ Q${r1(hub.x)},${r1(hub.y)} `));
+        expect(path(id).d, id).toMatch(
+          new RegExp(`^M${r1(batteryHub.x)},[\\d.]+ Q${r1(batteryHub.x)},${r1(batteryHub.y)} `),
+        );
       }
     });
 
@@ -1232,10 +1241,10 @@ describe('unit flow paths', () => {
     });
 
     it('leaves room on the stub for a visible curve', () => {
-      const hub = layout.nodes.solar;
-      const stub = hub.y - layout.units.solar!.trunk;
+      const solarHub = layout.nodes.solar;
+      const stub = solarHub.y - layout.units.solar!.trunk;
       expect(stub).toBeGreaterThan(10);
-      expect(hub.y - path('solar_home').from.y).toBeCloseTo(stub / 2);
+      expect(solarHub.y - path('solar_home').from.y).toBeCloseTo(stub / 2);
     });
 
     it('is left alone for square lines, other styles and sources without units', () => {

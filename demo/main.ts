@@ -105,17 +105,21 @@ const DEFAULT_CONFIG: LiveEnergyCardConfig = {
   grid: { entity: ENT.grid, energy_entity: 'sensor.grid_energy' },
   battery: { units: [{ entity: ENT.battery, soc_entity: ENT.soc, capacity: 10, min_soc: 10 }] },
   devices: [
-    ...DEVICES.filter((_, i) => !IT_GROUP.includes(i)).map(({ entity, name, icon }) => ({
-      entity,
-      name,
-      icon,
-      energy_entity: `${entity}_energy`,
+    ...DEVICES.filter((_, i) => !IT_GROUP.includes(i)).map((d) => ({
+      entity: d.entity,
+      name: d.name,
+      icon: d.icon,
+      energy_entity: `${d.entity}_energy`,
     })),
     // Device group: tap it to show its members.
     {
       name: 'Network & IT',
       icon: 'mdi:lan',
-      devices: IT_GROUP.map((i) => DEVICES[i]).map(({ entity, name, icon }) => ({ entity, name, icon })),
+      devices: IT_GROUP.map((i) => DEVICES[i]).map((d) => ({
+        entity: d.entity,
+        name: d.name,
+        icon: d.icon,
+      })),
     },
   ],
 };
@@ -859,17 +863,21 @@ const PRESETS: Record<string, () => void> = {
           icon: 'mdi:lan',
           color: 'indigo',
           expanded: true,
-          devices: IT_GROUP.map((i) => DEVICES[i]).map(({ entity, name, icon }) => ({
-            entity,
-            name,
-            icon,
+          devices: IT_GROUP.map((i) => DEVICES[i]).map((d) => ({
+            entity: d.entity,
+            name: d.name,
+            icon: d.icon,
           })),
         },
         {
           name: 'Appliances',
           icon: 'mdi:home-lightning-bolt-outline',
           expanded: true,
-          devices: [DEVICES[1], DEVICES[6]].map(({ entity, name, icon }) => ({ entity, name, icon })),
+          devices: [DEVICES[1], DEVICES[6]].map((d) => ({
+            entity: d.entity,
+            name: d.name,
+            icon: d.icon,
+          })),
         },
         { entity: DEVICES[3].entity, name: DEVICES[3].name, icon: DEVICES[3].icon },
         { entity: DEVICES[4].entity, name: DEVICES[4].name, icon: DEVICES[4].icon },
