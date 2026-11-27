@@ -28,14 +28,16 @@ tests and updated documentation (see [AGENTS.md](AGENTS.md)).
 From a clean `main`, with the commits to release already in:
 
 ```bash
-npm run release -- minor   # or patch, major, or an exact version such as 0.17.0
+npm run release:notes -- HEAD   # preview the release notes before tagging
+npm run release -- minor        # or patch, major, or an exact version such as 0.17.0
 git push --follow-tags
 ```
 
 `npm run release` runs `npm run check` first, then bumps `package.json` and `package-lock.json`,
 commits `chore: release x.y.z` and creates the annotated tag `vx.y.z`. It refuses to run on a dirty
 working tree. Nothing is pushed by the script: `git push --follow-tags` sends the commit and the tag
-together. The tag triggers the `Release` workflow, which publishes the GitHub release that HACS
+together. The tag triggers the `Release` workflow, which verifies the build, attaches a GitHub build
+provenance attestation to `dist/live-energy-card.js`, and publishes the GitHub release that HACS
 installs.
 
 If the release commit already exists (version bumped by hand), only the tag is missing:

@@ -8,10 +8,13 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
         with:
@@ -30,6 +33,10 @@ jobs:
             exit 1
           fi
       - run: npm run check
+      - name: Attest build provenance
+        uses: actions/attest@v4
+        with:
+          subject-path: dist/live-energy-card.js
       # GitHub's generated notes only list merged pull requests: build them from the commits instead.
       - name: Write the release notes
         run: node scripts/release-notes.mjs "$GITHUB_REF_NAME" > release-notes.md
